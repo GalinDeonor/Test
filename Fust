@@ -1,7 +1,35 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.34
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.35
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.35 — ФПС, ЧАМСЫ, СЛОТЫ И НИК — ФИКСЫ ПО ТВОЕМУ СКРИНУ:
+    • ЛАГАЛО ПРИ ВКЛЮЧЕНИИ: в отслеживании навсегда оставался ВЕСЬ
+      лут карты (сотни бочек/ящиков) и обрабатывался КАЖДЫМ кадром —
+      8 проекций + FindFirstChild на каждый объект в каждом кадре.
+      Теперь: дальний лут (за 1.5 MaxDistance) вырезается из
+      отслеживания раз в секунду; полный обход карты не чаще раза в
+      3с и не лезет внутрь каждой модели; чтение мешка раз в 4с, а
+      глубокий обход модели — раз в 30с; обход UI-экранов ограничен
+      800 узлами и раз в 8с. FPS возвращается.
+    • ЧАМСЫ: у рюкзаков был ОБЩИЙ флаг блокировки с ботами — один
+      сбой Highlight'а у ботов навсегда отключал чамсы рюкзаков.
+      Теперь СВОЙ флаг + ретрай раз в 30с + ЗАЛИВКА Drawing-ом:
+      рюкзак горит цветом на экране даже если Highlight у
+      экзекутора не работает (сквозь стены — только Highlight).
+    • НИК НЕ ПИСАЛСЯ: русские шаблоны были сломаны («^юкзак» не
+      может совпасть со словом «рюкзак»), а «Маленький рюкзак»
+      резался в мусор «Маленький рю» и выдавался за владельца.
+      Починено; у безымянных мешков владельца нет — там его и нет.
+    • СЛОТЫ НЕ ПИСАЛИСЬ: string.lower в Luau НЕ меняет кириллицу —
+      заголовок «МАЛЕНЬКИЙ РЮКЗАК» капсом не распознавался, экран
+      мешка не ловился. Добавлены CAPS-варианты шаблонов, «2 из 6»
+      и «Слоты: 2/6». Пока мешок НЕ ОТКРЫТ — подпись «открой мешок
+      1 раз» вместо «слоты ??»: слоты и ник игра отдаёт ТОЛЬКО на
+      экране открытого мешка, другого клиентского источника нет.
+    • Открыл мешок — слоты/ник не появились: включи «Диагностика:
+      лог рюкзаков в консоль», открой мешок ещё раз и пришли вывод
+      консоли — поправлю разбор под реальные тексты игры.
 
     НОВОЕ В 0.34 — ЛУТ ОТДЕЛЁН ОТ МЕШКОВ + СЛОТЫ И «ЧЕЙ МЕШОК» ИЗ
     ОТКРЫТОГО ЭКРАНА + ФИКС ФОНОВОГО СКАНА:
@@ -249,7 +277,7 @@
     • Всё прежнее работает: ESP, чамсы, хитбоксы, аимбот, анти-отдача,
       анти-тряска, трассеры пуль (стили луча), No Fog, FullBright.
 
-    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31, 0.32, 0.33, 0.34,
+    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31, 0.32, 0.33, 0.34, 0.35,
     ...
     (прошлые обозначения V2–V21 сохранены в истории ниже).
 
@@ -278,7 +306,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.34...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.35...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -422,7 +450,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.34 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.35 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -6879,13 +6907,14 @@ end)
 trackedBackpacks = {} 
 bpDrawings = {} 
 BP_NAME_PATTERNS = {
-"кзак", "backpack", "умк", "ешок", "руп",
-"corpse", "deadbody", "dead body", "lootbag", "loot bag", "dropbag", "drop bag",
+"кзак", "КЗАК", "РЮКЗАК", "Рюкзак", "backpack", "BACKPACK",
+"умк", "УМК", "ешок", "ЕШОК", "руп", "РУП",
+"corpse", "CORPSE", "deadbody", "dead body", "lootbag", "loot bag", "dropbag", "drop bag",
 }
-BP_PROMPT_PATTERNS = { "кзак", "ackpack", "умк", "ешок", "руп", "corpse", "deadbody", "обыч", "лут", "Лут", "loot", "быск", "search" }
+BP_PROMPT_PATTERNS = { "кзак", "КЗАК", "РЮКЗАК", "Рюкзак", "ackpack", "ACKPACK", "умк", "УМК", "ешок", "ЕШОК", "руп", "РУП", "corpse", "CORPSE", "обыч", "ОБЫЧ", "лут", "Лут", "ЛУТ", "loot", "LOOT", "быск", "БЫСК", "search", "SEARCH" }
 BP_TAGS = { "FustBackpack", "Backpack", "LootBag", "LootBackpack", "Corpse", "FustCorpse", "DeadBody" }
-CT_NAME_PATTERNS = { "очк", "barrel", "щик", "crate", "chest", "онтейнер", "container", "lootbox" }
-CT_PROMPT_PATTERNS = { "очк", "barrel", "щик", "crate", "chest", "онтейнер", "container", "lootbox" }
+CT_NAME_PATTERNS = { "очк", "ОЧК", "barrel", "BARREL", "щик", "ЩИК", "crate", "CRATE", "chest", "CHEST", "онтейнер", "ОНТЕЙНЕР", "container", "CONTAINER", "lootbox", "LOOTBOX" }
+CT_PROMPT_PATTERNS = { "очк", "ОЧК", "barrel", "BARREL", "щик", "ЩИК", "crate", "CRATE", "chest", "CHEST", "онтейнер", "ОНТЕЙНЕР", "container", "CONTAINER", "lootbox", "LOOTBOX" }
 CT_TAGS = { "FustLoot", "LootCrate", "LootBarrel", "LootContainer", "Barrel", "Crate" }
 BP_OWNER_ATTRS = { "owner", "ownername", "ownerplayer", "player", "playername", "creator", "creatorname", "nick", "nickname", "username" }
 BP_OWNERID_ATTRS = { "ownerid", "owneruserid", "userid", "playerid" }
@@ -6905,6 +6934,10 @@ end
 function bpMatchesFragments(text, patterns)
 for _, pat in ipairs(patterns) do
 if string.find(text, pat, 1, true) then
+return true
+end
+local up = string.upper(pat)
+if up ~= pat and string.find(text, up, 1, true) then
 return true
 end
 end
@@ -7000,7 +7033,9 @@ for _, ch in ipairs(kids) do
 if ch:IsA("Model") or ch:IsA("BasePart") then
 bpTryTrack(ch)
 end
+if ch:IsA("Folder") or (ch:IsA("Model") and depth < 2) then
 walk(ch, depth + 1)
+end
 end
 end
 walk(root, 1)
@@ -7010,12 +7045,16 @@ local ed = bpDrawings[inst]
 if not ed then
 ed = {
 Box = Drawing.new("Square"),
+Fill = Drawing.new("Square"), 
 Owner = Drawing.new("Text"),
 Slots = Drawing.new("Text"),
 Distance = Drawing.new("Text"),
 }
 ed.Box.Filled = false
 ed.Box.Thickness = 1
+ed.Fill.Filled = true
+ed.Fill.Thickness = 1
+ed.Fill.Visible = false
 for _, key in ipairs({ "Owner", "Slots", "Distance" }) do
 ed[key].Center = true
 ed[key].Outline = true
@@ -7039,9 +7078,16 @@ end
 bpDrawings[inst] = nil
 end
 pcall(function()
-local h = inst:FindFirstChild("PETUH_LootChams")
+local e = trackedBackpacks[inst]
+local h = e and e.High
+if not h then
+h = inst:FindFirstChild("PETUH_LootChams")
+end
 if h then
 h:Destroy()
+end
+if e then
+e.High = nil
 end
 end)
 end
@@ -7052,13 +7098,15 @@ ed.Box.Visible = false
 ed.Owner.Visible = false
 ed.Slots.Visible = false
 ed.Distance.Visible = false
+ed.Fill.Visible = false 
 end
-pcall(function()
-local h = inst:FindFirstChild("PETUH_LootChams")
+local e = trackedBackpacks[inst]
+local h = e and e.High
 if h then
+pcall(function()
 h.Enabled = false
-end
 end)
+end
 end
 function bpHideAll()
 for inst in pairs(bpDrawings) do
@@ -7138,10 +7186,18 @@ local pats = {
 "^%s*(.-)'s%s*loot%s*bag%s*$",
 "^%s*(.-)s%s*loot%s*bag%s*$",
 "^%s*(.-)%s+loot%s*bag%s*$",
-"^юкзак%s+(.+)%s*$", 
-"^умка%s+(.+)%s*$", 
-"^ешок%s+(.+)%s*$", 
-"^руп%s+(.+)%s*$", 
+"^рюкзак%s+(.+)%s*$", 
+"^Рюкзак%s+(.+)%s*$", 
+"^РЮКЗАК%s+(.+)%s*$", 
+"^сумка%s+(.+)%s*$", 
+"^Сумка%s+(.+)%s*$",
+"^СУМКА%s+(.+)%s*$",
+"^мешок%s+(.+)%s*$", 
+"^Мешок%s+(.+)%s*$",
+"^МЕШОК%s+(.+)%s*$",
+"^труп%s+(.+)%s*$", 
+"^Труп%s+(.+)%s*$",
+"^ТРУП%s+(.+)%s*$",
 }
 for _, p in ipairs(pats) do
 local _, _, cs, ce = string.find(l, p)
@@ -7164,11 +7220,13 @@ if type(text) ~= "string" or #text < 4 or #text > 64 then
 return false
 end
 return bpMatchesFragments(string.lower(text), {
-"кзак", "ackpack", "умк", "ешок", "руп", "corpse", "обыч", "лут", "Лут", "loot",
+"кзак", "КЗАК", "РЮКЗАК", "Рюкзак", "ackpack", "ACKPACK", "умк", "УМК",
+"ешок", "ЕШОК", "руп", "РУП", "corpse", "CORPSE", "обыч", "ОБЫЧ",
+"лут", "Лут", "ЛУТ", "loot", "Loot", "LOOT",
 })
 end
 function bpSlotsFromUiText(text)
-if type(text) ~= "string" or #text > 24 then
+if type(text) ~= "string" or #text > 40 then
 return nil
 end
 local t = string.lower(text)
@@ -7181,6 +7239,12 @@ or string.find(t, "хп", 1, true) or string.find(t, "hp", 1, true) then
 return nil
 end
 local u, m = string.match(text, "^%s*(%d+)%s*/%s*(%d+)%s*$")
+if u and m then
+return u .. "/" .. m
+end
+u, m = string.match(text, "(%d+)%s+из%s+(%d+)")
+or string.match(text, "(%d+)%s+Из%s+(%d+)")
+or string.match(text, "(%d+)%s+ИЗ%s+(%d+)")
 if u and m then
 return u .. "/" .. m
 end
@@ -7233,12 +7297,26 @@ end
 end
 function bpCaptureBagGui(gui, force)
 local now = os.clock()
-if not force and bpUiScanAt[gui] and now - bpUiScanAt[gui] < 3 then
+if not force and bpUiScanAt[gui] and now - bpUiScanAt[gui] < 8 then
 return
 end
 bpUiScanAt[gui] = now
 local okD, desc = pcall(function()
-return gui:GetDescendants()
+local out = {}
+local stack = { gui }
+while #stack > 0 and #out < 800 do
+local node = table.remove(stack)
+local kids = node:GetChildren()
+for i = #kids, 1, -1 do
+local k = kids[i]
+table.insert(out, k)
+if #out >= 800 then
+break
+end
+table.insert(stack, k)
+end
+end
+return out
 end)
 if not okD or type(desc) ~= "table" then
 return
@@ -7313,7 +7391,7 @@ end
 end
 end
 end
-function bpReadInfo(inst)
+function bpReadInfo(inst, deep) 
 local owner
 local slotsUsed, slotsMax, itemCount
 local cached = bpOpenCacheInst[inst]
@@ -7419,9 +7497,25 @@ if owner == nil then
 owner = bpOwnerFromLabel(title)
 end
 if owner == nil then
-local cleaned = tostring(title):gsub("кзак", ""):gsub("ackpack", ""):gsub("loot", ""):gsub("LOOT", "")
+local cleaned = tostring(title)
+local stripWords = {
+"РЮКЗАК", "Рюкзак", "рюкзак", "BACKPACK", "Backpack", "backpack",
+"СУМКА", "Сумка", "сумка", "МЕШОК", "Мешок", "мешок",
+"ТРУП", "Труп", "труп", "CORPSE", "Corpse", "corpse",
+"LOOT", "Loot", "loot", "BAG", "Bag", "bag",
+"МАЛЕНЬКИЙ", "Маленький", "маленький",
+"БОЛЬШОЙ", "Большой", "большой", "СРЕДНИЙ", "Средний", "средний",
+"ОБЫЧНЫЙ", "Обычный", "обычный", "ОГРОМНЫЙ", "Огромный", "огромный",
+"ПУСТОЙ", "Пустой", "пустой",
+"SMALL", "Small", "small", "BIG", "Big", "big",
+"MEDIUM", "Medium", "medium", "LARGE", "Large", "large",
+"HUGE", "Huge", "huge", "COMMON", "Common", "common",
+}
+for _, w in ipairs(stripWords) do
+cleaned = cleaned:gsub(w, "")
+end
 cleaned = cleaned:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
-if #cleaned >= 2 then
+if #cleaned >= 3 then
 owner = cleaned
 end
 end
@@ -7446,7 +7540,7 @@ end
 end
 end
 end
-if owner == nil or slotsUsed == nil then
+if deep and (owner == nil or slotsUsed == nil) then
 local okDesc, desc = pcall(function()
 return inst:GetDescendants()
 end)
@@ -7630,8 +7724,12 @@ local catOn = (cat == "bag" and S.Loot.Enabled) or (cat == "cont" and S.LootC.En
 if not catOn then
 bpHideDrawings(inst)
 else
-if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 2) then
-e.Info = bpReadInfo(inst)
+if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 4) then
+local deep = not e.DeepAt or now - e.DeepAt > 30
+if deep then
+e.DeepAt = now
+end
+e.Info = bpReadInfo(inst, deep)
 e.InfoAt = now
 end
 local cf, sz = bpGetBBox(inst)
@@ -7657,9 +7755,14 @@ local bh = boxSize.Y + pad * 2
 local centerX = bx + bw * 0.5
 local ed = bpEnsureDrawings(inst)
 local info = e.Info or {}
-local bpChams = inst:FindFirstChild("PETUH_LootChams")
-if cat == "bag" and S.Loot.Chams then
-if not bpChams and not ChamsCreateBlocked then
+local wantChams = (cat == "bag" and S.Loot.Chams)
+local bpChams = e.High
+if bpChams and not bpChams.Parent then
+bpChams = nil
+e.High = nil
+end
+if wantChams then
+if not bpChams and not LootChamsBlocked then
 local okH, created = pcall(function()
 local h = Instance.new("Highlight")
 h.Name = "PETUH_LootChams"
@@ -7669,25 +7772,39 @@ return h
 end)
 if okH and created then
 bpChams = created
+e.High = created
 else
-ChamsCreateBlocked = true
-warn("[FUST] Highlight заблокирован игрой — чамсы рюкзаков отключены")
+LootChamsBlocked = true
+LootChamsBlockedAt = os.clock()
+warn("[FUST] Highlight недоступен — чамсы рюкзаков: заливка (ретрай 30с)")
 end
 end
 if bpChams then
 pcall(function()
-bpChams.FillColor = LOOT_COLOR
-bpChams.OutlineColor = LOOT_COLOR
-bpChams.FillTransparency = 0.5
+bpChams.FillColor = col
+bpChams.OutlineColor = col
+bpChams.FillTransparency = 0.45
 bpChams.OutlineTransparency = 0
 bpChams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 bpChams.Enabled = true
 end)
 end
-elseif bpChams then
+if LootChamsBlocked and os.clock() - (LootChamsBlockedAt or 0) > 30 then
+LootChamsBlocked = false
+end
+ed.Fill.Color = col
+ed.Fill.Transparency = bpChams and 0.8 or 0.55
+ed.Fill.Position = Vector2.new(bx, by)
+ed.Fill.Size = Vector2.new(bw, bh)
+ed.Fill.Visible = true
+else
+if bpChams then
 pcall(function()
 bpChams:Destroy()
 end)
+e.High = nil
+end
+ed.Fill.Visible = false
 end
 if (cat == "bag" and S.Loot.Box) or (cat == "cont" and S.LootC.Box) then
 ed.Box.Position = Vector2.new(bx, by)
@@ -7699,7 +7816,7 @@ ed.Box.Visible = false
 end
 local textY = by + bh + 3
 if cat == "bag" and S.Loot.Slots then
-ed.Slots.Text = info.Slots or "слоты ??"
+ed.Slots.Text = info.Slots or "открой мешок 1 раз"
 ed.Slots.Position = Vector2.new(centerX, textY)
 ed.Slots.Color = col
 ed.Slots.Visible = true
@@ -7749,17 +7866,34 @@ end
 end
 end
 task.spawn(function()
+local walkTick = 0
 while getgenv().FUST_SESSION == FUST_SESSION do
 if S.Loot.Enabled or S.LootC.Enabled then
 pcall(function()
-for inst in pairs(trackedBackpacks) do
-if not inst.Parent or not inst:IsDescendantOf(Workspace) then
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+local cullBag = S.Loot.MaxDistance * 1.5 + 120
+local cullCont = S.LootC.MaxDistance * 1.5 + 120
+for inst, e in pairs(trackedBackpacks) do
+local dead = not inst.Parent or not inst:IsDescendantOf(Workspace)
+if not dead and myRoot and e.BBoxCF then
+local dd = (e.BBoxCF.Position - myRoot.Position).Magnitude
+local lim = (e.Cat or "bag") == "bag" and cullBag or cullCont
+if dd > lim then
+dead = true
+end
+end
+if dead then
 bpRemoveDrawings(inst)
 bpOpenCacheInst[inst] = nil
 trackedBackpacks[inst] = nil
 end
 end
+walkTick = walkTick + 1
+if walkTick >= 3 then
+walkTick = 0
 bpScanContainer(Workspace, 3)
+end
 for _, tag in ipairs(BP_TAGS) do
 local okT, tagged = pcall(CollectionService.GetTagged, CollectionService, tag)
 if okT and type(tagged) == "table" then
@@ -8613,6 +8747,8 @@ end
 espDrawings = {}
 hitboxOriginals = {} 
 ChamsCreateBlocked = false 
+LootChamsBlocked = false 
+LootChamsBlockedAt = 0 
 botEspDrawings = {}
 npcHitboxOriginals = {}
 function botEnsureDrawings(model)

@@ -1,3 +1,28 @@
+if HiddenTab and HiddenTab.OnHide then
+HiddenTab.OnHide()
+end
+end
+task.delay(0.25, function()
+Debounce = false
+end)
+end
+Items["Inactive"]:Connect("MouseEnter", function()
+if not Page.Active then
+Items["Text"]:Tween(nil, {TextTransparency = 0.12})
+Items["Icon"]:Tween(nil, {ImageTransparency = 0.12})
+Items["Background"]:Tween(nil, {BackgroundTransparency = 0.93, Size = UDim2New(1, 0, 0, 35)})
+end
+end)
+Items["Inactive"]:Connect("MouseLeave", function()
+if not Page.Active then
+Items["Text"]:Tween(nil, {TextTransparency = 0.4})
+Items["Icon"]:Tween(nil, {ImageTransparency = 0.4})
+Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
+end
+end)
+Items["Inactive"]:Connect("MouseButton1Down", function()
+for Index, Value in Page.Window.Pages do
+if Value == Page and Page.Active then
 return
 end
 Value:Turn(Value == Page)
@@ -1665,3 +1690,10 @@ WindowFullscreen = false
 SavedWindowed = nil
 FullBtn = Window.Items["FullBtn"]
 FullBtnFill = Window.Items["FullBtnFill"]
+if FullBtn then
+FullBtn:Connect("MouseButton1Click", function()
+local vp = getViewSize()
+WindowFullscreen = not WindowFullscreen
+local fill = FullBtnFill and FullBtnFill.Instance
+if WindowFullscreen then
+local pos = MainFrame.AbsolutePosition

@@ -1,3 +1,66 @@
+Name = Name or StringFormat("connection_number_%s_%s", self.UnnamedConnections + 1, HttpService:GenerateGUID(false))
+local NewConnection = {
+Event = Event,
+Callback = Callback,
+Name = Name,
+Connection = nil
+}
+Library:Thread(function()
+NewConnection.Connection = Event:Connect(Callback)
+end)
+TableInsert(self.Connections, NewConnection)
+return NewConnection
+end
+Library.Disconnect = function(self, Name)
+for _, Connection in self.Connections do
+if Connection.Name == Name then
+Connection.Connection:Disconnect()
+break
+end
+end
+end
+Library.NextFlag = function(self)
+local FlagNumber = self.UnnamedFlags + 1
+return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
+end
+Library.AddToTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+local ThemeData = {
+Item = Item,
+Properties = Properties,
+}
+for Property, Value in ThemeData.Properties do
+if type(Value) == "string" then
+if not self.Theme[Value] then
+Item[Property] = Value
+end
+Item[Property] = self.Theme[Value]
+else
+Item[Property] = Value()
+end
+end
+TableInsert(self.ThemeItems, ThemeData)
+self.ThemeMap[Item] = ThemeData
+end
+Library.ToRich = function(self, Text, Color)
+return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
+end
+Library.GetConfig = function(self)
+local Config = { }
+for Index, Value in Library.Flags do
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
+elseif type(Value) == "table" and Value.Color ~= nil then
+local hex = "#FFFFFF"
+if type(Value.HexValue) == "string" then
+hex = "#" .. Value.HexValue
+elseif typeof(Value.Color) == "Color3" then
+hex = "#" .. Value.Color:ToHex()
+end
+Config[Index] = {Color = hex}
 else
 Config[Index] = Value
 end
@@ -1600,28 +1663,3 @@ for _, Name in Page.TabOrder do
 Page.Tabs[Name].Button.Instance.Visible = false
 end
 local HiddenTab = Page.CurrentTab and Page.Tabs[Page.CurrentTab] or nil
-if HiddenTab and HiddenTab.OnHide then
-HiddenTab.OnHide()
-end
-end
-task.delay(0.25, function()
-Debounce = false
-end)
-end
-Items["Inactive"]:Connect("MouseEnter", function()
-if not Page.Active then
-Items["Text"]:Tween(nil, {TextTransparency = 0.12})
-Items["Icon"]:Tween(nil, {ImageTransparency = 0.12})
-Items["Background"]:Tween(nil, {BackgroundTransparency = 0.93, Size = UDim2New(1, 0, 0, 35)})
-end
-end)
-Items["Inactive"]:Connect("MouseLeave", function()
-if not Page.Active then
-Items["Text"]:Tween(nil, {TextTransparency = 0.4})
-Items["Icon"]:Tween(nil, {ImageTransparency = 0.4})
-Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
-end
-end)
-Items["Inactive"]:Connect("MouseButton1Down", function()
-for Index, Value in Page.Window.Pages do
-if Value == Page and Page.Active then

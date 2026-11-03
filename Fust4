@@ -1,10 +1,3 @@
-if FullBtn then
-FullBtn:Connect("MouseButton1Click", function()
-local vp = getViewSize()
-WindowFullscreen = not WindowFullscreen
-local fill = FullBtnFill and FullBtnFill.Instance
-if WindowFullscreen then
-local pos = MainFrame.AbsolutePosition
 SavedWindowed = {
 w = MainFrame.Size.X.Offset,
 h = MainFrame.Size.Y.Offset,
@@ -1840,3 +1833,41 @@ Decimals = 0.1,
 Suffix = "x",
 Callback = function(Value)
 Aim.AutoPredictK = Value
+end
+})
+AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
+Name = "Авто вкл/выкл аима (враги в радиусе)",
+Flag = "AutoAimEnabled",
+Default = false,
+Callback = function(state)
+AutoAim.Enabled = state
+AA_EnemyNear = false 
+journal("АВТО-АИМ " .. (state and "ВКЛ (враг в радиусе включит аимбот сам)" or "ВЫКЛ"))
+print("[FUST] Авто-аим " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoAimRadius = AutoAimSection:Slider({
+Name = "Радиус авто-включения",
+Flag = "AutoAimRadius",
+Default = 500,
+Min = 50,
+Max = 2000,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+AutoAim.Radius = Value
+end
+})
+RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
+UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
+Name = "Анти-отдача",
+Flag = "AntiRecoilEnabled",
+Default = false,
+Callback = function(state)
+AntiRecoil.Enabled = state
+journal("АНТИ-ОТДАЧА " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Анти-отдача " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({

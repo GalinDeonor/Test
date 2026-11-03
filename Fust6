@@ -1,3 +1,40 @@
+if part then
+local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
+local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
+local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "бот/НПС"
+end
+end
+end
+end
+end
+end
+end
+end
+end
+return bestPart, bestPoint, bestType
+end
+if getgenv().FUST_AimCleanup then
+pcall(getgenv().FUST_AimCleanup)
+end
+aimConnection = nil
+aimConnection = RunService.RenderStepped:Connect(function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+aimConnection:Disconnect()
+return
+end
+local camera = Workspace.CurrentCamera
 if not camera then
 return
 end
@@ -552,6 +589,8 @@ end
 espDrawings = {}
 hitboxOriginals = {} 
 ChamsCreateBlocked = false 
+LootChamsBlocked = false 
+LootChamsBlockedAt = 0 
 botEspDrawings = {}
 npcHitboxOriginals = {}
 function botEnsureDrawings(model)
