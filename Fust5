@@ -1,134 +1,3 @@
-row.TextColor3 = Color3.fromRGB(255, 255, 255)
-row.Text = "✓ " .. base
-else
-row.BackgroundColor3 = WL_ROW
-row.TextColor3 = WL_GRAY
-row.Text = base
-end
-end
-function rebuildPlayerList()
-clearPlayerRows()
-local rows = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-table.insert(rows, plr)
-end
-end
-table.sort(rows, function(a, b)
-return a.Name < b.Name
-end)
-if #rows == 0 then
-local empty = Instance.new("TextLabel")
-empty.BackgroundTransparency = 1
-empty.Font = Enum.Font.Gotham
-empty.TextSize = 12
-empty.TextColor3 = WL_GRAY
-empty.Text = "На сервере пока нет других игроков"
-empty.Size = UDim2.new(1, 0, 0, 26)
-empty.LayoutOrder = 1
-empty.Parent = wlScroll
-table.insert(wlRows, empty)
-return
-end
-for order, plr in ipairs(rows) do
-local row = Instance.new("TextButton")
-row.Name = "WL_" .. plr.Name
-row.AutoButtonColor = false
-row.Font = Enum.Font.Gotham
-row.TextSize = 13
-row.TextXAlignment = Enum.TextXAlignment.Left
-row.BackgroundColor3 = WL_ROW
-row.BorderSizePixel = 0
-row.Size = UDim2.new(1, 0, 0, 30)
-row.LayoutOrder = order
-row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
-row.Parent = wlScroll
-table.insert(wlRows, row)
-wlCorner(row, 5)
-local pad = Instance.new("UIPadding")
-pad.PaddingLeft = UDim.new(0, 8)
-pad.Parent = row
-applyRowStyle(row, Whitelist[plr.Name] == true)
-row.Activated:Connect(function()
-if Whitelist[plr.Name] then
-Whitelist[plr.Name] = nil
-applyRowStyle(row, false)
-else
-Whitelist[plr.Name] = true
-applyRowStyle(row, true)
-end
-end)
-end
-end
-wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
-wlInput = Instance.new("TextBox")
-wlInput.Name = "FustWhitelistInput"
-wlInput.Font = Enum.Font.Gotham
-wlInput.TextSize = 13
-wlInput.PlaceholderText = "Ник или DisplayName друга..."
-wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
-wlInput.Text = ""
-wlInput.TextColor3 = WL_TEXT
-wlInput.TextXAlignment = Enum.TextXAlignment.Left
-wlInput.ClearTextOnFocus = false
-wlInput.BackgroundColor3 = WL_BG
-wlInput.BorderSizePixel = 0
-wlInput.Size = UDim2.new(1, 0, 0, 32)
-wlInput.LayoutOrder = 5
-wlInput.Active = true
-wlInput.Selectable = true
-wlInput.Parent = wlPanel
-do
-wlCorner(wlInput)
-local pad = Instance.new("UIPadding")
-pad.PaddingLeft = UDim.new(0, 8)
-pad.Parent = wlInput
-end
-wlButtonRow = Instance.new("Frame")
-wlButtonRow.Name = "FustWhitelistButtons"
-wlButtonRow.BackgroundTransparency = 1
-wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
-wlButtonRow.LayoutOrder = 6
-wlButtonRow.Parent = wlPanel
-do
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Horizontal
-layout.Padding = UDim.new(0, 6)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlButtonRow
-end
-function wlMakeButton(text, order, bg, fg)
-local b = Instance.new("TextButton")
-b.Font = Enum.Font.GothamBold
-b.TextSize = 13
-b.Text = text
-b.TextColor3 = fg
-b.BackgroundColor3 = bg
-b.BorderSizePixel = 0
-b.Size = UDim2.new(0.5, -3, 1, 0)
-b.LayoutOrder = order
-b.Parent = wlButtonRow
-wlCorner(b, 5)
-return b
-end
-wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
-wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
-wlAdd.Activated:Connect(function()
-local name = resolveName(wlInput.Text)
-if name then
-Whitelist[name] = true
-rebuildPlayerList()
-end
-wlInput.Text = ""
-pcall(function()
-wlInput:ReleaseFocus()
-end)
-end)
-wlRemove.Activated:Connect(function()
-local name = resolveName(wlInput.Text)
-if name then
-Whitelist[name] = nil
-rebuildPlayerList()
 end
 wlInput.Text = ""
 pcall(function()
@@ -161,6 +30,12 @@ TargetsSleepers = false,
 AutoPredict = false, 
 AutoPredictK = 1, 
 }
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+AA_EnemyNear = false 
+AA_NearestDist = nil 
 AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
 AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
 AimHotkeyObj = nil 
@@ -295,6 +170,30 @@ Decimals = 0.1,
 Suffix = "x",
 Callback = function(Value)
 Aim.AutoPredictK = Value
+end
+})
+AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
+Name = "Авто вкл/выкл аима (враги в радиусе)",
+Flag = "AutoAimEnabled",
+Default = false,
+Callback = function(state)
+AutoAim.Enabled = state
+AA_EnemyNear = false 
+journal("АВТО-АИМ " .. (state and "ВКЛ (враг в радиусе включит аимбот сам)" or "ВЫКЛ"))
+print("[FUST] Авто-аим " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoAimRadius = AutoAimSection:Slider({
+Name = "Радиус авто-включения",
+Flag = "AutoAimRadius",
+Default = 500,
+Min = 50,
+Max = 2000,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+AutoAim.Radius = Value
 end
 })
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
@@ -1069,6 +968,12 @@ end)
 end
 bpDrawings[inst] = nil
 end
+pcall(function()
+local h = inst:FindFirstChild("PETUH_LootChams")
+if h then
+h:Destroy()
+end
+end)
 end
 function bpHideDrawings(inst)
 local ed = bpDrawings[inst]
@@ -1078,6 +983,12 @@ ed.Owner.Visible = false
 ed.Slots.Visible = false
 ed.Distance.Visible = false
 end
+pcall(function()
+local h = inst:FindFirstChild("PETUH_LootChams")
+if h then
+h.Enabled = false
+end
+end)
 end
 function bpHideAll()
 for inst in pairs(bpDrawings) do
@@ -1141,6 +1052,35 @@ if pt.Y < minY then minY = pt.Y end
 if pt.Y > maxY then maxY = pt.Y end
 end
 return Vector2.new(minX, minY), Vector2.new(maxX - minX, maxY - minY)
+end
+function bpOwnerFromLabel(label)
+if type(label) ~= "string" or #label < 5 then
+return nil
+end
+local l = string.lower(label)
+local pats = {
+"^%s*(.-)'s%s*backpack%s*$", 
+"^%s*(.-)s%s*backpack%s*$", 
+"^%s*(.-)%s+backpack%s*$", 
+"^%s*(.-)'s%s*loot%s*bag%s*$",
+"^%s*(.-)s%s*loot%s*bag%s*$",
+"^%s*(.-)%s+loot%s*bag%s*$",
+"^юкзак%s+(.+)%s*$", 
+"^умка%s+(.+)%s*$", 
+"^ешок%s+(.+)%s*$", 
+"^руп%s+(.+)%s*$", 
+}
+for _, p in ipairs(pats) do
+local _, _, cs, ce = string.find(l, p)
+if cs and ce then
+local owner = string.sub(label, cs, ce)
+owner = owner:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
+if #owner >= 2 then
+return owner
+end
+end
+end
+return nil
 end
 function bpReadInfo(inst)
 local owner
@@ -1226,6 +1166,9 @@ break
 end
 end
 if owner == nil then
+owner = bpOwnerFromLabel(title)
+end
+if owner == nil then
 local cleaned = tostring(title):gsub("кзак", ""):gsub("ackpack", ""):gsub("loot", ""):gsub("LOOT", "")
 cleaned = cleaned:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
 if #cleaned >= 2 then
@@ -1239,11 +1182,110 @@ local okAc, actText = pcall(function()
 return tostring(prompt.ActionText)
 end)
 if okAc and actText then
+local uAct, mAct = string.match(actText, "%((%d+)%s*/%s*(%d+)%)")
+if uAct and mAct then
+slotsUsed = tonumber(uAct)
+slotsMax = tonumber(mAct)
+end
 local num = string.match(actText, "%((%d+)%)")
 or string.match(actText, "%[(%d+)%]")
 or string.match(actText, "(%d+)")
 if num then
 slotsUsed = tonumber(num)
+end
+end
+end
+end
+if owner == nil or slotsUsed == nil then
+local okDesc, desc = pcall(function()
+return inst:GetDescendants()
+end)
+if okDesc and type(desc) == "table" then
+local scanned = 0
+for _, ch in ipairs(desc) do
+scanned = scanned + 1
+if scanned > 80 then
+break 
+end
+if owner == nil or slotsUsed == nil then
+pcall(function()
+for key, val in pairs(ch:GetAttributes()) do
+local keyL = string.lower(tostring(key))
+if owner == nil and type(val) == "string" and #val > 0 and #val <= 32
+and table.find(BP_OWNER_ATTRS, keyL) then
+owner = val
+end
+if owner == nil and type(val) == "number"
+and table.find(BP_OWNERID_ATTRS, keyL) then
+local okP3, plr3 = pcall(Players.GetPlayerByUserId, Players, val)
+if okP3 and plr3 then
+owner = plr3.Name
+end
+end
+if type(val) == "number" then
+if slotsUsed == nil and table.find(BP_USED_ATTRS, keyL) then
+slotsUsed = val
+end
+if slotsMax == nil and table.find(BP_MAX_ATTRS, keyL) then
+slotsMax = val
+end
+end
+end
+end)
+end
+if ch:IsA("ProximityPrompt") and (owner == nil or slotsUsed == nil) then
+pcall(function()
+if owner == nil then
+owner = bpOwnerFromLabel(tostring(ch.ObjectText))
+end
+if slotsUsed == nil then
+local prTxt = tostring(ch.ObjectText) .. " " .. tostring(ch.ActionText)
+local uPr, mPr = string.match(prTxt, "(%d+)%s*/%s*(%d+)")
+if uPr and mPr then
+slotsUsed = tonumber(uPr)
+slotsMax = tonumber(mPr)
+end
+end
+end)
+end
+if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+local okTx, txt = pcall(function()
+return tostring(ch.Text)
+end)
+if okTx and txt and #txt > 0 and #txt <= 80 then
+local txtL = string.lower(txt)
+if slotsUsed == nil then
+local isTimer = string.find(txtL, "счез", 1, true)
+or string.find(txtL, "ерез", 1, true)
+or string.find(txtL, "xpire", 1, true)
+or string.find(txtL, "espawn", 1, true)
+or string.find(txtL, "lapse", 1, true)
+if not isTimer then
+local uTxt, mTxt = string.match(txt, "(%d+)%s*/%s*(%d+)")
+if uTxt and mTxt then
+slotsUsed = tonumber(uTxt)
+slotsMax = tonumber(mTxt)
+end
+end
+end
+if owner == nil then
+for _, plr in ipairs(Players:GetPlayers()) do
+local nL = string.lower(plr.Name)
+local dL = string.lower(plr.DisplayName)
+if string.find(txtL, nL, 1, true)
+or (dL ~= nL and #dL > 2 and string.find(txtL, dL, 1, true)) then
+owner = plr.Name
+break
+end
+end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(txt)
+end
+end
+end
+if owner and slotsUsed then
+break 
 end
 end
 end
@@ -1257,6 +1299,9 @@ owner = plr.Name
 break
 end
 end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(tostring(inst.Name))
 end
 end
 if slotsUsed == nil and okC and type(children) == "table" then
@@ -1298,6 +1343,8 @@ if slotsUsed and slotsMax and slotsMax > 0 then
 slotsText = string.format("%d/%d", math.floor(slotsUsed), math.floor(slotsMax))
 elseif slotsUsed then
 slotsText = string.format("%d слот.", math.floor(slotsUsed))
+elseif slotsMax and slotsMax > 0 then
+slotsText = string.format("?/%d", math.floor(slotsMax))
 elseif itemCount then
 slotsText = tostring(itemCount) .. " предм."
 end
@@ -1341,6 +1388,38 @@ local bh = boxSize.Y + pad * 2
 local centerX = bx + bw * 0.5
 local ed = bpEnsureDrawings(inst)
 local info = e.Info or {}
+local bpChams = inst:FindFirstChild("PETUH_LootChams")
+if S.Loot.Chams then
+if not bpChams and not ChamsCreateBlocked then
+local okH, created = pcall(function()
+local h = Instance.new("Highlight")
+h.Name = "PETUH_LootChams"
+h.Adornee = inst
+h.Parent = inst
+return h
+end)
+if okH and created then
+bpChams = created
+else
+ChamsCreateBlocked = true
+warn("[FUST] Highlight заблокирован игрой — чамсы рюкзаков отключены")
+end
+end
+if bpChams then
+pcall(function()
+bpChams.FillColor = LOOT_COLOR
+bpChams.OutlineColor = LOOT_COLOR
+bpChams.FillTransparency = 0.5
+bpChams.OutlineTransparency = 0
+bpChams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+bpChams.Enabled = true
+end)
+end
+elseif bpChams then
+pcall(function()
+bpChams:Destroy()
+end)
+end
 if S.Loot.Box then
 ed.Box.Position = Vector2.new(bx, by)
 ed.Box.Size = Vector2.new(bw, bh)
@@ -1482,9 +1561,24 @@ if #parts > 0 then
 kidsText = table.concat(parts, ", ")
 end
 end)
+local textsText = "-"
+pcall(function()
+local parts = {}
+for _, ch in ipairs(inst:GetDescendants()) do
+if #parts >= 4 then
+break
+end
+if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+table.insert(parts, "[" .. tostring(ch.Text) .. "]")
+end
+end
+if #parts > 0 then
+textsText = table.concat(parts, " ")
+end
+end)
 local info = e.Info or {}
 print(string.format(
-"[FUST][ЛУТ] %s (%s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s",
+"[FUST][ЛУТ] %s (%s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
 okN and instName or "?",
 inst.ClassName,
 okPar and parentName or "?",
@@ -1492,7 +1586,8 @@ tostring(info.Owner),
 tostring(info.Slots),
 attrsText,
 promptText,
-kidsText
+kidsText,
+textsText
 ))
 end
 print("[FUST][ЛУТ] всего отслежено: " .. tostring(count))
@@ -1702,17 +1797,16 @@ end)
 chLines[i] = nil
 end
 end
-HttpService = game:GetService("HttpService")
-CONFIG_FILE = "FUST_config.json"
-function colorToTable(c)
-return {
-R = math.floor(c.R * 255 + 0.5),
-G = math.floor(c.G * 255 + 0.5),
-B = math.floor(c.B * 255 + 0.5),
-}
+function autoAimTick()
+if not AutoAim.Enabled then
+AA_EnemyNear = false
+AA_NearestDist = nil
+return
 end
-function tableToColor(t)
-if type(t) ~= "table" then
-return nil
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+if not myRoot then
+return 
 end
-return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
+local bestDist = math.huge
+local bestName = nil

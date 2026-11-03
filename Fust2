@@ -1,3 +1,69 @@
+local Character = File:sub(Position, Position)
+while Character ~= "/" and Character ~= "\\" and Character ~= "" do
+Position = Position - 1
+Character = File:sub(Position, Position)
+end
+if Character == "/" or Character == "\\" then
+TableInsert(ReturnList, File:sub(Position + 1, StartPosition - 1))
+end
+end
+end
+Element:Refresh(ReturnList)
+end
+Library.ChangeItemTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+if not self.ThemeMap[Item] then
+return
+end
+self.ThemeMap[Item].Properties = Properties
+self.ThemeMap[Item] = self.ThemeMap[Item]
+end
+Library.ChangeTheme = function(self, Theme, Color)
+self.Theme[Theme] = Color
+for _, Item in self.ThemeItems do
+for Property, Value in Item.Properties do
+if type(Value) == "string" and Value == Theme then
+Item.Item[Property] = Color
+elseif type(Value) == "function" then
+Item.Item[Property] = Value()
+end
+end
+end
+end
+Library.IsMouseOverFrame = function(self, Frame)
+Frame = Frame.Instance
+local MousePosition = Vector2New(Mouse.X, Mouse.Y)
+return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X
+and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
+end
+Library.Lerp = function(self, Start, Finish, Time)
+return Start + (Finish - Start) * Time
+end
+Library.CompareVectors = function(self, PointA, PointB)
+return (PointA.X < PointB.X) or (PointA.Y < PointB.Y)
+end
+Library.IsClipped = function(self, Object, Column)
+local Parent = Column
+local BoundryTop = Parent.AbsolutePosition
+local BoundryBottom = BoundryTop + Parent.AbsoluteSize
+local Top = Object.AbsolutePosition
+local Bottom = Top + Object.AbsoluteSize
+return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
+end
+Library.CreateColorpicker = function(self, Data)
+local Colorpicker = {
+Flag = Data.Flag,
+Hue = 0,
+Saturation = 0,
+Value = 0,
+Color = Color3.fromRGB(0, 0, 0),
+Hex = "#000000",
+IsOpen = false
+}
+local Items = { } do
+Items["ColorpickerButton"] = Instances:Create("TextButton", {
 Parent = Data.Parent.Instance,
 Name = "\0",
 FontFace = Library.Font,
@@ -1484,5 +1550,3 @@ Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0
 Items["Text"]:ChangeItemTheme({TextColor3 = "Text"})
 Items["Icon"]:ChangeItemTheme({ImageColor3 = "Text"})
 Items["Text"]:Tween(nil, {TextColor3 = Library.Theme.Text, TextTransparency = 0.4})
-Items["Icon"]:Tween(nil, {ImageColor3 = Library.Theme.Text, ImageTransparency = 0.4})
-for _, Name in Page.TabOrder do

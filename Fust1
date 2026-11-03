@@ -1,7 +1,46 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.31
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.33
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.33 — РЮКЗАКИ: ЧАМСЫ + «ЧЕЙ ЛУТ» И «СЛОТЫ» ПОЧИНЕНЫ:
+    • ЧАМСЫ РЮКЗАКОВ (вкладка ESP → «Лут»): рюкзак подсвечивается
+      Highlight'ом (AlwaysOnTop) и виден СКВОЗЬ ТРАВУ, стены и рельеф.
+      Тёмно-зелёный в траве больше не теряется — подсветка рисуется
+      поверх мира. Цвет = тот же колорпикер лута, тумблер «Чамсы
+      рюкзаков (видно сквозь траву и стены)», по умолчанию ВКЛ.
+    • ЧИНЮ «ЧЕЙ ЛУТ»: игра подписывает рюкзак «RANYOL_PRIMES
+      BACKPACK» (ник + S BACKPACK) — теперь этот формат читаем, плюс
+      «Vanya's backpack» и русские подписи («Рюкзак Ванюши»). Владелец
+      определяется, даже если он УЖЕ ВЫШЕЛ с сервера: раньше ник искали
+      только среди игроков онлайн и молча пропускали.
+    • ЧИНЮ «СЛОТЫ»: «2/6» читается из текстов над рюкзаком (билборды и
+      надписи внутри модели) и из подписи кнопки («Взять всё (2/6)»).
+      Атрибуты теперь ищутся не только на корне рюкзака, но и внутри
+      модели. Таймер исчезновения («Исчезает через 4/18») слотами по
+      ошибке больше не считается.
+    • Диагностика («Лог рюкзаков») печатает ещё и тексты билбордов —
+      если где-то осталось «??», включи её и пришли лог в консоль,
+      поправлю паттерны под реальные данные.
+
+    НОВОЕ В 0.32 — АВТО-ВКЛ/ВЫКЛ АИМА ПО ВРАГАМ РЯДОМ (фарм добычи):
+    • Новая группа «Авто-аим (враги рядом)» на вкладке Аимбот (левая
+      колонка, под настройками аимбота): тумблер «Авто вкл/выкл аима»
+      и ползунок «Радиус авто-включения» (50–2000 м, по умолчанию 500).
+    • Как работает: сканер раз в 0.2с меряет дистанцию до ближайшего
+      ЖИВОГО игрока НЕ из вайтлиста. Враг в радиусе (например 500 м и
+      ближе) — аимбот включается САМ (галка «Аимбот» переключается в
+      меню сама). Все враги ушли дальше радиуса или умерли — аимбот
+      выключается САМ. Пока фармишь / несёшь мешки с добычей — аим
+      молчит, рядом чужак — аим уже готов к бою.
+    • ВАЙТЛИСТ УЧИТЫВАЕТСЯ: игроки из вайтлиста (Main → «Вайтлист»)
+      авто-аим НЕ включают. Свой персонаж и мёртвые тела не считаются.
+    • Гистерезис 30 м: включение на <= радиуса, выключение на >
+      радиус + 30 — на границе радиуса аимбот не мигает.
+    • Функция выключена — аимбот работает как раньше, полностью
+      руками (тумблер или хоткей). Настройки сохраняются в конфиг.
+    • БАН-БЕЗОПАСНОСТЬ: только чтение позиций игроков (как у ESP), в
+      игру ничего не отправляется, никаких хуков.
 
     НОВОЕ В 0.31 — АНТИ-ОТДАЧА/ТРЯСКА ТОЛЬКО ПОСЛЕ ВЫСТРЕЛА + СВОЯ ГРУППА:
     • ФИКС «МЫШКУ УВОДИТ ВНИЗ»: слой компенсации дрифта (АО) раньше
@@ -178,7 +217,7 @@
     • Всё прежнее работает: ESP, чамсы, хитбоксы, аимбот, анти-отдача,
       анти-тряска, трассеры пуль (стили луча), No Fog, FullBright.
 
-    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31,
+    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31, 0.32, 0.33,
     ...
     (прошлые обозначения V2–V21 сохранены в истории ниже).
 
@@ -207,7 +246,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.31...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.33...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -351,7 +390,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.31 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.33 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -1040,69 +1079,3 @@ local File = List[Index]
 if File:sub(-5) == ".json" then
 local Position = File:find(".json", 1, true)
 local StartPosition = Position
-local Character = File:sub(Position, Position)
-while Character ~= "/" and Character ~= "\\" and Character ~= "" do
-Position = Position - 1
-Character = File:sub(Position, Position)
-end
-if Character == "/" or Character == "\\" then
-TableInsert(ReturnList, File:sub(Position + 1, StartPosition - 1))
-end
-end
-end
-Element:Refresh(ReturnList)
-end
-Library.ChangeItemTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-if not self.ThemeMap[Item] then
-return
-end
-self.ThemeMap[Item].Properties = Properties
-self.ThemeMap[Item] = self.ThemeMap[Item]
-end
-Library.ChangeTheme = function(self, Theme, Color)
-self.Theme[Theme] = Color
-for _, Item in self.ThemeItems do
-for Property, Value in Item.Properties do
-if type(Value) == "string" and Value == Theme then
-Item.Item[Property] = Color
-elseif type(Value) == "function" then
-Item.Item[Property] = Value()
-end
-end
-end
-end
-Library.IsMouseOverFrame = function(self, Frame)
-Frame = Frame.Instance
-local MousePosition = Vector2New(Mouse.X, Mouse.Y)
-return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X
-and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
-end
-Library.Lerp = function(self, Start, Finish, Time)
-return Start + (Finish - Start) * Time
-end
-Library.CompareVectors = function(self, PointA, PointB)
-return (PointA.X < PointB.X) or (PointA.Y < PointB.Y)
-end
-Library.IsClipped = function(self, Object, Column)
-local Parent = Column
-local BoundryTop = Parent.AbsolutePosition
-local BoundryBottom = BoundryTop + Parent.AbsoluteSize
-local Top = Object.AbsolutePosition
-local Bottom = Top + Object.AbsoluteSize
-return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
-end
-Library.CreateColorpicker = function(self, Data)
-local Colorpicker = {
-Flag = Data.Flag,
-Hue = 0,
-Saturation = 0,
-Value = 0,
-Color = Color3.fromRGB(0, 0, 0),
-Hex = "#000000",
-IsOpen = false
-}
-local Items = { } do
-Items["ColorpickerButton"] = Instances:Create("TextButton", {

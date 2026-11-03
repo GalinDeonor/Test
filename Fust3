@@ -1,3 +1,5 @@
+Items["Icon"]:Tween(nil, {ImageColor3 = Library.Theme.Text, ImageTransparency = 0.4})
+for _, Name in Page.TabOrder do
 Page.Tabs[Name].Button.Instance.Visible = false
 end
 local HiddenTab = Page.CurrentTab and Page.Tabs[Page.CurrentTab] or nil
@@ -1517,3 +1519,71 @@ Library.Sections.CreateDropdown = Library.Sections.Dropdown
 Library.Sections.CreateTextbox = Library.Sections.Textbox
 Library.Sections.CreateLabel = Library.Sections.Label
 function NormalizeNamedData(NameOrData, Icon)
+if type(NameOrData) == "table" then
+local Data = table.clone(NameOrData)
+if Data.Title and not (Data.Name or Data.name) then
+Data.Name = Data.Title
+end
+if Data.title and not (Data.Name or Data.name) then
+Data.Name = Data.title
+end
+if Icon and not (Data.Icon or Data.icon) then
+Data.Icon = Icon
+end
+return Data
+end
+local Data = {
+Name = NameOrData
+}
+if Icon ~= nil then
+Data.Icon = Icon
+end
+return Data
+end
+function Library:AddTab(NameOrData, Icon)
+local Data = NormalizeNamedData(NameOrData, Icon)
+Data.Icon = self:ResolveIcon(Data.Icon or Data.icon)
+Data.icon = Data.Icon
+if self.CreateTab then
+return self:CreateTab(Data)
+end
+return self:Page(Data)
+end
+function Library.Pages:AddSection(NameOrData, Icon)
+local Data = NormalizeNamedData(NameOrData, Icon)
+Data.Icon = Library:ResolveIcon(Data.Icon or Data.icon)
+Data.icon = Data.Icon
+if self.CreateSection then
+return self:CreateSection(Data)
+end
+return self:Section(Data)
+end
+function Library.Sections:AddButton(NameOrData, Callback)
+if type(NameOrData) == "table" then
+local Data = NormalizeNamedData(NameOrData)
+return self:CreateButton(Data)
+end
+return self:CreateButton({
+Name = NameOrData,
+Callback = Callback
+})
+end
+function Library.Sections:AddToggle(NameOrData, FlagOrCallback, Default, Callback)
+if type(NameOrData) == "table" then
+local Data = NormalizeNamedData(NameOrData)
+return self:CreateToggle(Data)
+end
+local RealCallback = type(FlagOrCallback) == "function" and FlagOrCallback or Callback
+return self:CreateToggle({
+Name = NameOrData,
+Flag = type(FlagOrCallback) == "string" and FlagOrCallback or nil,
+Default = Default,
+Callback = RealCallback
+})
+end
+function Library.Sections:AddSlider(NameOrData, Min, Max, Default, Callback)
+if type(NameOrData) == "table" then
+local Data = NormalizeNamedData(NameOrData)
+return self:CreateSlider(Data)
+end
+return self:CreateSlider({

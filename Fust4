@@ -1,71 +1,3 @@
-if type(NameOrData) == "table" then
-local Data = table.clone(NameOrData)
-if Data.Title and not (Data.Name or Data.name) then
-Data.Name = Data.Title
-end
-if Data.title and not (Data.Name or Data.name) then
-Data.Name = Data.title
-end
-if Icon and not (Data.Icon or Data.icon) then
-Data.Icon = Icon
-end
-return Data
-end
-local Data = {
-Name = NameOrData
-}
-if Icon ~= nil then
-Data.Icon = Icon
-end
-return Data
-end
-function Library:AddTab(NameOrData, Icon)
-local Data = NormalizeNamedData(NameOrData, Icon)
-Data.Icon = self:ResolveIcon(Data.Icon or Data.icon)
-Data.icon = Data.Icon
-if self.CreateTab then
-return self:CreateTab(Data)
-end
-return self:Page(Data)
-end
-function Library.Pages:AddSection(NameOrData, Icon)
-local Data = NormalizeNamedData(NameOrData, Icon)
-Data.Icon = Library:ResolveIcon(Data.Icon or Data.icon)
-Data.icon = Data.Icon
-if self.CreateSection then
-return self:CreateSection(Data)
-end
-return self:Section(Data)
-end
-function Library.Sections:AddButton(NameOrData, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateButton(Data)
-end
-return self:CreateButton({
-Name = NameOrData,
-Callback = Callback
-})
-end
-function Library.Sections:AddToggle(NameOrData, FlagOrCallback, Default, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateToggle(Data)
-end
-local RealCallback = type(FlagOrCallback) == "function" and FlagOrCallback or Callback
-return self:CreateToggle({
-Name = NameOrData,
-Flag = type(FlagOrCallback) == "string" and FlagOrCallback or nil,
-Default = Default,
-Callback = RealCallback
-})
-end
-function Library.Sections:AddSlider(NameOrData, Min, Max, Default, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateSlider(Data)
-end
-return self:CreateSlider({
 Name = NameOrData,
 Min = Min,
 Max = Max,
@@ -406,6 +338,7 @@ Owner = true,
 Slots = true, 
 Distance = true,
 Box = true,
+Chams = true, 
 MaxDistance = 1500,
 DebugLog = false, 
 },
@@ -1153,6 +1086,15 @@ Callback = function(state)
 S.Loot.Box = state
 end
 })
+UIRegistry.LootChams = LootSection:Toggle({
+Name = "Чамсы рюкзаков (видно сквозь траву и стены)",
+Flag = "LootChams",
+Default = true,
+Callback = function(state)
+S.Loot.Chams = state
+journal("ЧАМСЫ РЮКЗАКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
 UIRegistry.LootMaxDistance = LootSection:Slider({
 Name = "Рюкзаки: Max Distance",
 Flag = "LootMaxDistance",
@@ -1642,3 +1584,134 @@ function applyRowStyle(row, isOn)
 local base = row:GetAttribute("WLText") or ""
 if isOn then
 row.BackgroundColor3 = WL_ACCENT
+row.TextColor3 = Color3.fromRGB(255, 255, 255)
+row.Text = "✓ " .. base
+else
+row.BackgroundColor3 = WL_ROW
+row.TextColor3 = WL_GRAY
+row.Text = base
+end
+end
+function rebuildPlayerList()
+clearPlayerRows()
+local rows = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+table.insert(rows, plr)
+end
+end
+table.sort(rows, function(a, b)
+return a.Name < b.Name
+end)
+if #rows == 0 then
+local empty = Instance.new("TextLabel")
+empty.BackgroundTransparency = 1
+empty.Font = Enum.Font.Gotham
+empty.TextSize = 12
+empty.TextColor3 = WL_GRAY
+empty.Text = "На сервере пока нет других игроков"
+empty.Size = UDim2.new(1, 0, 0, 26)
+empty.LayoutOrder = 1
+empty.Parent = wlScroll
+table.insert(wlRows, empty)
+return
+end
+for order, plr in ipairs(rows) do
+local row = Instance.new("TextButton")
+row.Name = "WL_" .. plr.Name
+row.AutoButtonColor = false
+row.Font = Enum.Font.Gotham
+row.TextSize = 13
+row.TextXAlignment = Enum.TextXAlignment.Left
+row.BackgroundColor3 = WL_ROW
+row.BorderSizePixel = 0
+row.Size = UDim2.new(1, 0, 0, 30)
+row.LayoutOrder = order
+row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
+row.Parent = wlScroll
+table.insert(wlRows, row)
+wlCorner(row, 5)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = row
+applyRowStyle(row, Whitelist[plr.Name] == true)
+row.Activated:Connect(function()
+if Whitelist[plr.Name] then
+Whitelist[plr.Name] = nil
+applyRowStyle(row, false)
+else
+Whitelist[plr.Name] = true
+applyRowStyle(row, true)
+end
+end)
+end
+end
+wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
+wlInput = Instance.new("TextBox")
+wlInput.Name = "FustWhitelistInput"
+wlInput.Font = Enum.Font.Gotham
+wlInput.TextSize = 13
+wlInput.PlaceholderText = "Ник или DisplayName друга..."
+wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
+wlInput.Text = ""
+wlInput.TextColor3 = WL_TEXT
+wlInput.TextXAlignment = Enum.TextXAlignment.Left
+wlInput.ClearTextOnFocus = false
+wlInput.BackgroundColor3 = WL_BG
+wlInput.BorderSizePixel = 0
+wlInput.Size = UDim2.new(1, 0, 0, 32)
+wlInput.LayoutOrder = 5
+wlInput.Active = true
+wlInput.Selectable = true
+wlInput.Parent = wlPanel
+do
+wlCorner(wlInput)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = wlInput
+end
+wlButtonRow = Instance.new("Frame")
+wlButtonRow.Name = "FustWhitelistButtons"
+wlButtonRow.BackgroundTransparency = 1
+wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
+wlButtonRow.LayoutOrder = 6
+wlButtonRow.Parent = wlPanel
+do
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlButtonRow
+end
+function wlMakeButton(text, order, bg, fg)
+local b = Instance.new("TextButton")
+b.Font = Enum.Font.GothamBold
+b.TextSize = 13
+b.Text = text
+b.TextColor3 = fg
+b.BackgroundColor3 = bg
+b.BorderSizePixel = 0
+b.Size = UDim2.new(0.5, -3, 1, 0)
+b.LayoutOrder = order
+b.Parent = wlButtonRow
+wlCorner(b, 5)
+return b
+end
+wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
+wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
+wlAdd.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = true
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+wlRemove.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = nil
+rebuildPlayerList()

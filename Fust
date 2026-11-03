@@ -1,7 +1,46 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.31
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.33
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.33 — РЮКЗАКИ: ЧАМСЫ + «ЧЕЙ ЛУТ» И «СЛОТЫ» ПОЧИНЕНЫ:
+    • ЧАМСЫ РЮКЗАКОВ (вкладка ESP → «Лут»): рюкзак подсвечивается
+      Highlight'ом (AlwaysOnTop) и виден СКВОЗЬ ТРАВУ, стены и рельеф.
+      Тёмно-зелёный в траве больше не теряется — подсветка рисуется
+      поверх мира. Цвет = тот же колорпикер лута, тумблер «Чамсы
+      рюкзаков (видно сквозь траву и стены)», по умолчанию ВКЛ.
+    • ЧИНЮ «ЧЕЙ ЛУТ»: игра подписывает рюкзак «RANYOL_PRIMES
+      BACKPACK» (ник + S BACKPACK) — теперь этот формат читаем, плюс
+      «Vanya's backpack» и русские подписи («Рюкзак Ванюши»). Владелец
+      определяется, даже если он УЖЕ ВЫШЕЛ с сервера: раньше ник искали
+      только среди игроков онлайн и молча пропускали.
+    • ЧИНЮ «СЛОТЫ»: «2/6» читается из текстов над рюкзаком (билборды и
+      надписи внутри модели) и из подписи кнопки («Взять всё (2/6)»).
+      Атрибуты теперь ищутся не только на корне рюкзака, но и внутри
+      модели. Таймер исчезновения («Исчезает через 4/18») слотами по
+      ошибке больше не считается.
+    • Диагностика («Лог рюкзаков») печатает ещё и тексты билбордов —
+      если где-то осталось «??», включи её и пришли лог в консоль,
+      поправлю паттерны под реальные данные.
+
+    НОВОЕ В 0.32 — АВТО-ВКЛ/ВЫКЛ АИМА ПО ВРАГАМ РЯДОМ (фарм добычи):
+    • Новая группа «Авто-аим (враги рядом)» на вкладке Аимбот (левая
+      колонка, под настройками аимбота): тумблер «Авто вкл/выкл аима»
+      и ползунок «Радиус авто-включения» (50–2000 м, по умолчанию 500).
+    • Как работает: сканер раз в 0.2с меряет дистанцию до ближайшего
+      ЖИВОГО игрока НЕ из вайтлиста. Враг в радиусе (например 500 м и
+      ближе) — аимбот включается САМ (галка «Аимбот» переключается в
+      меню сама). Все враги ушли дальше радиуса или умерли — аимбот
+      выключается САМ. Пока фармишь / несёшь мешки с добычей — аим
+      молчит, рядом чужак — аим уже готов к бою.
+    • ВАЙТЛИСТ УЧИТЫВАЕТСЯ: игроки из вайтлиста (Main → «Вайтлист»)
+      авто-аим НЕ включают. Свой персонаж и мёртвые тела не считаются.
+    • Гистерезис 30 м: включение на <= радиуса, выключение на >
+      радиус + 30 — на границе радиуса аимбот не мигает.
+    • Функция выключена — аимбот работает как раньше, полностью
+      руками (тумблер или хоткей). Настройки сохраняются в конфиг.
+    • БАН-БЕЗОПАСНОСТЬ: только чтение позиций игроков (как у ESP), в
+      игру ничего не отправляется, никаких хуков.
 
     НОВОЕ В 0.31 — АНТИ-ОТДАЧА/ТРЯСКА ТОЛЬКО ПОСЛЕ ВЫСТРЕЛА + СВОЯ ГРУППА:
     • ФИКС «МЫШКУ УВОДИТ ВНИЗ»: слой компенсации дрифта (АО) раньше
@@ -178,7 +217,7 @@
     • Всё прежнее работает: ESP, чамсы, хитбоксы, аимбот, анти-отдача,
       анти-тряска, трассеры пуль (стили луча), No Fog, FullBright.
 
-    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31,
+    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31, 0.32, 0.33,
     ...
     (прошлые обозначения V2–V21 сохранены в истории ниже).
 
@@ -207,7 +246,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.31...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.33...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -351,7 +390,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.31 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.33 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -4521,6 +4560,7 @@ Owner = true,
 Slots = true, 
 Distance = true,
 Box = true,
+Chams = true, 
 MaxDistance = 1500,
 DebugLog = false, 
 },
@@ -5268,6 +5308,15 @@ Callback = function(state)
 S.Loot.Box = state
 end
 })
+UIRegistry.LootChams = LootSection:Toggle({
+Name = "Чамсы рюкзаков (видно сквозь траву и стены)",
+Flag = "LootChams",
+Default = true,
+Callback = function(state)
+S.Loot.Chams = state
+journal("ЧАМСЫ РЮКЗАКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
 UIRegistry.LootMaxDistance = LootSection:Slider({
 Name = "Рюкзаки: Max Distance",
 Flag = "LootMaxDistance",
@@ -5920,6 +5969,12 @@ TargetsSleepers = false,
 AutoPredict = false, 
 AutoPredictK = 1, 
 }
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+AA_EnemyNear = false 
+AA_NearestDist = nil 
 AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
 AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
 AimHotkeyObj = nil 
@@ -6054,6 +6109,30 @@ Decimals = 0.1,
 Suffix = "x",
 Callback = function(Value)
 Aim.AutoPredictK = Value
+end
+})
+AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
+Name = "Авто вкл/выкл аима (враги в радиусе)",
+Flag = "AutoAimEnabled",
+Default = false,
+Callback = function(state)
+AutoAim.Enabled = state
+AA_EnemyNear = false 
+journal("АВТО-АИМ " .. (state and "ВКЛ (враг в радиусе включит аимбот сам)" or "ВЫКЛ"))
+print("[FUST] Авто-аим " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoAimRadius = AutoAimSection:Slider({
+Name = "Радиус авто-включения",
+Flag = "AutoAimRadius",
+Default = 500,
+Min = 50,
+Max = 2000,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+AutoAim.Radius = Value
 end
 })
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
@@ -6828,6 +6907,12 @@ end)
 end
 bpDrawings[inst] = nil
 end
+pcall(function()
+local h = inst:FindFirstChild("PETUH_LootChams")
+if h then
+h:Destroy()
+end
+end)
 end
 function bpHideDrawings(inst)
 local ed = bpDrawings[inst]
@@ -6837,6 +6922,12 @@ ed.Owner.Visible = false
 ed.Slots.Visible = false
 ed.Distance.Visible = false
 end
+pcall(function()
+local h = inst:FindFirstChild("PETUH_LootChams")
+if h then
+h.Enabled = false
+end
+end)
 end
 function bpHideAll()
 for inst in pairs(bpDrawings) do
@@ -6900,6 +6991,35 @@ if pt.Y < minY then minY = pt.Y end
 if pt.Y > maxY then maxY = pt.Y end
 end
 return Vector2.new(minX, minY), Vector2.new(maxX - minX, maxY - minY)
+end
+function bpOwnerFromLabel(label)
+if type(label) ~= "string" or #label < 5 then
+return nil
+end
+local l = string.lower(label)
+local pats = {
+"^%s*(.-)'s%s*backpack%s*$", 
+"^%s*(.-)s%s*backpack%s*$", 
+"^%s*(.-)%s+backpack%s*$", 
+"^%s*(.-)'s%s*loot%s*bag%s*$",
+"^%s*(.-)s%s*loot%s*bag%s*$",
+"^%s*(.-)%s+loot%s*bag%s*$",
+"^юкзак%s+(.+)%s*$", 
+"^умка%s+(.+)%s*$", 
+"^ешок%s+(.+)%s*$", 
+"^руп%s+(.+)%s*$", 
+}
+for _, p in ipairs(pats) do
+local _, _, cs, ce = string.find(l, p)
+if cs and ce then
+local owner = string.sub(label, cs, ce)
+owner = owner:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
+if #owner >= 2 then
+return owner
+end
+end
+end
+return nil
 end
 function bpReadInfo(inst)
 local owner
@@ -6985,6 +7105,9 @@ break
 end
 end
 if owner == nil then
+owner = bpOwnerFromLabel(title)
+end
+if owner == nil then
 local cleaned = tostring(title):gsub("кзак", ""):gsub("ackpack", ""):gsub("loot", ""):gsub("LOOT", "")
 cleaned = cleaned:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
 if #cleaned >= 2 then
@@ -6998,11 +7121,110 @@ local okAc, actText = pcall(function()
 return tostring(prompt.ActionText)
 end)
 if okAc and actText then
+local uAct, mAct = string.match(actText, "%((%d+)%s*/%s*(%d+)%)")
+if uAct and mAct then
+slotsUsed = tonumber(uAct)
+slotsMax = tonumber(mAct)
+end
 local num = string.match(actText, "%((%d+)%)")
 or string.match(actText, "%[(%d+)%]")
 or string.match(actText, "(%d+)")
 if num then
 slotsUsed = tonumber(num)
+end
+end
+end
+end
+if owner == nil or slotsUsed == nil then
+local okDesc, desc = pcall(function()
+return inst:GetDescendants()
+end)
+if okDesc and type(desc) == "table" then
+local scanned = 0
+for _, ch in ipairs(desc) do
+scanned = scanned + 1
+if scanned > 80 then
+break 
+end
+if owner == nil or slotsUsed == nil then
+pcall(function()
+for key, val in pairs(ch:GetAttributes()) do
+local keyL = string.lower(tostring(key))
+if owner == nil and type(val) == "string" and #val > 0 and #val <= 32
+and table.find(BP_OWNER_ATTRS, keyL) then
+owner = val
+end
+if owner == nil and type(val) == "number"
+and table.find(BP_OWNERID_ATTRS, keyL) then
+local okP3, plr3 = pcall(Players.GetPlayerByUserId, Players, val)
+if okP3 and plr3 then
+owner = plr3.Name
+end
+end
+if type(val) == "number" then
+if slotsUsed == nil and table.find(BP_USED_ATTRS, keyL) then
+slotsUsed = val
+end
+if slotsMax == nil and table.find(BP_MAX_ATTRS, keyL) then
+slotsMax = val
+end
+end
+end
+end)
+end
+if ch:IsA("ProximityPrompt") and (owner == nil or slotsUsed == nil) then
+pcall(function()
+if owner == nil then
+owner = bpOwnerFromLabel(tostring(ch.ObjectText))
+end
+if slotsUsed == nil then
+local prTxt = tostring(ch.ObjectText) .. " " .. tostring(ch.ActionText)
+local uPr, mPr = string.match(prTxt, "(%d+)%s*/%s*(%d+)")
+if uPr and mPr then
+slotsUsed = tonumber(uPr)
+slotsMax = tonumber(mPr)
+end
+end
+end)
+end
+if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+local okTx, txt = pcall(function()
+return tostring(ch.Text)
+end)
+if okTx and txt and #txt > 0 and #txt <= 80 then
+local txtL = string.lower(txt)
+if slotsUsed == nil then
+local isTimer = string.find(txtL, "счез", 1, true)
+or string.find(txtL, "ерез", 1, true)
+or string.find(txtL, "xpire", 1, true)
+or string.find(txtL, "espawn", 1, true)
+or string.find(txtL, "lapse", 1, true)
+if not isTimer then
+local uTxt, mTxt = string.match(txt, "(%d+)%s*/%s*(%d+)")
+if uTxt and mTxt then
+slotsUsed = tonumber(uTxt)
+slotsMax = tonumber(mTxt)
+end
+end
+end
+if owner == nil then
+for _, plr in ipairs(Players:GetPlayers()) do
+local nL = string.lower(plr.Name)
+local dL = string.lower(plr.DisplayName)
+if string.find(txtL, nL, 1, true)
+or (dL ~= nL and #dL > 2 and string.find(txtL, dL, 1, true)) then
+owner = plr.Name
+break
+end
+end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(txt)
+end
+end
+end
+if owner and slotsUsed then
+break 
 end
 end
 end
@@ -7016,6 +7238,9 @@ owner = plr.Name
 break
 end
 end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(tostring(inst.Name))
 end
 end
 if slotsUsed == nil and okC and type(children) == "table" then
@@ -7057,6 +7282,8 @@ if slotsUsed and slotsMax and slotsMax > 0 then
 slotsText = string.format("%d/%d", math.floor(slotsUsed), math.floor(slotsMax))
 elseif slotsUsed then
 slotsText = string.format("%d слот.", math.floor(slotsUsed))
+elseif slotsMax and slotsMax > 0 then
+slotsText = string.format("?/%d", math.floor(slotsMax))
 elseif itemCount then
 slotsText = tostring(itemCount) .. " предм."
 end
@@ -7100,6 +7327,38 @@ local bh = boxSize.Y + pad * 2
 local centerX = bx + bw * 0.5
 local ed = bpEnsureDrawings(inst)
 local info = e.Info or {}
+local bpChams = inst:FindFirstChild("PETUH_LootChams")
+if S.Loot.Chams then
+if not bpChams and not ChamsCreateBlocked then
+local okH, created = pcall(function()
+local h = Instance.new("Highlight")
+h.Name = "PETUH_LootChams"
+h.Adornee = inst
+h.Parent = inst
+return h
+end)
+if okH and created then
+bpChams = created
+else
+ChamsCreateBlocked = true
+warn("[FUST] Highlight заблокирован игрой — чамсы рюкзаков отключены")
+end
+end
+if bpChams then
+pcall(function()
+bpChams.FillColor = LOOT_COLOR
+bpChams.OutlineColor = LOOT_COLOR
+bpChams.FillTransparency = 0.5
+bpChams.OutlineTransparency = 0
+bpChams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+bpChams.Enabled = true
+end)
+end
+elseif bpChams then
+pcall(function()
+bpChams:Destroy()
+end)
+end
 if S.Loot.Box then
 ed.Box.Position = Vector2.new(bx, by)
 ed.Box.Size = Vector2.new(bw, bh)
@@ -7241,9 +7500,24 @@ if #parts > 0 then
 kidsText = table.concat(parts, ", ")
 end
 end)
+local textsText = "-"
+pcall(function()
+local parts = {}
+for _, ch in ipairs(inst:GetDescendants()) do
+if #parts >= 4 then
+break
+end
+if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+table.insert(parts, "[" .. tostring(ch.Text) .. "]")
+end
+end
+if #parts > 0 then
+textsText = table.concat(parts, " ")
+end
+end)
 local info = e.Info or {}
 print(string.format(
-"[FUST][ЛУТ] %s (%s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s",
+"[FUST][ЛУТ] %s (%s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
 okN and instName or "?",
 inst.ClassName,
 okPar and parentName or "?",
@@ -7251,7 +7525,8 @@ tostring(info.Owner),
 tostring(info.Slots),
 attrsText,
 promptText,
-kidsText
+kidsText,
+textsText
 ))
 end
 print("[FUST][ЛУТ] всего отслежено: " .. tostring(count))
@@ -7461,6 +7736,72 @@ end)
 chLines[i] = nil
 end
 end
+function autoAimTick()
+if not AutoAim.Enabled then
+AA_EnemyNear = false
+AA_NearestDist = nil
+return
+end
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+if not myRoot then
+return 
+end
+local bestDist = math.huge
+local bestName = nil
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
+local model = plr.Character
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local d = (root.Position - myRoot.Position).Magnitude
+if d < bestDist then
+bestDist = d
+bestName = plr.Name
+end
+end
+end
+end
+AA_NearestDist = (bestDist < math.huge) and bestDist or nil
+local want = AA_EnemyNear
+if want then
+if bestDist > AutoAim.Radius + 30 then
+want = false 
+end
+else
+if bestDist <= AutoAim.Radius then
+want = true 
+end
+end
+if want ~= AA_EnemyNear then
+AA_EnemyNear = want
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+pcall(function()
+UIRegistry.AimEnabled:Set(want)
+end)
+end
+if bestName then
+journal(string.format("АВТО-АИМ: %s — %s (%d м)",
+want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
+bestName, math.floor(bestDist + 0.5)))
+else
+journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
+end
+end
+end
+task.spawn(function()
+while true do
+task.wait(0.2)
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+break
+end
+local okAA = pcall(autoAimTick)
+if not okAA then
+task.wait(1) 
+end
+end
+end)
 HttpService = game:GetService("HttpService")
 CONFIG_FILE = "FUST_config.json"
 function colorToTable(c)
@@ -7597,6 +7938,10 @@ Roll = AntiShake.Roll,
 Position = AntiShake.Position,
 Oscillation = AntiShake.Oscillation,
 },
+AutoAim = {
+Enabled = AutoAim.Enabled,
+Radius = AutoAim.Radius,
+},
 HUD = {
 Enabled = S.HUD.Enabled,
 Size = S.HUD.Size,
@@ -7612,6 +7957,7 @@ Owner = S.Loot.Owner,
 Slots = S.Loot.Slots,
 Distance = S.Loot.Distance,
 Box = S.Loot.Box,
+Chams = S.Loot.Chams,
 MaxDistance = S.Loot.MaxDistance,
 DebugLog = S.Loot.DebugLog,
 },
@@ -7731,6 +8077,10 @@ applyFlag("AntiShakeRoll", cfg.AntiShake.Roll)
 applyFlag("AntiShakePosition", cfg.AntiShake.Position)
 applyFlag("AntiShakeOscillation", cfg.AntiShake.Oscillation)
 end
+if type(cfg.AutoAim) == "table" then
+applyFlag("AutoAimEnabled", cfg.AutoAim.Enabled)
+applyFlag("AutoAimRadius", cfg.AutoAim.Radius)
+end
 if type(cfg.HUD) == "table" then
 applyFlag("HUDEnabled", cfg.HUD.Enabled)
 applyFlag("HUDSize", cfg.HUD.Size)
@@ -7748,6 +8098,7 @@ applyFlag("LootOwner", cfg.Loot.Owner)
 applyFlag("LootSlots", cfg.Loot.Slots)
 applyFlag("LootDistance", cfg.Loot.Distance)
 applyFlag("LootBox", cfg.Loot.Box)
+applyFlag("LootChams", cfg.Loot.Chams)
 applyFlag("LootMaxDistance", cfg.Loot.MaxDistance)
 applyFlag("LootDebugLog", cfg.Loot.DebugLog)
 end
@@ -8518,7 +8869,7 @@ if jnow - AR_LastStateJournal > 60 then
 AR_LastStateJournal = jnow
 pcall(function()
 journal(string.format(
-"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d",
+"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d автоаим=%d враг=%d",
 Aim.Enabled and 1 or 0,
 tostring(Aim.Part),
 tostring(Aim.Priority),
@@ -8541,7 +8892,9 @@ S.NPC.ESP and 1 or 0,
 S.NPC.Chams and 1 or 0,
 S.NPC.HitboxEnabled and 1 or 0,
 Aim.AutoPredict and 1 or 0,
-S.Loot.Enabled and 1 or 0
+S.Loot.Enabled and 1 or 0,
+AutoAim.Enabled and 1 or 0,
+AA_EnemyNear and 1 or 0
 ))
 end)
 end

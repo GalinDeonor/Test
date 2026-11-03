@@ -1,3 +1,70 @@
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
+local model = plr.Character
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local d = (root.Position - myRoot.Position).Magnitude
+if d < bestDist then
+bestDist = d
+bestName = plr.Name
+end
+end
+end
+end
+AA_NearestDist = (bestDist < math.huge) and bestDist or nil
+local want = AA_EnemyNear
+if want then
+if bestDist > AutoAim.Radius + 30 then
+want = false 
+end
+else
+if bestDist <= AutoAim.Radius then
+want = true 
+end
+end
+if want ~= AA_EnemyNear then
+AA_EnemyNear = want
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+pcall(function()
+UIRegistry.AimEnabled:Set(want)
+end)
+end
+if bestName then
+journal(string.format("АВТО-АИМ: %s — %s (%d м)",
+want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
+bestName, math.floor(bestDist + 0.5)))
+else
+journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
+end
+end
+end
+task.spawn(function()
+while true do
+task.wait(0.2)
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+break
+end
+local okAA = pcall(autoAimTick)
+if not okAA then
+task.wait(1) 
+end
+end
+end)
+HttpService = game:GetService("HttpService")
+CONFIG_FILE = "FUST_config.json"
+function colorToTable(c)
+return {
+R = math.floor(c.R * 255 + 0.5),
+G = math.floor(c.G * 255 + 0.5),
+B = math.floor(c.B * 255 + 0.5),
+}
+end
+function tableToColor(t)
+if type(t) ~= "table" then
+return nil
+end
+return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
 end
 function saveConfig()
 local okFile, err = pcall(function()
@@ -120,6 +187,10 @@ Roll = AntiShake.Roll,
 Position = AntiShake.Position,
 Oscillation = AntiShake.Oscillation,
 },
+AutoAim = {
+Enabled = AutoAim.Enabled,
+Radius = AutoAim.Radius,
+},
 HUD = {
 Enabled = S.HUD.Enabled,
 Size = S.HUD.Size,
@@ -135,6 +206,7 @@ Owner = S.Loot.Owner,
 Slots = S.Loot.Slots,
 Distance = S.Loot.Distance,
 Box = S.Loot.Box,
+Chams = S.Loot.Chams,
 MaxDistance = S.Loot.MaxDistance,
 DebugLog = S.Loot.DebugLog,
 },
@@ -254,6 +326,10 @@ applyFlag("AntiShakeRoll", cfg.AntiShake.Roll)
 applyFlag("AntiShakePosition", cfg.AntiShake.Position)
 applyFlag("AntiShakeOscillation", cfg.AntiShake.Oscillation)
 end
+if type(cfg.AutoAim) == "table" then
+applyFlag("AutoAimEnabled", cfg.AutoAim.Enabled)
+applyFlag("AutoAimRadius", cfg.AutoAim.Radius)
+end
 if type(cfg.HUD) == "table" then
 applyFlag("HUDEnabled", cfg.HUD.Enabled)
 applyFlag("HUDSize", cfg.HUD.Size)
@@ -271,6 +347,7 @@ applyFlag("LootOwner", cfg.Loot.Owner)
 applyFlag("LootSlots", cfg.Loot.Slots)
 applyFlag("LootDistance", cfg.Loot.Distance)
 applyFlag("LootBox", cfg.Loot.Box)
+applyFlag("LootChams", cfg.Loot.Chams)
 applyFlag("LootMaxDistance", cfg.Loot.MaxDistance)
 applyFlag("LootDebugLog", cfg.Loot.DebugLog)
 end
@@ -1041,7 +1118,7 @@ if jnow - AR_LastStateJournal > 60 then
 AR_LastStateJournal = jnow
 pcall(function()
 journal(string.format(
-"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d",
+"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d автоаим=%d враг=%d",
 Aim.Enabled and 1 or 0,
 tostring(Aim.Part),
 tostring(Aim.Priority),
@@ -1064,7 +1141,9 @@ S.NPC.ESP and 1 or 0,
 S.NPC.Chams and 1 or 0,
 S.NPC.HitboxEnabled and 1 or 0,
 Aim.AutoPredict and 1 or 0,
-S.Loot.Enabled and 1 or 0
+S.Loot.Enabled and 1 or 0,
+AutoAim.Enabled and 1 or 0,
+AA_EnemyNear and 1 or 0
 ))
 end)
 end
