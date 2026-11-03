@@ -1,3 +1,31 @@
+row.TextColor3 = Color3.fromRGB(255, 255, 255)
+row.Text = "✓ " .. base
+else
+row.BackgroundColor3 = WL_ROW
+row.TextColor3 = WL_GRAY
+row.Text = base
+end
+end
+function rebuildPlayerList()
+clearPlayerRows()
+local rows = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+table.insert(rows, plr)
+end
+end
+table.sort(rows, function(a, b)
+return a.Name < b.Name
+end)
+if #rows == 0 then
+local empty = Instance.new("TextLabel")
+empty.BackgroundTransparency = 1
+empty.Font = Enum.Font.Gotham
+empty.TextSize = 12
+empty.TextColor3 = WL_GRAY
+empty.Text = "На сервере пока нет других игроков"
+empty.Size = UDim2.new(1, 0, 0, 26)
+empty.LayoutOrder = 1
 empty.Parent = wlScroll
 table.insert(wlRows, empty)
 return
@@ -269,7 +297,8 @@ Callback = function(Value)
 Aim.AutoPredictK = Value
 end
 })
-UIRegistry.AntiRecoilEnabled = AimSection:Toggle({
+RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
+UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
 Flag = "AntiRecoilEnabled",
 Default = false,
@@ -279,7 +308,7 @@ journal("АНТИ-ОТДАЧА " .. (state and "ВКЛ" or "ВЫКЛ"))
 print("[FUST] Анти-отдача " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilRollback = AimSection:Toggle({
+UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({
 Name = "АО: откат кика камеры",
 Flag = "AntiRecoilRollback",
 Default = true,
@@ -288,7 +317,7 @@ AntiRecoil.Rollback = state
 journal("АО откат-камеры " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilOffset = AimSection:Toggle({
+UIRegistry.AntiRecoilOffset = RecoilSection:Toggle({
 Name = "АО: сброс CameraOffset",
 Flag = "AntiRecoilOffset",
 Default = true,
@@ -297,7 +326,7 @@ AntiRecoil.Offset = state
 journal("АО cameraoffset " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilThreshold = AimSection:Slider({
+UIRegistry.AntiRecoilThreshold = RecoilSection:Slider({
 Name = "АО: порог кика",
 Flag = "AntiRecoilThreshold",
 Default = 1.2,
@@ -309,7 +338,7 @@ Callback = function(Value)
 AntiRecoil.Threshold = Value
 end
 })
-UIRegistry.AntiRecoilDrift = AimSection:Toggle({
+UIRegistry.AntiRecoilDrift = RecoilSection:Toggle({
 Name = "АО: компенсация дрифта",
 Flag = "AntiRecoilDrift",
 Default = true,
@@ -318,7 +347,7 @@ AntiRecoil.Drift = state
 journal("АО дрифт " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilDriftStrength = AimSection:Slider({
+UIRegistry.AntiRecoilDriftStrength = RecoilSection:Slider({
 Name = "АО: сила компенсации",
 Flag = "AntiRecoilDriftStrength",
 Default = 1,
@@ -330,7 +359,7 @@ Callback = function(Value)
 AntiRecoil.DriftStrength = Value
 end
 })
-UIRegistry.AntiShakeEnabled = AimSection:Toggle({
+UIRegistry.AntiShakeEnabled = RecoilSection:Toggle({
 Name = "Анти-тряска (выстрел)",
 Flag = "AntiShakeEnabled",
 Default = false,
@@ -340,7 +369,7 @@ journal("АНТИ-ТРЯСКА " .. (state and "ВКЛ" or "ВЫКЛ"))
 print("[FUST] Анти-тряска " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiShakeRoll = AimSection:Toggle({
+UIRegistry.AntiShakeRoll = RecoilSection:Toggle({
 Name = "АТ: крен (наклон вбок)",
 Flag = "AntiShakeRoll",
 Default = true,
@@ -349,7 +378,7 @@ AntiShake.Roll = state
 journal("АТ крен " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiShakePosition = AimSection:Toggle({
+UIRegistry.AntiShakePosition = RecoilSection:Toggle({
 Name = "АТ: дёрганье позиции",
 Flag = "AntiShakePosition",
 Default = true,
@@ -358,7 +387,7 @@ AntiShake.Position = state
 journal("АТ позиция " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiShakeOscillation = AimSection:Toggle({
+UIRegistry.AntiShakeOscillation = RecoilSection:Toggle({
 Name = "АТ: дрожь прицела",
 Flag = "AntiShakeOscillation",
 Default = true,
@@ -373,6 +402,10 @@ AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
 return
 end
 if os.clock() < AR_AimBusyUntil then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+if os.clock() >= FUST_FireUntil then
 AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
 return
 end
@@ -397,6 +430,9 @@ AR_DriftFrames = AR_DriftFrames + 1
 if not AR_Anchor then
 AR_Anchor = pitch - d
 end
+if AR_DriftFrames >= 2 then
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.35)
+end
 else
 if now - AR_LastDriftAt > 0.25 then
 AR_DriftFrames = 0
@@ -416,20 +452,21 @@ end
 end
 end)
 end
-function AS_BindTool(tool)
-if tool == AS_LastTool then
+function FUST_BindFireTool(tool)
+if tool == FUST_FireTool then
 return
 end
-if AS_ToolConns then
-for _, c in ipairs(AS_ToolConns) do
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
 pcall(function()
 c:Disconnect()
 end)
 end
 end
-AS_ToolConns = nil
-AS_LastTool = tool
+FUST_FireConns = nil
+FUST_FireTool = tool
 if not tool then
+FUST_FireUntil = 0
 return
 end
 local conns = {}
@@ -442,44 +479,49 @@ end)
 end
 return
 end
-AS_FireUntil = os.clock() + 0.3
+FUST_FireUntil = os.clock() + 0.6
+end
+local function markStop()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+FUST_FireUntil = math.max(FUST_FireUntil, os.clock() + 0.3)
 end
 table.insert(conns, tool.Activated:Connect(markFire))
-table.insert(conns, tool.Deactivated:Connect(markFire))
-AS_ToolConns = conns
+table.insert(conns, tool.Deactivated:Connect(markStop))
+FUST_FireConns = conns
 end
 getgenv().FUST_ASCleanup = function()
-if AS_ToolConns then
-for _, c in ipairs(AS_ToolConns) do
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
 pcall(function()
 c:Disconnect()
 end)
 end
 end
-AS_ToolConns = nil
-AS_LastTool = nil
+FUST_FireConns = nil
+FUST_FireTool = nil
+FUST_FireUntil = 0
 end
 function AS_Pass()
 local camera = Workspace.CurrentCamera
 local myChar = LocalPlayer.Character
 local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
 if not (AntiShake.Enabled and camera and myTool) then
-AS_BindTool(nil)
 AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
 AS_LastLX, AS_LastLZ = nil, nil
 AS_AnchorLook, AS_SmoothPos = nil, nil
 AS_PitchFlips, AS_YawFlips = 0, 0
 return
 end
-AS_BindTool(myTool)
 local aimBusy = os.clock() < AR_AimBusyUntil
 pcall(function()
 local cf = camera.CFrame
 local look = cf.LookVector
 local pos = cf.Position
 local now = os.clock()
-local firing = now < AS_FireUntil
-if AntiShake.Roll and math.abs(look.Y) < 0.999 then
+local firing = now < FUST_FireUntil
+if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
 local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
 if math.abs(roll) > math.rad(0.05) then
 camera.CFrame = CFrame.lookAt(pos, pos + look)
@@ -525,7 +567,7 @@ AS_YawFlips = AS_YawFlips + 1
 else
 AS_YawFlips = 0
 end
-if (flipP or flipY) and (firing or AS_PitchFlips >= 3 or AS_YawFlips >= 3) then
+if (flipP or flipY) and firing then
 if not AS_AnchorLook then
 local back = cf
 if bandP then
@@ -537,7 +579,7 @@ end
 AS_AnchorLook = back.LookVector
 end
 AS_LastShakeAt = now
-AS_FireUntil = math.max(AS_FireUntil, now + 0.2)
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.2)
 elseif not bandP and not bandY then
 if now - AS_LastShakeAt > 0.25 then
 AS_AnchorLook = nil
@@ -584,9 +626,21 @@ if getgenv().FUST_SESSION ~= FUST_SESSION then
 RunService:UnbindFromRenderStep("FUST_AR_Restore")
 return
 end
+if AntiRecoil.Enabled or AntiShake.Enabled then
+local myChar = LocalPlayer.Character
+FUST_BindFireTool(myChar and myChar:FindFirstChildOfClass("Tool"))
+else
+FUST_BindFireTool(nil)
+end
 AR_DriftPass()
 AS_Pass()
 if not (AntiRecoil.Enabled and AntiRecoil.Rollback) then
+return
+end
+if os.clock() < AR_AimBusyUntil then
+return
+end
+if os.clock() >= FUST_FireUntil + 0.5 then
 return
 end
 local camera = Workspace.CurrentCamera
@@ -703,33 +757,49 @@ warn("[FUST] Drawing недоступен в этом экзекуторе — E
 end
 AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
 AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
-fovCircle = Drawing.new("Circle")
+fovCircle = SafeDrawing("Circle")
+if fovCircle then
 fovCircle.Thickness = 1.5
 fovCircle.NumSides = 64
 fovCircle.Filled = false
 fovCircle.Radius = Aim.FOV
 fovCircle.Color = AIM_FOV_OFF
 fovCircle.Visible = false
+else
+warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
+end
 CH_GAP, CH_LEN = 5, 7
 chLines = {}
 for i = 1, 4 do
-local l = Drawing.new("Line")
+local l = SafeDrawing("Line")
+if l then
 l.Thickness = 2
 l.Color = Color3.fromRGB(255, 30, 30)
 l.Visible = false
 chLines[i] = l
 end
+end
 function updateCrosshair(center, visible)
+if chLines[1] then
 chLines[1].From = Vector2.new(center.X, center.Y - CH_GAP)
 chLines[1].To = Vector2.new(center.X, center.Y - CH_GAP - CH_LEN)
+end
+if chLines[2] then
 chLines[2].From = Vector2.new(center.X, center.Y + CH_GAP)
 chLines[2].To = Vector2.new(center.X, center.Y + CH_GAP + CH_LEN)
+end
+if chLines[3] then
 chLines[3].From = Vector2.new(center.X - CH_GAP, center.Y)
 chLines[3].To = Vector2.new(center.X - CH_GAP - CH_LEN, center.Y)
+end
+if chLines[4] then
 chLines[4].From = Vector2.new(center.X + CH_GAP, center.Y)
 chLines[4].To = Vector2.new(center.X + CH_GAP + CH_LEN, center.Y)
+end
 for i = 1, 4 do
+if chLines[i] then
 chLines[i].Visible = visible
+end
 end
 end
 aimRayParams = RaycastParams.new()
@@ -1594,14 +1664,18 @@ end
 local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 updateCrosshair(center, Aim.Crosshair)
 if not Aim.Enabled then
+if fovCircle then
 fovCircle.Visible = false
+end
 return
 end
 local part, aimPos = getAimTarget(camera)
+if fovCircle then
 fovCircle.Position = center
 fovCircle.Radius = Aim.FOV
 fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
 fovCircle.Visible = Aim.ShowFOV
+end
 if part and aimPos then
 AR_AimBusyUntil = os.clock() + 0.15
 local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
@@ -1614,12 +1688,18 @@ aimConnection:Disconnect()
 aimConnection = nil
 end
 pcall(function()
+if fovCircle then
 fovCircle:Remove()
+end
 end)
+fovCircle = nil 
 for i = 1, 4 do
 pcall(function()
+if chLines[i] then
 chLines[i]:Remove()
+end
 end)
+chLines[i] = nil
 end
 end
 HttpService = game:GetService("HttpService")
@@ -1636,32 +1716,3 @@ if type(t) ~= "table" then
 return nil
 end
 return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
-end
-function saveConfig()
-local okFile, err = pcall(function()
-local wl = {}
-for name in pairs(Whitelist) do
-table.insert(wl, name)
-end
-table.sort(wl)
-local hotkeyKey, hotkeyMode = nil, nil
-if AimHotkeyObj and AimHotkeyObj.Value and AimHotkeyObj.Value ~= "None" and AimHotkeyObj.Get then
-local okHK, hkKey, hkMode = pcall(function()
-return AimHotkeyObj:Get()
-end)
-if okHK and type(hkKey) == "string" and hkKey ~= "" then
-hotkeyKey = hkKey
-hotkeyMode = (hkMode == "Hold" or hkMode == "Always") and hkMode or "Toggle"
-end
-end
-local cfg = {
-ESP = {
-Enabled = S.ESP.Enabled,
-Box = S.ESP.Box,
-Chams = S.ESP.Chams,
-ChamsTransparency = S.ESP.ChamsTransparency,
-Name = S.ESP.Name,
-Item = S.ESP.Item,
-Distance = S.ESP.Distance,
-HealthBar = S.ESP.HealthBar,
-MaxDistance = S.ESP.MaxDistance,

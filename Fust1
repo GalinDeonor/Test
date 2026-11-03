@@ -1,7 +1,51 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.29
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.31
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.31 — АНТИ-ОТДАЧА/ТРЯСКА ТОЛЬКО ПОСЛЕ ВЫСТРЕЛА + СВОЯ ГРУППА:
+    • ФИКС «МЫШКУ УВОДИТ ВНИЗ»: слой компенсации дрифта (АО) раньше
+      работал ВСЕГДА, пока в руках оружие. Любое плавное ведение прицела
+      вверх он считал отдачей, запоминал «якорь» (прицел до подъёма) и
+      каждый кадр тянул камеру обратно вниз. Теперь все слои анти-отдачи
+      и анти-тряски действуют только в «окне выстрела»: 0.6с после
+      нажатия огня, окно продлевается, пока виден характер отдачи.
+      Вне стрельбы камера не трогается вообще.
+    • ФИКС «ТРЯСЁТ ЭКРАН ПРИ ХОДЬБЕ»: те же слои воевали с покачиванием
+      камеры игры. Сброс CameraOffset глушил покачивание каждый кадр,
+      детектор «дрожи прицела» принимал качание головы при беге за
+      дрожь от выстрела (флипы направления без выстрела больше НЕ
+      включают якорь), слой крена тоже работал всегда. Всё это теперь
+      только в окне выстрела.
+    • Слой 1 «откат кика камеры» больше не воюет с аимботом: пока
+      аимбот ведёт цель — откат спит. И считается только в окне
+      выстрела + 0.5с на хвост.
+    • UI: все тумблеры/ползунки анти-отдачи и анти-тряски переехали в
+      отдельную группу «Анти-отдача и тряска» на вкладке Аимбот (правая
+      колонка, под «Цель»). Флаги конфига не менялись — настройки
+      сохранятся сами.
+
+    НОВОЕ В 0.30 — ВКЛАДКА «ВИЗУАЛЫ» + ФИКСЫ ДЕЛЬТЫ/МЕЛКОГО:
+    • НОВАЯ ВКЛАДКА «ВИЗУАЛЫ» на странице ESP. Раньше FullBright/NoFog
+      висели секцией на вкладке ESP, а трассеры — среди ESP-тумблеров.
+      Теперь всё красящее разложено по местам:
+        – «Фильтры» — новый TEAM CHECK: не показывать тимейтов
+          (бокс/имя/дистанция/предмет/хелсбар, чамсы и хитбоксы
+          сокомандников не трогаются, пока тумблер включён);
+        – «Мир и освещение» — FullBright, NoDecoration, No Grass, No Fog;
+        – «Трассеры пуль» — переезжают сюда со вкладки ESP.
+      Порядок вкладок страницы: ESP | Визуалы | Лут.
+    • ФИКС КРАСНОГО СПАМА В КОНСОЛИ. На телефоне окно меню бывает больше
+      экрана, и math.clamp(позиция, 0, отрицательное) в перетаскивании
+      кидал «invalid argument #3 to 'clamp' (max must be greater than or
+      equal to min)» на каждое касание (строки 625/650 старой сборки).
+      Теперь если окно шире/выше экрана — по этой оси не зажимаем.
+    • ФИКС АИМ-КРУГА И ПРИЦЕЛА: FOV-круг и красный прицел создаются
+      через SafeDrawing. Если экзекутор падает на Drawing.new("Circle")
+      или ("Line") — скрипт больше не умирает на этих строках, аимбот
+      продолжает работать без оверлея, в консоль пишется причина.
+      Мёртвые объекты больше не трогаются после выгрузки.
+    • Конфиг: Team Check сохраняется и загружается вместе с остальным.
 
     НОВОЕ В 0.29 — ESP РЮКЗАКОВ С ЛУТОМ (добыча убитых игроков):
     • Рюкзак, который остаётся после смерти игрока, подсвечивается
@@ -134,7 +178,7 @@
     • Всё прежнее работает: ESP, чамсы, хитбоксы, аимбот, анти-отдача,
       анти-тряска, трассеры пуль (стили луча), No Fog, FullBright.
 
-    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29,
+    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31,
     ...
     (прошлые обозначения V2–V21 сохранены в истории ниже).
 
@@ -163,7 +207,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.29...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.31...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -307,7 +351,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.29 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.31 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -622,8 +666,14 @@ local NewX = StartPosition.X.Offset + DragDelta.X
 local NewY = StartPosition.Y.Offset + DragDelta.Y
 local ScreenSize = Gui.Parent.AbsoluteSize
 local GuiSize = Gui.AbsoluteSize
-NewX = MathClamp(NewX, 0, ScreenSize.X - GuiSize.X)
-NewY = MathClamp(NewY, 0, ScreenSize.Y - GuiSize.Y)
+local MaxX = ScreenSize.X - GuiSize.X
+local MaxY = ScreenSize.Y - GuiSize.Y
+if MaxX >= 0 then
+NewX = MathClamp(NewX, 0, MaxX)
+end
+if MaxY >= 0 then
+NewY = MathClamp(NewY, 0, MaxY)
+end
 self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, NewX, 0, NewY)})
 end
 local InputChanged
@@ -1056,125 +1106,3 @@ IsOpen = false
 }
 local Items = { } do
 Items["ColorpickerButton"] = Instances:Create("TextButton", {
-Parent = Data.Parent.Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(0, 16, 0, 16),
-BorderSizePixel = 0,
-TextSize = 14,
-BackgroundColor3 = FromRGB(148, 255, 237)
-})
-Instances:Create("UICorner", {
-Parent = Items["ColorpickerButton"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Instances:Create("UIStroke", {
-Parent = Items["ColorpickerButton"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Glow"] = Instances:Create("ImageLabel", {
-Parent = Items["ColorpickerButton"].Instance,
-Name = "\0",
-ImageColor3 = FromRGB(148, 255, 237),
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-})
-Items["ColorpickerWindow"] = Instances:Create("TextButton", {
-Parent = Library.UnusedHolder.Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Position = UDim2New(0, 94, 0, 60),
-Size = UDim2New(0, 160, 0, 160),
-BorderSizePixel = 0,
-TextSize = 14,
-BackgroundColor3 = Library.Theme["Background"]
-}):AddToTheme({BackgroundColor3 = 'Background'})
-Instances:Create("UICorner", {
-Parent = Items["ColorpickerWindow"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Items["Palette"] = Instances:Create("TextButton", {
-Parent = Items["ColorpickerWindow"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Position = UDim2New(0, 8, 0, 8),
-Size = UDim2New(1, -40, 1, -16),
-BorderSizePixel = 0,
-TextSize = 14,
-BackgroundColor3 = FromRGB(148, 255, 237)
-})
-Instances:Create("UICorner", {
-Parent = Items["Palette"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 5)
-})
-Items["Saturation"] = Instances:Create("Frame", {
-Parent = Items["Palette"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 1, 1, 0),
-BorderSizePixel = 0
-})
-Instances:Create("UIGradient", {
-Parent = Items["Saturation"].Instance,
-Name = "\0",
-Transparency = NumSequence{NumSequenceKeypoint(0, 1), NumSequenceKeypoint(1, 0)}
-})
-Instances:Create("UICorner", {
-Parent = Items["Saturation"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 5)
-})
-Items["Value"] = Instances:Create("Frame", {
-Parent = Items["Palette"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 1, 1, 1),
-BorderSizePixel = 0,
-BackgroundColor3 = FromRGB(0, 0, 0)
-})
-Instances:Create("UIGradient", {
-Parent = Items["Value"].Instance,
-Name = "\0",
-Rotation = 90,
-Transparency = NumSequence{NumSequenceKeypoint(0, 1), NumSequenceKeypoint(1, 0)}
-})
-Instances:Create("UICorner", {
-Parent = Items["Value"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 5)
-})
-Items["PaletteDragger"] = Instances:Create("Frame", {
-Parent = Items["Palette"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0, 5, 0, 5),
-BorderSizePixel = 0
-})
-Instances:Create("UIStroke", {
-Parent = Items["PaletteDragger"].Instance,

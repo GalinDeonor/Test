@@ -1,7 +1,51 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.29
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.31
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.31 — АНТИ-ОТДАЧА/ТРЯСКА ТОЛЬКО ПОСЛЕ ВЫСТРЕЛА + СВОЯ ГРУППА:
+    • ФИКС «МЫШКУ УВОДИТ ВНИЗ»: слой компенсации дрифта (АО) раньше
+      работал ВСЕГДА, пока в руках оружие. Любое плавное ведение прицела
+      вверх он считал отдачей, запоминал «якорь» (прицел до подъёма) и
+      каждый кадр тянул камеру обратно вниз. Теперь все слои анти-отдачи
+      и анти-тряски действуют только в «окне выстрела»: 0.6с после
+      нажатия огня, окно продлевается, пока виден характер отдачи.
+      Вне стрельбы камера не трогается вообще.
+    • ФИКС «ТРЯСЁТ ЭКРАН ПРИ ХОДЬБЕ»: те же слои воевали с покачиванием
+      камеры игры. Сброс CameraOffset глушил покачивание каждый кадр,
+      детектор «дрожи прицела» принимал качание головы при беге за
+      дрожь от выстрела (флипы направления без выстрела больше НЕ
+      включают якорь), слой крена тоже работал всегда. Всё это теперь
+      только в окне выстрела.
+    • Слой 1 «откат кика камеры» больше не воюет с аимботом: пока
+      аимбот ведёт цель — откат спит. И считается только в окне
+      выстрела + 0.5с на хвост.
+    • UI: все тумблеры/ползунки анти-отдачи и анти-тряски переехали в
+      отдельную группу «Анти-отдача и тряска» на вкладке Аимбот (правая
+      колонка, под «Цель»). Флаги конфига не менялись — настройки
+      сохранятся сами.
+
+    НОВОЕ В 0.30 — ВКЛАДКА «ВИЗУАЛЫ» + ФИКСЫ ДЕЛЬТЫ/МЕЛКОГО:
+    • НОВАЯ ВКЛАДКА «ВИЗУАЛЫ» на странице ESP. Раньше FullBright/NoFog
+      висели секцией на вкладке ESP, а трассеры — среди ESP-тумблеров.
+      Теперь всё красящее разложено по местам:
+        – «Фильтры» — новый TEAM CHECK: не показывать тимейтов
+          (бокс/имя/дистанция/предмет/хелсбар, чамсы и хитбоксы
+          сокомандников не трогаются, пока тумблер включён);
+        – «Мир и освещение» — FullBright, NoDecoration, No Grass, No Fog;
+        – «Трассеры пуль» — переезжают сюда со вкладки ESP.
+      Порядок вкладок страницы: ESP | Визуалы | Лут.
+    • ФИКС КРАСНОГО СПАМА В КОНСОЛИ. На телефоне окно меню бывает больше
+      экрана, и math.clamp(позиция, 0, отрицательное) в перетаскивании
+      кидал «invalid argument #3 to 'clamp' (max must be greater than or
+      equal to min)» на каждое касание (строки 625/650 старой сборки).
+      Теперь если окно шире/выше экрана — по этой оси не зажимаем.
+    • ФИКС АИМ-КРУГА И ПРИЦЕЛА: FOV-круг и красный прицел создаются
+      через SafeDrawing. Если экзекутор падает на Drawing.new("Circle")
+      или ("Line") — скрипт больше не умирает на этих строках, аимбот
+      продолжает работать без оверлея, в консоль пишется причина.
+      Мёртвые объекты больше не трогаются после выгрузки.
+    • Конфиг: Team Check сохраняется и загружается вместе с остальным.
 
     НОВОЕ В 0.29 — ESP РЮКЗАКОВ С ЛУТОМ (добыча убитых игроков):
     • Рюкзак, который остаётся после смерти игрока, подсвечивается
@@ -134,7 +178,7 @@
     • Всё прежнее работает: ESP, чамсы, хитбоксы, аимбот, анти-отдача,
       анти-тряска, трассеры пуль (стили луча), No Fog, FullBright.
 
-    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29,
+    С НУМЕРАЦИЕЙ: версии 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31,
     ...
     (прошлые обозначения V2–V21 сохранены в истории ниже).
 
@@ -163,7 +207,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.29...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.31...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -307,7 +351,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.29 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.31 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -622,8 +666,14 @@ local NewX = StartPosition.X.Offset + DragDelta.X
 local NewY = StartPosition.Y.Offset + DragDelta.Y
 local ScreenSize = Gui.Parent.AbsoluteSize
 local GuiSize = Gui.AbsoluteSize
-NewX = MathClamp(NewX, 0, ScreenSize.X - GuiSize.X)
-NewY = MathClamp(NewY, 0, ScreenSize.Y - GuiSize.Y)
+local MaxX = ScreenSize.X - GuiSize.X
+local MaxY = ScreenSize.Y - GuiSize.Y
+if MaxX >= 0 then
+NewX = MathClamp(NewX, 0, MaxX)
+end
+if MaxY >= 0 then
+NewY = MathClamp(NewY, 0, MaxY)
+end
 self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, NewX, 0, NewY)})
 end
 local InputChanged
@@ -4406,7 +4456,9 @@ TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side 
 Window:Group("Визуал")
 EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
 EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
-VisualSection = EspPage:Section({ Name = "Визуалы", Tab = "ESP", Side = 2 })
+VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
+WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
 LootSection = EspPage:Section({ Name = "Рюкзаки (лут)", Tab = "Лут", Side = 1 })
 UIRegistry = {}
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
@@ -4422,6 +4474,7 @@ Distance = false,
 HealthBar = false,
 MaxDistance = 1500,
 DistanceScale = true, 
+TeamCheck = false, 
 },
 ESPColors = {
 Box = Color3.fromRGB(0, 255, 255),
@@ -4665,15 +4718,15 @@ AR_DriftFrames = 0
 AR_AimBusyUntil = 0 
 AR_Anchor = nil 
 AR_LastDriftAt = 0 
+FUST_FireUntil = 0 
+FUST_FireTool = nil 
+FUST_FireConns = nil 
 AntiShake = {
 Enabled = false, 
 Roll = true, 
 Position = true, 
 Oscillation = true, 
 }
-AS_FireUntil = 0 
-AS_LastTool = nil 
-AS_ToolConns = nil 
 AS_SmoothPos = nil 
 AS_LastRawPitch = nil 
 AS_LastLX, AS_LastLZ = nil, nil 
@@ -4753,7 +4806,7 @@ S.ESP.Item = state
 journal("ПРЕДМЕТ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.BulletsEnabled = EspSection:Toggle({
+UIRegistry.BulletsEnabled = TracerSection:Toggle({
 Name = "Трассеры пуль (стиль VOMAGLA)",
 Flag = "BulletsEnabled",
 Default = false,
@@ -4766,7 +4819,7 @@ journal("ТРАССЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
 print("[FUST] Трассеры пуль " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.BulletsStyle = EspSection:Dropdown({
+UIRegistry.BulletsStyle = TracerSection:Dropdown({
 Name = "Трассеры: стиль луча",
 Items = { "Луч", "Квадратный", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
 Flag = "BulletsStyle",
@@ -4776,7 +4829,7 @@ S.Bullets.Style = Value
 journal("ТРАССЕРЫ-СТИЛЬ " .. tostring(Value))
 end
 })
-UIRegistry.BulletsWidth = EspSection:Slider({
+UIRegistry.BulletsWidth = TracerSection:Slider({
 Name = "Трассеры: толщина",
 Flag = "BulletsWidth",
 Default = 1.5,
@@ -4788,7 +4841,7 @@ Callback = function(Value)
 S.Bullets.Width = Value
 end
 })
-UIRegistry.BulletsTransparency = EspSection:Slider({
+UIRegistry.BulletsTransparency = TracerSection:Slider({
 Name = "Трассеры: прозрачность",
 Flag = "BulletsTransparency",
 Default = 0,
@@ -4799,7 +4852,7 @@ Callback = function(Value)
 S.Bullets.Transparency = Value
 end
 })
-UIRegistry.BulletsFade = EspSection:Slider({
+UIRegistry.BulletsFade = TracerSection:Slider({
 Name = "Трассеры: затухание",
 Flag = "BulletsFade",
 Default = 1,
@@ -5489,7 +5542,16 @@ S.Hitbox.Transparency = Value
 end
 })
 FullBrightBackup = nil
-UIRegistry.FullBright = VisualSection:Toggle({
+UIRegistry.ESPTeamCheck = VisFilterSection:Toggle({
+Name = "Team Check (не показывать тимейтов)",
+Flag = "ESPTeamCheck",
+Default = false,
+Callback = function(state)
+S.ESP.TeamCheck = state
+journal("TEAM CHECK (ESP) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FullBright = WorldSection:Toggle({
 Name = "FullBright",
 Flag = "FullBright",
 Default = false,
@@ -5512,7 +5574,7 @@ FullBrightBackup = nil
 end
 end
 })
-UIRegistry.NoDecoration = VisualSection:Toggle({
+UIRegistry.NoDecoration = WorldSection:Toggle({
 Name = "Убрать декорации (NoDecoration)",
 Flag = "NoDecoration",
 Default = false,
@@ -5533,7 +5595,7 @@ end
 end)
 end
 })
-UIRegistry.NoGrass = VisualSection:Toggle({
+UIRegistry.NoGrass = WorldSection:Toggle({
 Name = "Убрать траву (No Grass)",
 Flag = "NoGrass",
 Default = false,
@@ -5557,7 +5619,7 @@ end)
 end
 })
 NoFogBackup = nil
-UIRegistry.NoFog = VisualSection:Toggle({
+UIRegistry.NoFog = WorldSection:Toggle({
 Name = "Убрать туман (No Fog)",
 Flag = "NoFog",
 Default = false,
@@ -5994,7 +6056,8 @@ Callback = function(Value)
 Aim.AutoPredictK = Value
 end
 })
-UIRegistry.AntiRecoilEnabled = AimSection:Toggle({
+RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
+UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
 Flag = "AntiRecoilEnabled",
 Default = false,
@@ -6004,7 +6067,7 @@ journal("АНТИ-ОТДАЧА " .. (state and "ВКЛ" or "ВЫКЛ"))
 print("[FUST] Анти-отдача " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilRollback = AimSection:Toggle({
+UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({
 Name = "АО: откат кика камеры",
 Flag = "AntiRecoilRollback",
 Default = true,
@@ -6013,7 +6076,7 @@ AntiRecoil.Rollback = state
 journal("АО откат-камеры " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilOffset = AimSection:Toggle({
+UIRegistry.AntiRecoilOffset = RecoilSection:Toggle({
 Name = "АО: сброс CameraOffset",
 Flag = "AntiRecoilOffset",
 Default = true,
@@ -6022,7 +6085,7 @@ AntiRecoil.Offset = state
 journal("АО cameraoffset " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilThreshold = AimSection:Slider({
+UIRegistry.AntiRecoilThreshold = RecoilSection:Slider({
 Name = "АО: порог кика",
 Flag = "AntiRecoilThreshold",
 Default = 1.2,
@@ -6034,7 +6097,7 @@ Callback = function(Value)
 AntiRecoil.Threshold = Value
 end
 })
-UIRegistry.AntiRecoilDrift = AimSection:Toggle({
+UIRegistry.AntiRecoilDrift = RecoilSection:Toggle({
 Name = "АО: компенсация дрифта",
 Flag = "AntiRecoilDrift",
 Default = true,
@@ -6043,7 +6106,7 @@ AntiRecoil.Drift = state
 journal("АО дрифт " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiRecoilDriftStrength = AimSection:Slider({
+UIRegistry.AntiRecoilDriftStrength = RecoilSection:Slider({
 Name = "АО: сила компенсации",
 Flag = "AntiRecoilDriftStrength",
 Default = 1,
@@ -6055,7 +6118,7 @@ Callback = function(Value)
 AntiRecoil.DriftStrength = Value
 end
 })
-UIRegistry.AntiShakeEnabled = AimSection:Toggle({
+UIRegistry.AntiShakeEnabled = RecoilSection:Toggle({
 Name = "Анти-тряска (выстрел)",
 Flag = "AntiShakeEnabled",
 Default = false,
@@ -6065,7 +6128,7 @@ journal("АНТИ-ТРЯСКА " .. (state and "ВКЛ" or "ВЫКЛ"))
 print("[FUST] Анти-тряска " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiShakeRoll = AimSection:Toggle({
+UIRegistry.AntiShakeRoll = RecoilSection:Toggle({
 Name = "АТ: крен (наклон вбок)",
 Flag = "AntiShakeRoll",
 Default = true,
@@ -6074,7 +6137,7 @@ AntiShake.Roll = state
 journal("АТ крен " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiShakePosition = AimSection:Toggle({
+UIRegistry.AntiShakePosition = RecoilSection:Toggle({
 Name = "АТ: дёрганье позиции",
 Flag = "AntiShakePosition",
 Default = true,
@@ -6083,7 +6146,7 @@ AntiShake.Position = state
 journal("АТ позиция " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.AntiShakeOscillation = AimSection:Toggle({
+UIRegistry.AntiShakeOscillation = RecoilSection:Toggle({
 Name = "АТ: дрожь прицела",
 Flag = "AntiShakeOscillation",
 Default = true,
@@ -6098,6 +6161,10 @@ AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
 return
 end
 if os.clock() < AR_AimBusyUntil then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+if os.clock() >= FUST_FireUntil then
 AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
 return
 end
@@ -6122,6 +6189,9 @@ AR_DriftFrames = AR_DriftFrames + 1
 if not AR_Anchor then
 AR_Anchor = pitch - d
 end
+if AR_DriftFrames >= 2 then
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.35)
+end
 else
 if now - AR_LastDriftAt > 0.25 then
 AR_DriftFrames = 0
@@ -6141,20 +6211,21 @@ end
 end
 end)
 end
-function AS_BindTool(tool)
-if tool == AS_LastTool then
+function FUST_BindFireTool(tool)
+if tool == FUST_FireTool then
 return
 end
-if AS_ToolConns then
-for _, c in ipairs(AS_ToolConns) do
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
 pcall(function()
 c:Disconnect()
 end)
 end
 end
-AS_ToolConns = nil
-AS_LastTool = tool
+FUST_FireConns = nil
+FUST_FireTool = tool
 if not tool then
+FUST_FireUntil = 0
 return
 end
 local conns = {}
@@ -6167,44 +6238,49 @@ end)
 end
 return
 end
-AS_FireUntil = os.clock() + 0.3
+FUST_FireUntil = os.clock() + 0.6
+end
+local function markStop()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+FUST_FireUntil = math.max(FUST_FireUntil, os.clock() + 0.3)
 end
 table.insert(conns, tool.Activated:Connect(markFire))
-table.insert(conns, tool.Deactivated:Connect(markFire))
-AS_ToolConns = conns
+table.insert(conns, tool.Deactivated:Connect(markStop))
+FUST_FireConns = conns
 end
 getgenv().FUST_ASCleanup = function()
-if AS_ToolConns then
-for _, c in ipairs(AS_ToolConns) do
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
 pcall(function()
 c:Disconnect()
 end)
 end
 end
-AS_ToolConns = nil
-AS_LastTool = nil
+FUST_FireConns = nil
+FUST_FireTool = nil
+FUST_FireUntil = 0
 end
 function AS_Pass()
 local camera = Workspace.CurrentCamera
 local myChar = LocalPlayer.Character
 local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
 if not (AntiShake.Enabled and camera and myTool) then
-AS_BindTool(nil)
 AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
 AS_LastLX, AS_LastLZ = nil, nil
 AS_AnchorLook, AS_SmoothPos = nil, nil
 AS_PitchFlips, AS_YawFlips = 0, 0
 return
 end
-AS_BindTool(myTool)
 local aimBusy = os.clock() < AR_AimBusyUntil
 pcall(function()
 local cf = camera.CFrame
 local look = cf.LookVector
 local pos = cf.Position
 local now = os.clock()
-local firing = now < AS_FireUntil
-if AntiShake.Roll and math.abs(look.Y) < 0.999 then
+local firing = now < FUST_FireUntil
+if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
 local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
 if math.abs(roll) > math.rad(0.05) then
 camera.CFrame = CFrame.lookAt(pos, pos + look)
@@ -6250,7 +6326,7 @@ AS_YawFlips = AS_YawFlips + 1
 else
 AS_YawFlips = 0
 end
-if (flipP or flipY) and (firing or AS_PitchFlips >= 3 or AS_YawFlips >= 3) then
+if (flipP or flipY) and firing then
 if not AS_AnchorLook then
 local back = cf
 if bandP then
@@ -6262,7 +6338,7 @@ end
 AS_AnchorLook = back.LookVector
 end
 AS_LastShakeAt = now
-AS_FireUntil = math.max(AS_FireUntil, now + 0.2)
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.2)
 elseif not bandP and not bandY then
 if now - AS_LastShakeAt > 0.25 then
 AS_AnchorLook = nil
@@ -6309,9 +6385,21 @@ if getgenv().FUST_SESSION ~= FUST_SESSION then
 RunService:UnbindFromRenderStep("FUST_AR_Restore")
 return
 end
+if AntiRecoil.Enabled or AntiShake.Enabled then
+local myChar = LocalPlayer.Character
+FUST_BindFireTool(myChar and myChar:FindFirstChildOfClass("Tool"))
+else
+FUST_BindFireTool(nil)
+end
 AR_DriftPass()
 AS_Pass()
 if not (AntiRecoil.Enabled and AntiRecoil.Rollback) then
+return
+end
+if os.clock() < AR_AimBusyUntil then
+return
+end
+if os.clock() >= FUST_FireUntil + 0.5 then
 return
 end
 local camera = Workspace.CurrentCamera
@@ -6428,33 +6516,49 @@ warn("[FUST] Drawing недоступен в этом экзекуторе — E
 end
 AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
 AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
-fovCircle = Drawing.new("Circle")
+fovCircle = SafeDrawing("Circle")
+if fovCircle then
 fovCircle.Thickness = 1.5
 fovCircle.NumSides = 64
 fovCircle.Filled = false
 fovCircle.Radius = Aim.FOV
 fovCircle.Color = AIM_FOV_OFF
 fovCircle.Visible = false
+else
+warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
+end
 CH_GAP, CH_LEN = 5, 7
 chLines = {}
 for i = 1, 4 do
-local l = Drawing.new("Line")
+local l = SafeDrawing("Line")
+if l then
 l.Thickness = 2
 l.Color = Color3.fromRGB(255, 30, 30)
 l.Visible = false
 chLines[i] = l
 end
+end
 function updateCrosshair(center, visible)
+if chLines[1] then
 chLines[1].From = Vector2.new(center.X, center.Y - CH_GAP)
 chLines[1].To = Vector2.new(center.X, center.Y - CH_GAP - CH_LEN)
+end
+if chLines[2] then
 chLines[2].From = Vector2.new(center.X, center.Y + CH_GAP)
 chLines[2].To = Vector2.new(center.X, center.Y + CH_GAP + CH_LEN)
+end
+if chLines[3] then
 chLines[3].From = Vector2.new(center.X - CH_GAP, center.Y)
 chLines[3].To = Vector2.new(center.X - CH_GAP - CH_LEN, center.Y)
+end
+if chLines[4] then
 chLines[4].From = Vector2.new(center.X + CH_GAP, center.Y)
 chLines[4].To = Vector2.new(center.X + CH_GAP + CH_LEN, center.Y)
+end
 for i = 1, 4 do
+if chLines[i] then
 chLines[i].Visible = visible
+end
 end
 end
 aimRayParams = RaycastParams.new()
@@ -7319,14 +7423,18 @@ end
 local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 updateCrosshair(center, Aim.Crosshair)
 if not Aim.Enabled then
+if fovCircle then
 fovCircle.Visible = false
+end
 return
 end
 local part, aimPos = getAimTarget(camera)
+if fovCircle then
 fovCircle.Position = center
 fovCircle.Radius = Aim.FOV
 fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
 fovCircle.Visible = Aim.ShowFOV
+end
 if part and aimPos then
 AR_AimBusyUntil = os.clock() + 0.15
 local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
@@ -7339,12 +7447,18 @@ aimConnection:Disconnect()
 aimConnection = nil
 end
 pcall(function()
+if fovCircle then
 fovCircle:Remove()
+end
 end)
+fovCircle = nil 
 for i = 1, 4 do
 pcall(function()
+if chLines[i] then
 chLines[i]:Remove()
+end
 end)
+chLines[i] = nil
 end
 end
 HttpService = game:GetService("HttpService")
@@ -7391,6 +7505,7 @@ Distance = S.ESP.Distance,
 HealthBar = S.ESP.HealthBar,
 MaxDistance = S.ESP.MaxDistance,
 DistanceScale = S.ESP.DistanceScale,
+TeamCheck = S.ESP.TeamCheck,
 },
 BoxColor = colorToTable(S.ESPColors.Box),
 NPCColors = {
@@ -7534,6 +7649,9 @@ applyFlag("ESPHealthBar", cfg.ESP.HealthBar)
 applyFlag("ESPMaxDistance", cfg.ESP.MaxDistance)
 if cfg.ESP.DistanceScale ~= nil then
 applyFlag("ESPDistanceScale", cfg.ESP.DistanceScale)
+end
+if cfg.ESP.TeamCheck ~= nil then
+applyFlag("ESPTeamCheck", cfg.ESP.TeamCheck)
 end
 end
 if type(cfg.NPC) == "table" then
@@ -8388,7 +8506,8 @@ end
 updateBullets()
 local myChar = LocalPlayer.Character
 local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if AntiRecoil.Enabled and AntiRecoil.Offset and myChar then
+if AntiRecoil.Enabled and AntiRecoil.Offset and myChar
+and os.clock() < FUST_FireUntil then
 local myHum = myChar:FindFirstChildOfClass("Humanoid")
 if myHum and myHum.CameraOffset.Magnitude > 0 then
 myHum.CameraOffset = Vector3.new(0, 0, 0)
@@ -8433,6 +8552,8 @@ local char = player.Character
 local root = char and char:FindFirstChild("HumanoidRootPart")
 local hum = char and char:FindFirstChildOfClass("Humanoid")
 local isWhitelisted = Whitelist[player.Name] == true
+local isTeammate = S.ESP.TeamCheck and player.Team ~= nil
+and player.Team == LocalPlayer.Team
 if root then
 local orig = hitboxOriginals[player]
 if not orig or orig.Root ~= root then
@@ -8446,7 +8567,7 @@ CanQuery = root.CanQuery,
 hitboxOriginals[player] = orig
 end
 local expanded = false
-if S.Hitbox.Enabled and myRoot and not isWhitelisted then
+if S.Hitbox.Enabled and myRoot and not isWhitelisted and not isTeammate then
 expanded = true
 hitboxAppliedCount = hitboxAppliedCount + 1
 local targetSize = Vector3.new(S.Hitbox.Size, S.Hitbox.Size, S.Hitbox.Size)
@@ -8472,7 +8593,7 @@ end
 end
 local highlight = char and char:FindFirstChild("VOMAGLA_Chams")
 local hbHighlight = root and root:FindFirstChild("VOMAGLA_HitboxChams")
-if S.ESP.Enabled and S.ESP.Chams and char and root and myRoot then
+if S.ESP.Enabled and S.ESP.Chams and char and root and myRoot and not isTeammate then
 if true then
 if not highlight and not ChamsCreateBlocked then
 local okH, created = pcall(function()
@@ -8546,7 +8667,7 @@ end)
 hbHighlight = nil
 end
 end
-if S.ESP.Enabled and char and root and myRoot and hum and hum.Health > 0 then
+if S.ESP.Enabled and char and root and myRoot and hum and hum.Health > 0 and not isTeammate then
 local dist = (root.Position - myRoot.Position).Magnitude
 if dist <= S.ESP.MaxDistance * 1.06 + 10 then
 local topLeft, boxSize = getScreenBox(Camera, root)

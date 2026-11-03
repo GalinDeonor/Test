@@ -1,3 +1,125 @@
+Parent = Data.Parent.Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = FromRGB(0, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(0, 16, 0, 16),
+BorderSizePixel = 0,
+TextSize = 14,
+BackgroundColor3 = FromRGB(148, 255, 237)
+})
+Instances:Create("UICorner", {
+Parent = Items["ColorpickerButton"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Instances:Create("UIStroke", {
+Parent = Items["ColorpickerButton"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Glow"] = Instances:Create("ImageLabel", {
+Parent = Items["ColorpickerButton"].Instance,
+Name = "\0",
+ImageColor3 = FromRGB(148, 255, 237),
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 0.800000011920929,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0,
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+})
+Items["ColorpickerWindow"] = Instances:Create("TextButton", {
+Parent = Library.UnusedHolder.Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = FromRGB(0, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Position = UDim2New(0, 94, 0, 60),
+Size = UDim2New(0, 160, 0, 160),
+BorderSizePixel = 0,
+TextSize = 14,
+BackgroundColor3 = Library.Theme["Background"]
+}):AddToTheme({BackgroundColor3 = 'Background'})
+Instances:Create("UICorner", {
+Parent = Items["ColorpickerWindow"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 6)
+})
+Items["Palette"] = Instances:Create("TextButton", {
+Parent = Items["ColorpickerWindow"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = FromRGB(0, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Position = UDim2New(0, 8, 0, 8),
+Size = UDim2New(1, -40, 1, -16),
+BorderSizePixel = 0,
+TextSize = 14,
+BackgroundColor3 = FromRGB(148, 255, 237)
+})
+Instances:Create("UICorner", {
+Parent = Items["Palette"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 5)
+})
+Items["Saturation"] = Instances:Create("Frame", {
+Parent = Items["Palette"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 1, 1, 0),
+BorderSizePixel = 0
+})
+Instances:Create("UIGradient", {
+Parent = Items["Saturation"].Instance,
+Name = "\0",
+Transparency = NumSequence{NumSequenceKeypoint(0, 1), NumSequenceKeypoint(1, 0)}
+})
+Instances:Create("UICorner", {
+Parent = Items["Saturation"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 5)
+})
+Items["Value"] = Instances:Create("Frame", {
+Parent = Items["Palette"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 1, 1, 1),
+BorderSizePixel = 0,
+BackgroundColor3 = FromRGB(0, 0, 0)
+})
+Instances:Create("UIGradient", {
+Parent = Items["Value"].Instance,
+Name = "\0",
+Rotation = 90,
+Transparency = NumSequence{NumSequenceKeypoint(0, 1), NumSequenceKeypoint(1, 0)}
+})
+Instances:Create("UICorner", {
+Parent = Items["Value"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 5)
+})
+Items["PaletteDragger"] = Instances:Create("Frame", {
+Parent = Items["Palette"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 5, 0, 5),
+BorderSizePixel = 0
+})
+Instances:Create("UIStroke", {
+Parent = Items["PaletteDragger"].Instance,
 Name = "\0"
 })
 Instances:Create("UICorner", {
@@ -1364,82 +1486,3 @@ Items["Icon"]:ChangeItemTheme({ImageColor3 = "Text"})
 Items["Text"]:Tween(nil, {TextColor3 = Library.Theme.Text, TextTransparency = 0.4})
 Items["Icon"]:Tween(nil, {ImageColor3 = Library.Theme.Text, ImageTransparency = 0.4})
 for _, Name in Page.TabOrder do
-Page.Tabs[Name].Button.Instance.Visible = false
-end
-local HiddenTab = Page.CurrentTab and Page.Tabs[Page.CurrentTab] or nil
-if HiddenTab and HiddenTab.OnHide then
-HiddenTab.OnHide()
-end
-end
-task.delay(0.25, function()
-Debounce = false
-end)
-end
-Items["Inactive"]:Connect("MouseEnter", function()
-if not Page.Active then
-Items["Text"]:Tween(nil, {TextTransparency = 0.12})
-Items["Icon"]:Tween(nil, {ImageTransparency = 0.12})
-Items["Background"]:Tween(nil, {BackgroundTransparency = 0.93, Size = UDim2New(1, 0, 0, 35)})
-end
-end)
-Items["Inactive"]:Connect("MouseLeave", function()
-if not Page.Active then
-Items["Text"]:Tween(nil, {TextTransparency = 0.4})
-Items["Icon"]:Tween(nil, {ImageTransparency = 0.4})
-Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
-end
-end)
-Items["Inactive"]:Connect("MouseButton1Down", function()
-for Index, Value in Page.Window.Pages do
-if Value == Page and Page.Active then
-return
-end
-Value:Turn(Value == Page)
-end
-end)
-if #Page.Window.Pages == 0 then
-Page:Turn(true)
-end
-TableInsert(Page.Window.Pages, Page)
-return setmetatable(Page, Library.Pages)
-end
-Library.Group = function(self, Name)
-self._NavCounter = (self._NavCounter or 0) + 1
-Instances:Create("TextLabel", {
-Parent = self.Items["Pages"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-Text = Name,
-TextColor3 = Library.Theme["Text"],
-TextTransparency = 0.55,
-TextSize = 12,
-TextXAlignment = Enum.TextXAlignment.Left,
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-BorderSizePixel = 0,
-Size = UDim2New(1, 0, 0, 16),
-LayoutOrder = self._NavCounter
-}):AddToTheme({TextColor3 = 'Text'})
-end
-Library.Pages.Section = function(self, Data)
-Data = Data or { }
-local Section = {
-Window = self.Window,
-Page = self,
-Name = Data.Name or Data.name or "Section",
-Side = math.clamp(Data.Side or Data.side or 1, 1, 2),
-Icon = Data.Icon or Data.icon or "rbxassetid://127136375066593",
-Items = { }
-}
-local Tab = Section.Page:GetTab(Data.Tab)
-local TargetColumn = Tab.Columns[Section.Side].Instance
-local Items = { } do
-Items["SectionOutline"] = Instances:Create("Frame", {
-Parent = TargetColumn,
-Name = "\0",
-Size = UDim2New(1, 0, 0, 44),
-BorderColor3 = FromRGB(0, 0, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.Y,
-BackgroundColor3 = Library.Theme["Outline"]
-}):AddToTheme({BackgroundColor3 = 'Outline'})

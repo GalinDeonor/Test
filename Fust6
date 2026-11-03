@@ -1,4 +1,34 @@
+end
+function saveConfig()
+local okFile, err = pcall(function()
+local wl = {}
+for name in pairs(Whitelist) do
+table.insert(wl, name)
+end
+table.sort(wl)
+local hotkeyKey, hotkeyMode = nil, nil
+if AimHotkeyObj and AimHotkeyObj.Value and AimHotkeyObj.Value ~= "None" and AimHotkeyObj.Get then
+local okHK, hkKey, hkMode = pcall(function()
+return AimHotkeyObj:Get()
+end)
+if okHK and type(hkKey) == "string" and hkKey ~= "" then
+hotkeyKey = hkKey
+hotkeyMode = (hkMode == "Hold" or hkMode == "Always") and hkMode or "Toggle"
+end
+end
+local cfg = {
+ESP = {
+Enabled = S.ESP.Enabled,
+Box = S.ESP.Box,
+Chams = S.ESP.Chams,
+ChamsTransparency = S.ESP.ChamsTransparency,
+Name = S.ESP.Name,
+Item = S.ESP.Item,
+Distance = S.ESP.Distance,
+HealthBar = S.ESP.HealthBar,
+MaxDistance = S.ESP.MaxDistance,
 DistanceScale = S.ESP.DistanceScale,
+TeamCheck = S.ESP.TeamCheck,
 },
 BoxColor = colorToTable(S.ESPColors.Box),
 NPCColors = {
@@ -142,6 +172,9 @@ applyFlag("ESPHealthBar", cfg.ESP.HealthBar)
 applyFlag("ESPMaxDistance", cfg.ESP.MaxDistance)
 if cfg.ESP.DistanceScale ~= nil then
 applyFlag("ESPDistanceScale", cfg.ESP.DistanceScale)
+end
+if cfg.ESP.TeamCheck ~= nil then
+applyFlag("ESPTeamCheck", cfg.ESP.TeamCheck)
 end
 end
 if type(cfg.NPC) == "table" then
@@ -996,7 +1029,8 @@ end
 updateBullets()
 local myChar = LocalPlayer.Character
 local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if AntiRecoil.Enabled and AntiRecoil.Offset and myChar then
+if AntiRecoil.Enabled and AntiRecoil.Offset and myChar
+and os.clock() < FUST_FireUntil then
 local myHum = myChar:FindFirstChildOfClass("Humanoid")
 if myHum and myHum.CameraOffset.Magnitude > 0 then
 myHum.CameraOffset = Vector3.new(0, 0, 0)
@@ -1041,6 +1075,8 @@ local char = player.Character
 local root = char and char:FindFirstChild("HumanoidRootPart")
 local hum = char and char:FindFirstChildOfClass("Humanoid")
 local isWhitelisted = Whitelist[player.Name] == true
+local isTeammate = S.ESP.TeamCheck and player.Team ~= nil
+and player.Team == LocalPlayer.Team
 if root then
 local orig = hitboxOriginals[player]
 if not orig or orig.Root ~= root then
@@ -1054,7 +1090,7 @@ CanQuery = root.CanQuery,
 hitboxOriginals[player] = orig
 end
 local expanded = false
-if S.Hitbox.Enabled and myRoot and not isWhitelisted then
+if S.Hitbox.Enabled and myRoot and not isWhitelisted and not isTeammate then
 expanded = true
 hitboxAppliedCount = hitboxAppliedCount + 1
 local targetSize = Vector3.new(S.Hitbox.Size, S.Hitbox.Size, S.Hitbox.Size)
@@ -1080,7 +1116,7 @@ end
 end
 local highlight = char and char:FindFirstChild("VOMAGLA_Chams")
 local hbHighlight = root and root:FindFirstChild("VOMAGLA_HitboxChams")
-if S.ESP.Enabled and S.ESP.Chams and char and root and myRoot then
+if S.ESP.Enabled and S.ESP.Chams and char and root and myRoot and not isTeammate then
 if true then
 if not highlight and not ChamsCreateBlocked then
 local okH, created = pcall(function()
@@ -1154,7 +1190,7 @@ end)
 hbHighlight = nil
 end
 end
-if S.ESP.Enabled and char and root and myRoot and hum and hum.Health > 0 then
+if S.ESP.Enabled and char and root and myRoot and hum and hum.Health > 0 and not isTeammate then
 local dist = (root.Position - myRoot.Position).Magnitude
 if dist <= S.ESP.MaxDistance * 1.06 + 10 then
 local topLeft, boxSize = getScreenBox(Camera, root)
