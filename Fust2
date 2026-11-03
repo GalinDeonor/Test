@@ -1,3 +1,48 @@
+else
+Config[Index] = Value
+end
+end)
+end
+return HttpService:JSONEncode(Config)
+end
+Library.LoadConfig = function(self, Config)
+local OkDecoded, Decoded = pcall(function()
+return HttpService:JSONDecode(Config)
+end)
+if not OkDecoded or type(Decoded) ~= "table" then
+warn("[alt.gg] LoadConfig: файл конфига битый")
+return false
+end
+for Index, Value in Decoded do
+local SetFunction = Library.SetFlags[Index]
+if SetFunction then
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+SetFunction(Value)
+elseif type(Value) == "table" and Value.Color ~= nil then
+SetFunction(Value.Color)
+else
+SetFunction(Value)
+end
+end)
+end
+end
+return true
+end
+Library.DeleteConfig = function(self, Config)
+if isfile(Library.Folders.Configs .. "/" .. Config) then
+delfile(Library.Folders.Configs .. "/" .. Config)
+end
+end
+Library.RefreshConfigsList = function(self, Element)
+local List = { }
+local ReturnList = { }
+List = listfiles(Library.Folders.Configs)
+for Index = 1, #List do
+local File = List[Index]
+if File:sub(-5) == ".json" then
+local Position = File:find(".json", 1, true)
+local StartPosition = Position
 local Character = File:sub(Position, Position)
 while Character ~= "/" and Character ~= "\\" and Character ~= "" do
 Position = Position - 1
@@ -1550,3 +1595,33 @@ Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0
 Items["Text"]:ChangeItemTheme({TextColor3 = "Text"})
 Items["Icon"]:ChangeItemTheme({ImageColor3 = "Text"})
 Items["Text"]:Tween(nil, {TextColor3 = Library.Theme.Text, TextTransparency = 0.4})
+Items["Icon"]:Tween(nil, {ImageColor3 = Library.Theme.Text, ImageTransparency = 0.4})
+for _, Name in Page.TabOrder do
+Page.Tabs[Name].Button.Instance.Visible = false
+end
+local HiddenTab = Page.CurrentTab and Page.Tabs[Page.CurrentTab] or nil
+if HiddenTab and HiddenTab.OnHide then
+HiddenTab.OnHide()
+end
+end
+task.delay(0.25, function()
+Debounce = false
+end)
+end
+Items["Inactive"]:Connect("MouseEnter", function()
+if not Page.Active then
+Items["Text"]:Tween(nil, {TextTransparency = 0.12})
+Items["Icon"]:Tween(nil, {ImageTransparency = 0.12})
+Items["Background"]:Tween(nil, {BackgroundTransparency = 0.93, Size = UDim2New(1, 0, 0, 35)})
+end
+end)
+Items["Inactive"]:Connect("MouseLeave", function()
+if not Page.Active then
+Items["Text"]:Tween(nil, {TextTransparency = 0.4})
+Items["Icon"]:Tween(nil, {ImageTransparency = 0.4})
+Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
+end
+end)
+Items["Inactive"]:Connect("MouseButton1Down", function()
+for Index, Value in Page.Window.Pages do
+if Value == Page and Page.Active then

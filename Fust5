@@ -1,176 +1,4 @@
 end
-wlInput.Text = ""
-pcall(function()
-wlInput:ReleaseFocus()
-end)
-end)
-Players.PlayerAdded:Connect(function()
-task.defer(rebuildPlayerList)
-end)
-Players.PlayerRemoving:Connect(function()
-task.defer(rebuildPlayerList)
-end)
-rebuildPlayerList()
-Aim = {
-Enabled = false,
-ShowFOV = false,
-FOV = 150, 
-Distance = 500, 
-Smooth = 4, 
-Prediction = 0.5, 
-Part = "Head", 
-Priority = "Прицел", 
-WallCheck = true,
-TeamCheck = false,
-Crosshair = false,
-TargetsPlayers = true, 
-TargetsNPC = false, 
-TargetsAnimals = false, 
-TargetsSleepers = false, 
-AutoPredict = false, 
-AutoPredictK = 1, 
-}
-AutoAim = {
-Enabled = false, 
-Radius = 500, 
-}
-AA_EnemyNear = false 
-AA_NearestDist = nil 
-AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
-AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
-AimHotkeyObj = nil 
-AimHotkeyBusy = false 
-UIRegistry.AimEnabled = AimSection:Toggle({
-Name = "Аимбот (камера-лок)",
-Flag = "AimEnabled",
-Default = false,
-Callback = function(state)
-Aim.Enabled = state
-if AimHotkeyObj then
-AimHotkeyObj.Toggled = state
-end
-journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-hasKeyboard = false
-pcall(function()
-hasKeyboard = (UserInputService.KeyboardEnabled == true)
-end)
-if hasKeyboard then
-AimHotkeyBusy = true
-AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
-Flag = "AimHotkey",
-Default = Enum.KeyCode.RightAlt,
-Mode = "Toggle",
-Callback = function(state)
-if AimHotkeyBusy then return end
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-UIRegistry.AimEnabled:Set(state)
-end
-end
-})
-AimHotkeyBusy = false
-UIRegistry.AimHotkey = AimHotkeyObj
-end
-UIRegistry.AimShowFOV = AimSection:Toggle({
-Name = "FOV круг (зеленеет при захвате)",
-Flag = "AimShowFOV",
-Default = false,
-Callback = function(state)
-Aim.ShowFOV = state
-end
-})
-UIRegistry.AimWallCheck = AimSection:Toggle({
-Name = "Проверка стен",
-Flag = "AimWallCheck",
-Default = true,
-Callback = function(state)
-Aim.WallCheck = state
-end
-})
-UIRegistry.AimTeamCheck = AimSection:Toggle({
-Name = "Не целить тимейтов (одна команда)",
-Flag = "AimTeamCheck",
-Default = false,
-Callback = function(state)
-Aim.TeamCheck = state
-end
-})
-UIRegistry.AimCrosshair = AimSection:Toggle({
-Name = "Красный прицел по центру",
-Flag = "AimCrosshair",
-Default = false,
-Callback = function(state)
-Aim.Crosshair = state
-end
-})
-UIRegistry.AimFOV = AimSection:Slider({
-Name = "FOV радиус",
-Flag = "AimFOV",
-Default = 150,
-Min = 50,
-Max = 400,
-Decimals = 5,
-Suffix = "px",
-Callback = function(Value)
-Aim.FOV = Value
-end
-})
-UIRegistry.AimDistance = AimSection:Slider({
-Name = "Дистанция аима",
-Flag = "AimDistance",
-Default = 500,
-Min = 50,
-Max = 1500,
-Decimals = 10,
-Suffix = "m",
-Callback = function(Value)
-Aim.Distance = Value
-end
-})
-UIRegistry.AimSmooth = AimSection:Slider({
-Name = "Smooth (1 резко — 20 плавно)",
-Flag = "AimSmooth",
-Default = 4,
-Min = 1,
-Max = 20,
-Decimals = 1,
-Callback = function(Value)
-Aim.Smooth = Value
-end
-})
-UIRegistry.AimPrediction = AimSection:Slider({
-Name = "Предикт (упреждение)",
-Flag = "AimPrediction",
-Default = 0.5,
-Min = 0,
-Max = 2,
-Decimals = 0.05,
-Suffix = "с",
-Callback = function(Value)
-Aim.Prediction = Value
-end
-})
-UIRegistry.AimAutoPredict = AimSection:Toggle({
-Name = "Авто-предикт (подстраивается под цель)",
-Flag = "AimAutoPredict",
-Default = false,
-Callback = function(state)
-Aim.AutoPredict = state
-journal("АВТО-ПРЕДИКТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AimAutoPredictK = AimSection:Slider({
-Name = "Авто-предикт: коэффициент",
-Flag = "AimAutoPredictK",
-Default = 1,
-Min = 0.2,
-Max = 3,
-Decimals = 0.1,
-Suffix = "x",
-Callback = function(Value)
-Aim.AutoPredictK = Value
-end
 })
 AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
 UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
@@ -847,11 +675,14 @@ end)
 trackedBackpacks = {} 
 bpDrawings = {} 
 BP_NAME_PATTERNS = {
-"кзак", "backpack", "умк", "ешок", "руп", "станк", "роп",
-"corpse", "deadbody", "dead body", "loot", "lootbag", "dropbag",
+"кзак", "backpack", "умк", "ешок", "руп",
+"corpse", "deadbody", "dead body", "lootbag", "loot bag", "dropbag", "drop bag",
 }
-BP_PROMPT_PATTERNS = { "кзак", "backpack", "лут", "ут", "loot", "обыск", "search" }
+BP_PROMPT_PATTERNS = { "кзак", "ackpack", "умк", "ешок", "руп", "corpse", "deadbody", "обыч", "лут", "Лут", "loot", "быск", "search" }
 BP_TAGS = { "FustBackpack", "Backpack", "LootBag", "LootBackpack", "Corpse", "FustCorpse", "DeadBody" }
+CT_NAME_PATTERNS = { "очк", "barrel", "щик", "crate", "chest", "онтейнер", "container", "lootbox" }
+CT_PROMPT_PATTERNS = { "очк", "barrel", "щик", "crate", "chest", "онтейнер", "container", "lootbox" }
+CT_TAGS = { "FustLoot", "LootCrate", "LootBarrel", "LootContainer", "Barrel", "Crate" }
 BP_OWNER_ATTRS = { "owner", "ownername", "ownerplayer", "player", "playername", "creator", "creatorname", "nick", "nickname", "username" }
 BP_OWNERID_ATTRS = { "ownerid", "owneruserid", "userid", "playerid" }
 BP_USED_ATTRS = { "usedslots", "filledslots", "slotsused", "slotstaken", "takenslots", "items", "itemcount", "itemscount", "lootcount", "count", "amount" }
@@ -912,17 +743,31 @@ return false
 end
 return true
 end
-function bpMatchesLoot(inst)
-if bpMatchesFragments(bpNameLower(inst), BP_NAME_PATTERNS) then
-return true
+function bpClassify(inst)
+local nameL = bpNameLower(inst)
+if bpMatchesFragments(nameL, CT_NAME_PATTERNS) then
+return "cont"
+end
+if bpMatchesFragments(nameL, BP_NAME_PATTERNS) then
+return "bag"
 end
 local okP, prompt = pcall(function()
 return inst:FindFirstChildOfClass("ProximityPrompt")
 end)
-if okP and prompt and bpCheckPromptText(prompt) then
-return true
+if okP and prompt then
+local okT, txt = pcall(function()
+return string.lower(tostring(prompt.ObjectText)) .. " " .. tostring(prompt.ActionText)
+end)
+if okT and txt then
+if bpMatchesFragments(txt, CT_PROMPT_PATTERNS) then
+return "cont"
 end
-return false
+if bpMatchesFragments(txt, BP_PROMPT_PATTERNS) then
+return "bag"
+end
+end
+end
+return nil
 end
 function bpTryTrack(inst)
 if trackedBackpacks[inst] then
@@ -931,9 +776,30 @@ end
 if not bpIsEligibleInstance(inst) then
 return
 end
-if bpMatchesLoot(inst) then
-trackedBackpacks[inst] = {}
+local cat = bpClassify(inst)
+if cat then
+trackedBackpacks[inst] = { Cat = cat }
 end
+end
+function bpScanContainer(root, maxDepth)
+local function walk(parent, depth)
+if depth > maxDepth then
+return
+end
+local okC, kids = pcall(function()
+return parent:GetChildren()
+end)
+if not okC or type(kids) ~= "table" then
+return
+end
+for _, ch in ipairs(kids) do
+if ch:IsA("Model") or ch:IsA("BasePart") then
+bpTryTrack(ch)
+end
+walk(ch, depth + 1)
+end
+end
+walk(root, 1)
 end
 function bpEnsureDrawings(inst)
 local ed = bpDrawings[inst]
@@ -1000,6 +866,9 @@ for inst in pairs(bpDrawings) do
 bpRemoveDrawings(inst)
 end
 table.clear(trackedBackpacks)
+if bpOpenCacheInst then
+table.clear(bpOpenCacheInst) 
+end
 end
 function bpGetBBox(inst)
 local e = trackedBackpacks[inst]
@@ -1082,9 +951,186 @@ end
 end
 return nil
 end
+bpOpenCacheInst = {} 
+bpOpenCacheTitle = {} 
+BP_OPEN_TTL = 900 
+bpUiScanAt = {} 
+function bpLooksLikeBagTitle(text)
+if type(text) ~= "string" or #text < 4 or #text > 64 then
+return false
+end
+return bpMatchesFragments(string.lower(text), {
+"кзак", "ackpack", "умк", "ешок", "руп", "corpse", "обыч", "лут", "Лут", "loot",
+})
+end
+function bpSlotsFromUiText(text)
+if type(text) ~= "string" or #text > 24 then
+return nil
+end
+local t = string.lower(text)
+if string.find(t, "счез", 1, true) or string.find(t, "ерез", 1, true)
+or string.find(t, "xpire", 1, true) or string.find(t, "espawn", 1, true)
+or string.find(t, "lapse", 1, true) or string.find(t, "кг", 1, true)
+or string.find(t, "kg", 1, true) or string.find(t, "вес", 1, true)
+or string.find(t, "weight", 1, true) or string.find(t, "минут", 1, true)
+or string.find(t, "хп", 1, true) or string.find(t, "hp", 1, true) then
+return nil
+end
+local u, m = string.match(text, "^%s*(%d+)%s*/%s*(%d+)%s*$")
+if u and m then
+return u .. "/" .. m
+end
+if #text <= 16 then
+u, m = string.match(text, "(%d+)%s*/%s*(%d+)")
+if u and m then
+return u .. "/" .. m
+end
+end
+return nil
+end
+function bpRememberOpenUI(owner, slots, titleLower)
+if slots == nil and owner == nil then
+return
+end
+local rec = { Owner = owner, Slots = slots, At = os.clock() }
+if titleLower then
+bpOpenCacheTitle[titleLower] = rec
+end
+local cam = Workspace.CurrentCamera
+if cam then
+local cc = cam.ViewportSize * 0.5
+local best, bestD = nil, 320
+for inst, e in pairs(trackedBackpacks) do
+if (e.Cat or "bag") == "bag" then
+local cf = e.BBoxCF
+if not cf then
+cf = bpGetBBox(inst)
+end
+if cf then
+local okP, pt = pcall(function()
+return cam:WorldToViewportPoint(cf.Position)
+end)
+if okP and pt and pt.Z > 0 then
+local dd = (Vector2.new(pt.X, pt.Y) - cc).Magnitude
+if dd < bestD then
+best, bestD = inst, dd
+end
+end
+end
+end
+end
+if best then
+bpOpenCacheInst[best] = rec
+if S.Loot.DebugLog then
+print("[FUST][ЛУТ-UI] запомнили мешок: владелец=" .. tostring(owner) .. " слоты=" .. tostring(slots))
+end
+end
+end
+end
+function bpCaptureBagGui(gui, force)
+local now = os.clock()
+if not force and bpUiScanAt[gui] and now - bpUiScanAt[gui] < 3 then
+return
+end
+bpUiScanAt[gui] = now
+local okD, desc = pcall(function()
+return gui:GetDescendants()
+end)
+if not okD or type(desc) ~= "table" then
+return
+end
+local titleIdx, title, titleLower, owner
+for idx, d in ipairs(desc) do
+if titleIdx then
+break
+end
+if d:IsA("TextLabel") or d:IsA("TextButton") then
+local okT, txt = pcall(function()
+return tostring(d.Text)
+end)
+if okT and txt and bpLooksLikeBagTitle(txt) then
+titleIdx, title, titleLower = idx, txt, string.lower(txt)
+owner = bpOwnerFromLabel(txt)
+if owner and (string.find(string.lower(owner), "ерсонаж", 1, true)
+or string.find(string.lower(owner), "владел", 1, true)) then
+owner = nil
+end
+end
+end
+end
+if titleIdx == nil then
+return
+end
+local slots, slotsWeak
+local lastIdx = math.min(#desc, titleIdx + 400)
+for idx = titleIdx + 1, lastIdx do
+local d = desc[idx]
+if d:IsA("TextLabel") or d:IsA("TextButton") then
+local okT, txt = pcall(function()
+return tostring(d.Text)
+end)
+if okT and txt then
+local s = bpSlotsFromUiText(txt)
+if s then
+if string.match(txt, "^%s*(%d+)%s*/%s*(%d+)%s*$") then
+slots = s
+break
+elseif slotsWeak == nil then
+slotsWeak = s
+end
+end
+end
+end
+end
+slots = slots or slotsWeak
+if S.Loot.DebugLog then
+print("[FUST][ЛУТ-UI] экран мешка: заголовок=[" .. tostring(title)
+.. "] владелец=" .. tostring(owner) .. " слоты=" .. tostring(slots))
+end
+bpRememberOpenUI(owner, slots, titleLower)
+end
+function bpScanOpenBagUI()
+local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if not pg then
+return
+end
+local okG, guis = pcall(function()
+return pg:GetChildren()
+end)
+if not okG or type(guis) ~= "table" then
+return
+end
+for _, gui in ipairs(guis) do
+if gui:IsA("LayerCollector") then
+local nameL = string.lower(tostring(gui.Name))
+if not string.find(nameL, "petuh", 1, true) then
+bpCaptureBagGui(gui)
+end
+end
+end
+end
 function bpReadInfo(inst)
 local owner
 local slotsUsed, slotsMax, itemCount
+local cached = bpOpenCacheInst[inst]
+if cached and os.clock() - (cached.At or 0) > BP_OPEN_TTL then
+cached = nil
+bpOpenCacheInst[inst] = nil
+end
+if cached then
+if owner == nil then
+owner = cached.Owner
+end
+if slotsUsed == nil and cached.Slots then
+local cu, cm = string.match(cached.Slots, "(%d+)%s*/%s*(%d+)")
+if cu and cm then
+slotsUsed = tonumber(cu)
+slotsMax = tonumber(cm)
+else
+slotsUsed = tonumber(cached.Slots)
+end
+end
+end
 local okA, attrs = pcall(function()
 return inst:GetAttributes()
 end)
@@ -1291,6 +1337,17 @@ end
 end
 end
 if owner == nil then
+local okN9, nm9 = pcall(function()
+return tostring(inst.Name)
+end)
+if okN9 and nm9 then
+local rec9 = bpOpenCacheTitle[string.lower(nm9)]
+if rec9 and os.clock() - (rec9.At or 0) <= BP_OPEN_TTL then
+owner = rec9.Owner
+end
+end
+end
+if owner == nil then
 local nameL = bpNameLower(inst)
 if #nameL > 0 then
 for _, plr in ipairs(Players:GetPlayers()) do
@@ -1354,22 +1411,30 @@ function updateBackpackEsp(camera, myRoot)
 for inst in pairs(trackedBackpacks) do
 if not inst.Parent or not inst:IsDescendantOf(Workspace) then
 bpRemoveDrawings(inst)
+bpOpenCacheInst[inst] = nil
 trackedBackpacks[inst] = nil
 end
 end
-if not S.Loot.Enabled or not myRoot then
+if (not S.Loot.Enabled and not S.LootC.Enabled) or not myRoot then
 bpHideAll()
 return
 end
 local now = os.clock()
 for inst, e in pairs(trackedBackpacks) do
-if not e.InfoAt or now - e.InfoAt > 2 then
+local cat = e.Cat or "bag"
+local catOn = (cat == "bag" and S.Loot.Enabled) or (cat == "cont" and S.LootC.Enabled)
+if not catOn then
+bpHideDrawings(inst)
+else
+if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 2) then
 e.Info = bpReadInfo(inst)
 e.InfoAt = now
 end
 local cf, sz = bpGetBBox(inst)
 local dist = cf and (cf.Position - myRoot.Position).Magnitude
-if cf and dist and dist <= S.Loot.MaxDistance * 1.06 + 10 then
+local maxD = (cat == "bag") and S.Loot.MaxDistance or S.LootC.MaxDistance
+local col = (cat == "bag") and LOOT_COLOR or LOOTC_COLOR
+if cf and dist and dist <= maxD * 1.06 + 10 then
 local topLeft, boxSize = bpProject(camera, cf, sz)
 if topLeft then
 local MINW, MINH = 8, 11
@@ -1389,7 +1454,7 @@ local centerX = bx + bw * 0.5
 local ed = bpEnsureDrawings(inst)
 local info = e.Info or {}
 local bpChams = inst:FindFirstChild("PETUH_LootChams")
-if S.Loot.Chams then
+if cat == "bag" and S.Loot.Chams then
 if not bpChams and not ChamsCreateBlocked then
 local okH, created = pcall(function()
 local h = Instance.new("Highlight")
@@ -1420,36 +1485,49 @@ pcall(function()
 bpChams:Destroy()
 end)
 end
-if S.Loot.Box then
+if (cat == "bag" and S.Loot.Box) or (cat == "cont" and S.LootC.Box) then
 ed.Box.Position = Vector2.new(bx, by)
 ed.Box.Size = Vector2.new(bw, bh)
-ed.Box.Color = LOOT_COLOR
+ed.Box.Color = col
 ed.Box.Visible = true
 else
 ed.Box.Visible = false
 end
 local textY = by + bh + 3
-if S.Loot.Slots then
+if cat == "bag" and S.Loot.Slots then
 ed.Slots.Text = info.Slots or "слоты ??"
 ed.Slots.Position = Vector2.new(centerX, textY)
-ed.Slots.Color = LOOT_COLOR
+ed.Slots.Color = col
+ed.Slots.Visible = true
+textY = textY + 17
+elseif cat == "cont" and S.LootC.Name then
+local nm = "контейнер"
+pcall(function()
+nm = tostring(inst.Name)
+if #nm > 22 then
+nm = string.sub(nm, 1, 22) .. "…"
+end
+end)
+ed.Slots.Text = nm
+ed.Slots.Position = Vector2.new(centerX, textY)
+ed.Slots.Color = col
 ed.Slots.Visible = true
 textY = textY + 17
 else
 ed.Slots.Visible = false
 end
-if S.Loot.Distance then
+if (cat == "bag" and S.Loot.Distance) or (cat == "cont" and S.LootC.Distance) then
 ed.Distance.Text = math.floor(dist + 0.5) .. "m"
 ed.Distance.Position = Vector2.new(centerX, textY)
-ed.Distance.Color = LOOT_COLOR
+ed.Distance.Color = col
 ed.Distance.Visible = true
 else
 ed.Distance.Visible = false
 end
-if S.Loot.Owner and info.Owner then
+if cat == "bag" and S.Loot.Owner and info.Owner then
 ed.Owner.Text = tostring(info.Owner)
 ed.Owner.Position = Vector2.new(centerX, by - 18)
-ed.Owner.Color = LOOT_COLOR
+ed.Owner.Color = col
 ed.Owner.Visible = true
 else
 ed.Owner.Visible = false
@@ -1459,19 +1537,21 @@ bpHideDrawings(inst)
 end
 else
 bpHideDrawings(inst)
-if dist and dist > S.Loot.MaxDistance * 1.25 + 50 then
+if dist and dist > maxD * 1.25 + 50 then
 bpRemoveDrawings(inst)
+end
 end
 end
 end
 end
 task.spawn(function()
 while getgenv().FUST_SESSION == FUST_SESSION do
-if S.Loot.Enabled then
+if S.Loot.Enabled or S.LootC.Enabled then
 pcall(function()
 for inst in pairs(trackedBackpacks) do
 if not inst.Parent or not inst:IsDescendantOf(Workspace) then
 bpRemoveDrawings(inst)
+bpOpenCacheInst[inst] = nil
 trackedBackpacks[inst] = nil
 end
 end
@@ -1484,6 +1564,15 @@ bpTryTrack(inst)
 end
 end
 end
+for _, tag in ipairs(CT_TAGS) do
+local okT2, tagged2 = pcall(CollectionService.GetTagged, CollectionService, tag)
+if okT2 and type(tagged2) == "table" then
+for _, inst in ipairs(tagged2) do
+bpTryTrack(inst)
+end
+end
+end
+bpScanOpenBagUI()
 end)
 end
 task.wait(1)
@@ -1491,7 +1580,7 @@ end
 end)
 pcall(function()
 Library:Connect(Workspace.DescendantAdded, function(inst)
-if not S.Loot.Enabled then
+if not S.Loot.Enabled and not S.LootC.Enabled then
 return
 end
 if inst:IsA("ProximityPrompt") then
@@ -1507,8 +1596,11 @@ end
 if holder then
 if trackedBackpacks[holder] then
 trackedBackpacks[holder].InfoAt = nil
-elseif bpCheckPromptText(inst) and bpIsEligibleInstance(holder) then
-trackedBackpacks[holder] = {}
+elseif bpIsEligibleInstance(holder) then
+local catH = bpClassify(holder)
+if catH then
+trackedBackpacks[holder] = { Cat = catH }
+end
 end
 end
 end)
@@ -1578,9 +1670,10 @@ end
 end)
 local info = e.Info or {}
 print(string.format(
-"[FUST][ЛУТ] %s (%s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
+"[FUST][ЛУТ] %s (%s, %s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
 okN and instName or "?",
 inst.ClassName,
+e.Cat or "bag",
 okPar and parentName or "?",
 tostring(info.Owner),
 tostring(info.Slots),
@@ -1590,7 +1683,16 @@ kidsText,
 textsText
 ))
 end
-print("[FUST][ЛУТ] всего отслежено: " .. tostring(count))
+local bagsN, contN = 0, 0
+for _, e2 in pairs(trackedBackpacks) do
+if (e2.Cat or "bag") == "bag" then
+bagsN = bagsN + 1
+else
+contN = contN + 1
+end
+end
+print("[FUST][ЛУТ] всего отслежено: " .. tostring(count)
+.. " (мешков: " .. tostring(bagsN) .. ", контейнеров: " .. tostring(contN) .. ")")
 if count == 0 then
 local cam = Workspace.CurrentCamera
 local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -1753,60 +1855,3 @@ aimConnection:Disconnect()
 return
 end
 local camera = Workspace.CurrentCamera
-if not camera then
-return
-end
-local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-updateCrosshair(center, Aim.Crosshair)
-if not Aim.Enabled then
-if fovCircle then
-fovCircle.Visible = false
-end
-return
-end
-local part, aimPos = getAimTarget(camera)
-if fovCircle then
-fovCircle.Position = center
-fovCircle.Radius = Aim.FOV
-fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
-fovCircle.Visible = Aim.ShowFOV
-end
-if part and aimPos then
-AR_AimBusyUntil = os.clock() + 0.15
-local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
-camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPos), alpha)
-end
-end)
-getgenv().FUST_AimCleanup = function()
-if aimConnection then
-aimConnection:Disconnect()
-aimConnection = nil
-end
-pcall(function()
-if fovCircle then
-fovCircle:Remove()
-end
-end)
-fovCircle = nil 
-for i = 1, 4 do
-pcall(function()
-if chLines[i] then
-chLines[i]:Remove()
-end
-end)
-chLines[i] = nil
-end
-end
-function autoAimTick()
-if not AutoAim.Enabled then
-AA_EnemyNear = false
-AA_NearestDist = nil
-return
-end
-local myChar = LocalPlayer.Character
-local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if not myRoot then
-return 
-end
-local bestDist = math.huge
-local bestName = nil

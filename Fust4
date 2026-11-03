@@ -1,111 +1,3 @@
-Name = NameOrData,
-Min = Min,
-Max = Max,
-Default = Default,
-Callback = Callback
-})
-end
-function Library.Sections:AddDropdown(NameOrData, Items, Default, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateDropdown(Data)
-end
-return self:CreateDropdown({
-Name = NameOrData,
-Items = Items,
-Default = Default,
-Callback = Callback
-})
-end
-function Library.Sections:AddTextbox(NameOrData, Placeholder, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateTextbox(Data)
-end
-return self:CreateTextbox({
-Name = NameOrData,
-Placeholder = Placeholder,
-Callback = Callback
-})
-end
-function Library.Sections:AddLabel(TextOrData)
-if type(TextOrData) == "table" then
-local Data = NormalizeNamedData(TextOrData)
-return self:CreateLabel(Data.Name or Data.Text or Data.text or "Label")
-end
-return self:CreateLabel(TextOrData)
-end
-getgenv().Library = Library
-return Library
-end)()
-pcall(function()
-local function reparent(gui)
-if not gui or not gui.Instance then
-return
-end
-local coreGui = game:GetService("CoreGui")
-gui.Instance.Parent = coreGui
-if gui.Instance.Parent ~= coreGui then
-local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-if pg then
-gui.Instance.Parent = pg
-gui.Instance.DisplayOrder = 999999
-end
-else
-gui.Instance.DisplayOrder = 999999
-end
-end
-reparent(Library.Holder)
-reparent(Library.UnusedHolder)
-end)
-print("[FUST] 2/4: библиотека готова, создаю окно...")
-Window = Library:Window({
-Name = "Пьяный Петух",
-SubName = "FUST Survival · на основе VOMAGLA",
-Logo = "rbxassetid://134242818164054"
-})
-pcall(function()
-Library.Theme.Accent = Color3.fromRGB(240, 130, 30)
-Library:ChangeTheme("Accent", Library.Theme.Accent)
-end)
-MainFrame = Window.Items["MainFrame"].Instance
-WINDOW_MARGIN = 8
-function getViewSize()
-local cam = Workspace.CurrentCamera
-local vp = (cam and cam.ViewportSize and cam.ViewportSize.X > 100)
-and cam.ViewportSize or Vector2.new(1280, 800)
-pcall(function()
-local inset = game:GetService("GuiService"):GetGuiInset()
-vp = Vector2.new(vp.X, vp.Y - inset.Y)
-end)
-return vp
-end
-function windowedSize(vp)
-local w = math.clamp(math.min(900, vp.X - 24), 320, 900)
-local h = math.clamp(math.min(600, vp.Y - 90), 240, 600)
-w = math.max(200, math.min(w, vp.X - WINDOW_MARGIN * 2))
-h = math.max(150, math.min(h, vp.Y - WINDOW_MARGIN * 2))
-return math.floor(w), math.floor(h)
-end
-function clampWindowOnScreen()
-pcall(function()
-local vp = getViewSize()
-local maxW = math.max(200, vp.X - WINDOW_MARGIN * 2)
-local maxH = math.max(150, vp.Y - WINDOW_MARGIN * 2)
-local w = math.min(MainFrame.Size.X.Offset, maxW)
-local h = math.min(MainFrame.Size.Y.Offset, maxH)
-MainFrame.Size = UDim2.fromOffset(w, h)
-local pos = MainFrame.AbsolutePosition
-local x = math.clamp(pos.X, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.X - w - WINDOW_MARGIN))
-local y = math.clamp(pos.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.Y - h - WINDOW_MARGIN))
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
-end)
-end
-WindowFullscreen = false
-SavedWindowed = nil
-FullBtn = Window.Items["FullBtn"]
-FullBtnFill = Window.Items["FullBtnFill"]
 if FullBtn then
 FullBtn:Connect("MouseButton1Click", function()
 local vp = getViewSize()
@@ -276,7 +168,7 @@ EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
 VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
 WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
 TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
-LootSection = EspPage:Section({ Name = "Рюкзаки (лут)", Tab = "Лут", Side = 1 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
 UIRegistry = {}
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
 S = {
@@ -342,8 +234,16 @@ Chams = true,
 MaxDistance = 1500,
 DebugLog = false, 
 },
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+},
 }
-LOOT_COLOR = Color3.fromRGB(0, 105, 45)
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
 CollectionService = game:GetService("CollectionService")
 NPC_COLOR = Color3.fromRGB(255, 145, 0) 
 NPC_CAT_COLORS = {
@@ -1039,12 +939,12 @@ end)
 end
 getgenv().FUST_HUDCleanup = hudDestroy
 UIRegistry.LootEnabled = LootSection:Toggle({
-Name = "ESP рюкзаков с лутом",
+Name = "ESP мешков с добычей (рюкзаки игроков)",
 Flag = "LootEnabled",
 Default = false,
 Callback = function(state)
 S.Loot.Enabled = state
-journal("ESP РЮКЗАКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+journal("ESP МЕШКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 UIRegistry.LootColor = UIRegistry.LootEnabled:Colorpicker({
@@ -1117,6 +1017,59 @@ if state then
 print("[FUST] Диагностика рюкзаков: имена, атрибуты, подписи и содержимое пойдут в консоль")
 journal("ДИАГНОСТИКА РЮКЗАКОВ ВКЛ")
 end
+end
+})
+LootCSection = EspPage:Section({ Name = "Лут (бочки и ящики)", Tab = "Лут", Side = 2 })
+UIRegistry.LootCEnabled = LootCSection:Toggle({
+Name = "ESP лута (бочки/ящики/элитные/военные)",
+Flag = "LootCEnabled",
+Default = false,
+Callback = function(state)
+S.LootC.Enabled = state
+journal("ESP ЛУТА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootCColor = UIRegistry.LootCEnabled:Colorpicker({
+Flag = "LootCColor",
+Default = LOOTC_COLOR,
+Callback = function(color)
+LOOTC_COLOR = color
+end
+})
+UIRegistry.LootCName = LootCSection:Toggle({
+Name = "Название контейнера",
+Flag = "LootCName",
+Default = true,
+Callback = function(state)
+S.LootC.Name = state
+end
+})
+UIRegistry.LootCDistance = LootCSection:Toggle({
+Name = "Дистанция",
+Flag = "LootCDistance",
+Default = true,
+Callback = function(state)
+S.LootC.Distance = state
+end
+})
+UIRegistry.LootCBox = LootCSection:Toggle({
+Name = "Рамка вокруг контейнера",
+Flag = "LootCBox",
+Default = true,
+Callback = function(state)
+S.LootC.Box = state
+end
+})
+UIRegistry.LootCMaxDistance = LootCSection:Slider({
+Name = "Лут: Max Distance",
+Flag = "LootCMaxDistance",
+Default = 800,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.LootC.MaxDistance = Value
 end
 })
 BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
@@ -1715,3 +1668,175 @@ local name = resolveName(wlInput.Text)
 if name then
 Whitelist[name] = nil
 rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+Players.PlayerAdded:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+Players.PlayerRemoving:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+rebuildPlayerList()
+Aim = {
+Enabled = false,
+ShowFOV = false,
+FOV = 150, 
+Distance = 500, 
+Smooth = 4, 
+Prediction = 0.5, 
+Part = "Head", 
+Priority = "Прицел", 
+WallCheck = true,
+TeamCheck = false,
+Crosshair = false,
+TargetsPlayers = true, 
+TargetsNPC = false, 
+TargetsAnimals = false, 
+TargetsSleepers = false, 
+AutoPredict = false, 
+AutoPredictK = 1, 
+}
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+AA_EnemyNear = false 
+AA_NearestDist = nil 
+AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
+AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+AimHotkeyObj = nil 
+AimHotkeyBusy = false 
+UIRegistry.AimEnabled = AimSection:Toggle({
+Name = "Аимбот (камера-лок)",
+Flag = "AimEnabled",
+Default = false,
+Callback = function(state)
+Aim.Enabled = state
+if AimHotkeyObj then
+AimHotkeyObj.Toggled = state
+end
+journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+hasKeyboard = false
+pcall(function()
+hasKeyboard = (UserInputService.KeyboardEnabled == true)
+end)
+if hasKeyboard then
+AimHotkeyBusy = true
+AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
+Flag = "AimHotkey",
+Default = Enum.KeyCode.RightAlt,
+Mode = "Toggle",
+Callback = function(state)
+if AimHotkeyBusy then return end
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+UIRegistry.AimEnabled:Set(state)
+end
+end
+})
+AimHotkeyBusy = false
+UIRegistry.AimHotkey = AimHotkeyObj
+end
+UIRegistry.AimShowFOV = AimSection:Toggle({
+Name = "FOV круг (зеленеет при захвате)",
+Flag = "AimShowFOV",
+Default = false,
+Callback = function(state)
+Aim.ShowFOV = state
+end
+})
+UIRegistry.AimWallCheck = AimSection:Toggle({
+Name = "Проверка стен",
+Flag = "AimWallCheck",
+Default = true,
+Callback = function(state)
+Aim.WallCheck = state
+end
+})
+UIRegistry.AimTeamCheck = AimSection:Toggle({
+Name = "Не целить тимейтов (одна команда)",
+Flag = "AimTeamCheck",
+Default = false,
+Callback = function(state)
+Aim.TeamCheck = state
+end
+})
+UIRegistry.AimCrosshair = AimSection:Toggle({
+Name = "Красный прицел по центру",
+Flag = "AimCrosshair",
+Default = false,
+Callback = function(state)
+Aim.Crosshair = state
+end
+})
+UIRegistry.AimFOV = AimSection:Slider({
+Name = "FOV радиус",
+Flag = "AimFOV",
+Default = 150,
+Min = 50,
+Max = 400,
+Decimals = 5,
+Suffix = "px",
+Callback = function(Value)
+Aim.FOV = Value
+end
+})
+UIRegistry.AimDistance = AimSection:Slider({
+Name = "Дистанция аима",
+Flag = "AimDistance",
+Default = 500,
+Min = 50,
+Max = 1500,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+Aim.Distance = Value
+end
+})
+UIRegistry.AimSmooth = AimSection:Slider({
+Name = "Smooth (1 резко — 20 плавно)",
+Flag = "AimSmooth",
+Default = 4,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(Value)
+Aim.Smooth = Value
+end
+})
+UIRegistry.AimPrediction = AimSection:Slider({
+Name = "Предикт (упреждение)",
+Flag = "AimPrediction",
+Default = 0.5,
+Min = 0,
+Max = 2,
+Decimals = 0.05,
+Suffix = "с",
+Callback = function(Value)
+Aim.Prediction = Value
+end
+})
+UIRegistry.AimAutoPredict = AimSection:Toggle({
+Name = "Авто-предикт (подстраивается под цель)",
+Flag = "AimAutoPredict",
+Default = false,
+Callback = function(state)
+Aim.AutoPredict = state
+journal("АВТО-ПРЕДИКТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AimAutoPredictK = AimSection:Slider({
+Name = "Авто-предикт: коэффициент",
+Flag = "AimAutoPredictK",
+Default = 1,
+Min = 0.2,
+Max = 3,
+Decimals = 0.1,
+Suffix = "x",
+Callback = function(Value)
+Aim.AutoPredictK = Value

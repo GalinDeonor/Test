@@ -1,3 +1,60 @@
+if not camera then
+return
+end
+local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+updateCrosshair(center, Aim.Crosshair)
+if not Aim.Enabled then
+if fovCircle then
+fovCircle.Visible = false
+end
+return
+end
+local part, aimPos = getAimTarget(camera)
+if fovCircle then
+fovCircle.Position = center
+fovCircle.Radius = Aim.FOV
+fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
+fovCircle.Visible = Aim.ShowFOV
+end
+if part and aimPos then
+AR_AimBusyUntil = os.clock() + 0.15
+local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
+camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPos), alpha)
+end
+end)
+getgenv().FUST_AimCleanup = function()
+if aimConnection then
+aimConnection:Disconnect()
+aimConnection = nil
+end
+pcall(function()
+if fovCircle then
+fovCircle:Remove()
+end
+end)
+fovCircle = nil 
+for i = 1, 4 do
+pcall(function()
+if chLines[i] then
+chLines[i]:Remove()
+end
+end)
+chLines[i] = nil
+end
+end
+function autoAimTick()
+if not AutoAim.Enabled then
+AA_EnemyNear = false
+AA_NearestDist = nil
+return
+end
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+if not myRoot then
+return 
+end
+local bestDist = math.huge
+local bestName = nil
 for _, plr in ipairs(Players:GetPlayers()) do
 if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
 local model = plr.Character
@@ -211,6 +268,14 @@ MaxDistance = S.Loot.MaxDistance,
 DebugLog = S.Loot.DebugLog,
 },
 LootColor = colorToTable(LOOT_COLOR),
+LootC = {
+Enabled = S.LootC.Enabled,
+Name = S.LootC.Name,
+Distance = S.LootC.Distance,
+Box = S.LootC.Box,
+MaxDistance = S.LootC.MaxDistance,
+},
+LootCColor = colorToTable(LOOTC_COLOR),
 Whitelist = wl,
 }
 writefile(CONFIG_FILE, HttpService:JSONEncode(cfg))
@@ -351,12 +416,34 @@ applyFlag("LootChams", cfg.Loot.Chams)
 applyFlag("LootMaxDistance", cfg.Loot.MaxDistance)
 applyFlag("LootDebugLog", cfg.Loot.DebugLog)
 end
+if type(cfg.LootC) == "table" then
+applyFlag("LootCEnabled", cfg.LootC.Enabled)
+applyFlag("LootCName", cfg.LootC.Name)
+applyFlag("LootCDistance", cfg.LootC.Distance)
+applyFlag("LootCBox", cfg.LootC.Box)
+applyFlag("LootCMaxDistance", cfg.LootC.MaxDistance)
+end
 local lootColor = tableToColor(cfg.LootColor)
+if lootColor
+and math.abs(lootColor.R - 0 / 255) < 0.004
+and math.abs(lootColor.G - 105 / 255) < 0.004
+and math.abs(lootColor.B - 45 / 255) < 0.004 then
+lootColor = nil
+end
 if lootColor then
 LOOT_COLOR = lootColor
 if UIRegistry.LootColor and UIRegistry.LootColor.Set then
 pcall(function()
 UIRegistry.LootColor:Set(lootColor)
+end)
+end
+end
+local lootCColor = tableToColor(cfg.LootCColor)
+if lootCColor then
+LOOTC_COLOR = lootCColor
+if UIRegistry.LootCColor and UIRegistry.LootCColor.Set then
+pcall(function()
+UIRegistry.LootCColor:Set(lootCColor)
 end)
 end
 end
@@ -1118,7 +1205,7 @@ if jnow - AR_LastStateJournal > 60 then
 AR_LastStateJournal = jnow
 pcall(function()
 journal(string.format(
-"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d автоаим=%d враг=%d",
+"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d лут-есп=%d автоаим=%d враг=%d",
 Aim.Enabled and 1 or 0,
 tostring(Aim.Part),
 tostring(Aim.Priority),
@@ -1142,6 +1229,7 @@ S.NPC.Chams and 1 or 0,
 S.NPC.HitboxEnabled and 1 or 0,
 Aim.AutoPredict and 1 or 0,
 S.Loot.Enabled and 1 or 0,
+S.LootC.Enabled and 1 or 0,
 AutoAim.Enabled and 1 or 0,
 AA_EnemyNear and 1 or 0
 ))
