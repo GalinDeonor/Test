@@ -1,7 +1,28 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.36.1
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.37
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.37 — ФРИКАМ ПОЧИНЕН + КЛАВИШИ ДРУГИЕ + МЕНЮ НЕ ОБРЫВАЕТСЯ:
+    • НА XENO КАМЕРА ТЕПЕРЬ ВЕРТИТСЯ: старый код брал обзор через
+      GetMouseDelta, а он в Roblox работает ТОЛЬКО с заблокированной
+      мышью и без неё всегда даёт (0,0) — камера «стояла». Теперь
+      обзор: ЗАЖМИ ПКМ и веди мышью (Input.Delta, работает всегда).
+    • НА ТЕЛЕФОНЕ ПЕРСОНАЖ БОЛЬШЕ НЕ ХОДИТ: на время фрикама тело
+      заякоривается на месте (после выключения всё возвращается).
+      Полёт — ЛЕВЫМ ДЖОЙСТИКОМ (летит камера, а не персонаж), обзор —
+      палец по ПРАВОЙ половине экрана (джойстик камеру не крутит),
+      кнопка ПРЫЖКА — набор высоты. «Авто-полёт вперёд» остался.
+    • КЛАВИШИ XENO ПЕРЕНАЗНАЧЕНЫ: F конфликтовал с игрой, [ и ] не
+      на всех раскладках. ТЕПЕРЬ: K — вкл/выкл фрикама, Z — скорость
+      МЕНЬШЕ, X — скорость БОЛЬШЕ. WASD — лететь, Space — вверх,
+      Ctrl — вниз, Shift — ускорение x2.5.
+    • МЕНЮ БОЛЬШЕ НЕ ПАДАЕТ МОЛЧА: вкладки собираются блоками, упавший
+      блок не убивает остальные, а в меню появляется красная плашка
+      «ОШИБКИ СБОРКИ». Если упал весь запуск — на экране красное окно
+      с текстом ошибки: скрин в чат — и я чиню по конкретному месту.
+    • ЗЛОЙ АИМ: проверка видимости тела кэшируется на 0.15с — заметно
+      меньше raycast'ов на каждый кадр, выше FPS при включённом аиме.
 
     НОВОЕ В 0.36.1 — ЗЛОЙ АИМ (КРАСНЫЙ, ТЕСТ), ПРОВЕРКА ВИДИМОСТИ ESP,
     ФРИКАМ С ПРОГРУЗКОЙ КАРТЫ, ЧАМСЫ ЛУТА ПО МОДЕЛЬКЕ:
@@ -28,11 +49,13 @@
       «СТЕНА». Урон через стену в любом случае не проходит — серый
       значит «не трать патроны».
     • ФРИКАМ (Main → «Свободная камера»): полёт камеры отдельно от
-      тела. WASD — движение, Space — вверх, Ctrl — вниз, ПКМ —
-      осмотреться (Xeno). ХОТКЕИ XENO: F — вкл/выкл фрика;
-      [ и ] — скорость меньше/больше. На Delta: тумблер в меню,
-      обзор пальцем (тянуть по экрану), тумблер «Авто-полёт вперёд»
-      и слайдер скорости. ГЛАВНОЕ: фрика ПРОГРУЖАЕТ КАРТУ — раз в
+      тела, тело на это время СТОИТ НА МЕСТЕ (якорь). Xeno: WASD —
+      лететь, Space — вверх, Ctrl — вниз, Shift — ускорение, обзор —
+      ЗАЖАТЬ ПКМ и вести мышью. ХОТКЕИ XENO: K — вкл/выкл фрикама,
+      Z и X — скорость меньше/больше. На Delta: тумблер в меню,
+      полёт — левый джойстик, обзор — палец по правой половине
+      экрана, кнопка прыжка — вверх, тумблер «Авто-полёт вперёд» и
+      слайдер скорости. ГЛАВНОЕ: фрикам ПРОГРУЖАЕТ КАРТУ — раз в
       0.7с просит стрим вокруг камеры (RequestStreamAroundAsync),
       так что далеко улетаешь — мир подгружается, а не пустота.
     • ЧАМСЫ ЛУТА ПЕРЕДЕЛАНЫ (вкладка ESP → Лут): вместо квадратов-
@@ -346,7 +369,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.36.1...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.37...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -490,7 +513,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.36.1 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.37 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -4591,6 +4614,19 @@ end
 pcall(function()
 Library:CreateSettingsPage(Window, nil)
 end)
+UI_ERRORS = {}
+function uiStep(stepName, fn)
+local ok, err = pcall(fn)
+if ok then
+print("[FUST][UI] блок собран: " .. stepName)
+else
+warn("[FUST][UI] ОШИБКА БЛОКА '" .. stepName .. "': " .. tostring(err))
+pcall(function()
+journal("ОШИБКА UI '" .. stepName .. "': " .. tostring(err))
+end)
+table.insert(UI_ERRORS, stepName .. ": " .. tostring(err))
+end
+end
 ICON_SETTINGS = "rbxassetid://80758916183665"
 ICON_COMBAT = "rbxassetid://87563802520297"
 ICON_VISUALS = "rbxassetid://100033680381365"
@@ -4636,12 +4672,15 @@ FreeCam.AutoFly = state
 journal("ФРИКАМ: авто-полёт " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-FreeCamSection:Label("Xeno: F — вкл/выкл, [ и ] — скорость. Обзор — ПКМ. Телефон: тяни пальцем по экрану, полёт — авто-полёт вперёд. Карта прогружается вокруг камеры сама.")
+FreeCamSection:Label("Xeno: K — вкл/выкл, Z и X — скорость. WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение. ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. Карта прогружается сама.")
+uiStep("Вкладка Аимбот", function()
 Window:Group("Бой")
 AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
 AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
 HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
 TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
 Window:Group("Визуал")
 EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
 EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
@@ -4649,6 +4688,7 @@ VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуа�
 WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
 TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
 LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
 S = {
 ESP = {
@@ -5586,9 +5626,11 @@ journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or 
 end
 })
 LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
+uiStep("Вкладка Боты и НПС", function()
 BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
 BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
 BotHitSection = BotPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты", Side = 2 })
+end)
 UIRegistry.NPCEsp = BotEspSection:Toggle({
 Name = "ESP ботов и НПС (мастер)",
 Flag = "NPCEsp",
@@ -7004,16 +7046,31 @@ table.insert(filter, targetChar)
 aimRayParams.FilterDescendantsInstances = filter
 return Workspace:Raycast(fromPos, targetPos - fromPos, aimRayParams) ~= nil
 end
+evilVisCache = {}
+evilVisCacheCount = 0
 function evilBodyVisible(model, camPos)
+-- КЭШ 0.15с: без него злой аим делал 2 raycast на каждого игрока КАЖДЫЙ кадр — это и есть лаги
+local now = os.clock()
+local hit = evilVisCache[model]
+if hit and now - hit.at < 0.15 then
+return hit.vis
+end
+if evilVisCacheCount > 40 then
+table.clear(evilVisCache)
+evilVisCacheCount = 0
+end
 local headP = model:FindFirstChild("Head") or model:FindFirstChild("UpperTorso")
 local torsoP = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+local vis = false
 if headP and not wallBetween(camPos, model, headP.Position) then
-return true
+vis = true
 end
-if torsoP and not wallBetween(camPos, model, torsoP.Position) then
-return true
+if not vis and torsoP and not wallBetween(camPos, model, torsoP.Position) then
+vis = true
 end
-return false
+evilVisCache[model] = { at = now, vis = vis }
+evilVisCacheCount = evilVisCacheCount + 1
+return vis
 end
 function evilAimPoint(model, root, camPos, dist)
 if not evilBodyVisible(model, camPos) then
@@ -7960,10 +8017,18 @@ savedSubject = nil,
 savedFar = nil,
 streamAt = 0,
 rmb = false,
+touchObj = nil,
 lastTouch = nil,
 keySens = 0.0035,
 touchSens = 0.0045,
+jumpUntil = 0,
+getMoveVec = nil,
+savedHRP = nil,
+savedAnchor = nil,
 }
+FC_KEY_TOGGLE = Enum.KeyCode.K
+FC_KEY_SLOW = Enum.KeyCode.Z
+FC_KEY_FAST = Enum.KeyCode.X
 FC_SPEED_STEP = 5
 function freecamSyncToggleUI(state)
 if UIRegistry.FreeCamEnabled and UIRegistry.FreeCamEnabled.Set then
@@ -7999,6 +8064,47 @@ pcall(function()
 cam.CameraType = Enum.CameraType.Scriptable
 cam.Far = math.max(cam.Far or 1000, 8000)
 end)
+FC_MOD.rmb = false
+FC_MOD.touchObj = nil
+FC_MOD.lastTouch = nil
+FC_MOD.jumpUntil = 0
+-- ТЕЛЕФОН: источник движения — джойстик. PlayerModule отдаёт ВЕКТОР ВВОДА
+-- (не персонажа), поэтому летает камера, а тело стоит (оно заякорено ниже).
+FC_MOD.getMoveVec = nil
+pcall(function()
+local ps = LocalPlayer:FindFirstChildOfClass("PlayerScripts")
+local pm = ps and (ps:FindFirstChild("PlayerModule") or ps:WaitForChild("PlayerModule", 2))
+if pm then
+local okReq, controls = pcall(function()
+local mod = require(pm)
+if mod and mod.GetControls then
+return mod:GetControls()
+end
+return nil
+end)
+if okReq and controls and controls.GetMoveVector then
+FC_MOD.getMoveVec = function()
+local okMV, mv = pcall(controls.GetMoveVector, controls)
+if okMV and typeof(mv) == "Vector3" then
+return mv
+end
+return nil
+end
+end
+end
+end)
+-- ЯКОРЬ ТЕЛА: персонаж стоит на месте, пока камера летает (телефон и ПК)
+FC_MOD.savedHRP = nil
+FC_MOD.savedAnchor = nil
+pcall(function()
+local c = LocalPlayer.Character
+local hrp = c and c:FindFirstChild("HumanoidRootPart")
+if hrp then
+FC_MOD.savedHRP = hrp
+FC_MOD.savedAnchor = hrp.Anchored
+hrp.Anchored = true
+end
+end)
 for _, c in ipairs(FC_MOD.conns) do
 pcall(function()
 c:Disconnect()
@@ -8020,15 +8126,6 @@ end
 pcall(function()
 cam.CameraType = Enum.CameraType.Scriptable
 end)
-if FC_MOD.rmb then
-local okD, delta = pcall(function()
-return UserInputService:GetMouseDelta()
-end)
-if okD and delta then
-FC_MOD.yaw = FC_MOD.yaw - delta.X * FC_MOD.keySens
-FC_MOD.pitch = math.clamp(FC_MOD.pitch - delta.Y * FC_MOD.keySens, -1.55, 1.55)
-end
-end
 local rot = CFrame.fromEulerAnglesYXZ(FC_MOD.pitch, FC_MOD.yaw, 0)
 local fwd = rot.LookVector
 local flat = Vector3.new(fwd.X, 0, fwd.Z)
@@ -8058,13 +8155,37 @@ end
 if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
 move = move - Vector3.new(0, 1, 0)
 end
+else
+-- телефон/джойстик: летим от вектора ввода относительно НАШЕЙ камеры
+local mv = nil
+if FC_MOD.getMoveVec then
+mv = FC_MOD.getMoveVec()
+end
+if mv and mv.Magnitude > 0.01 then
+move = move + rot:VectorToWorldSpace(Vector3.new(mv.X, 0, mv.Z))
+else
+pcall(function()
+local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+local md = hum and hum.MoveDirection
+if md and md.Magnitude > 0.01 then
+move = move + md
+end
+end)
+end
+if os.clock() < FC_MOD.jumpUntil then
+move = move + Vector3.new(0, 1, 0)
+end
 end
 if FreeCam.AutoFly then
 move = move + fwd
 end
+local speed = FreeCam.Speed
+if UserInputService.KeyboardEnabled and UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+speed = speed * 2.5
+end
 local pos = cam.CFrame.Position
 if move.Magnitude > 0.001 then
-pos = pos + move.Unit * FreeCam.Speed * dt
+pos = pos + move.Unit * speed * dt
 end
 cam.CFrame = CFrame.new(pos) * CFrame.fromEulerAnglesYXZ(FC_MOD.pitch, FC_MOD.yaw, 0)
 if os.clock() - FC_MOD.streamAt > 0.7 then
@@ -8074,18 +8195,32 @@ LocalPlayer:RequestStreamAroundAsync(pos)
 end)
 end
 end))
+-- ПОВОРОТ НА ПК: зажать ПКМ и вести мышью. Раньше был GetMouseDelta —
+-- он работает ТОЛЬКО с MouseBehavior.LockCurrentPosition и без неё всегда
+-- даёт (0,0), поэтому камера «не вертелась». Input.Delta работает всегда.
 table.insert(FC_MOD.conns, UserInputService.InputChanged:Connect(function(input, gp)
 if not FreeCam.Enabled then
 return
 end
-if input.UserInputType == Enum.UserInputType.Touch and input.Position then
-if FC_MOD.lastTouch then
+if input.UserInputType == Enum.UserInputType.MouseMovement and FC_MOD.rmb and input.Delta then
+local d = input.Delta
+FC_MOD.yaw = FC_MOD.yaw - d.X * FC_MOD.keySens
+FC_MOD.pitch = math.clamp(FC_MOD.pitch - d.Y * FC_MOD.keySens, -1.55, 1.55)
+elseif input.UserInputType == Enum.UserInputType.Touch and input.Position and FC_MOD.lastTouch then
+-- телефон: вращает ТОЛЬКО палец, начатый на правой половине экрана
+local isTracked = (input == FC_MOD.touchObj)
+if not isTracked then
+pcall(function()
+isTracked = (input.Position - FC_MOD.lastTouch).Magnitude < 120
+end)
+end
+if isTracked then
 local dx = input.Position.X - FC_MOD.lastTouch.X
 local dy = input.Position.Y - FC_MOD.lastTouch.Y
 FC_MOD.yaw = FC_MOD.yaw - dx * FC_MOD.touchSens
 FC_MOD.pitch = math.clamp(FC_MOD.pitch - dy * FC_MOD.touchSens, -1.55, 1.55)
-end
 FC_MOD.lastTouch = input.Position
+end
 end
 end))
 table.insert(FC_MOD.conns, UserInputService.InputEnded:Connect(function(input, gp)
@@ -8093,15 +8228,38 @@ if input.UserInputType == Enum.UserInputType.MouseButton2 then
 FC_MOD.rmb = false
 end
 if input.UserInputType == Enum.UserInputType.Touch then
+local wasTracked = (input == FC_MOD.touchObj)
+if not wasTracked and FC_MOD.lastTouch and input.Position then
+pcall(function()
+wasTracked = (input.Position - FC_MOD.lastTouch).Magnitude < 120
+end)
+end
+if wasTracked then
+FC_MOD.touchObj = nil
 FC_MOD.lastTouch = nil
+end
 end
 end))
 table.insert(FC_MOD.conns, UserInputService.InputBegan:Connect(function(input, gp)
 if input.UserInputType == Enum.UserInputType.MouseButton2 and not gp then
 FC_MOD.rmb = true
+elseif input.UserInputType == Enum.UserInputType.Touch and not gp and input.Position then
+pcall(function()
+local cam2 = Workspace.CurrentCamera
+if cam2 and input.Position.X > cam2.ViewportSize.X * 0.45 then
+FC_MOD.touchObj = input
+FC_MOD.lastTouch = input.Position
+end
+end)
 end
 end))
-journal("ФРИКАМ ВКЛ (скорость " .. math.floor(FreeCam.Speed) .. ")")
+-- телефон: кнопка ПРЫЖКА = набор высоты, пока держишь
+if not UserInputService.KeyboardEnabled then
+table.insert(FC_MOD.conns, UserInputService.JumpRequest:Connect(function()
+FC_MOD.jumpUntil = os.clock() + 0.25
+end))
+end
+journal("ФРИКАМ ВКЛ (скорость " .. math.floor(FreeCam.Speed) .. ") — тело закреплено на месте")
 end
 function freecamDisable()
 if not FreeCam.Enabled then
@@ -8109,7 +8267,10 @@ return
 end
 FreeCam.Enabled = false
 FC_MOD.rmb = false
+FC_MOD.touchObj = nil
 FC_MOD.lastTouch = nil
+FC_MOD.jumpUntil = 0
+FC_MOD.getMoveVec = nil
 for _, c in ipairs(FC_MOD.conns) do
 pcall(function()
 c:Disconnect()
@@ -8128,6 +8289,17 @@ cam.Far = FC_MOD.savedFar
 end
 end
 end)
+pcall(function()
+if FC_MOD.savedHRP and FC_MOD.savedHRP.Parent then
+FC_MOD.savedHRP.Anchored = FC_MOD.savedAnchor == true
+end
+local c2 = LocalPlayer.Character
+local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+if hrp2 and hrp2 ~= FC_MOD.savedHRP then
+hrp2.Anchored = false
+end
+end)
+FC_MOD.savedHRP = nil
 journal("ФРИКАМ ВЫКЛ")
 freecamSyncToggleUI(false)
 end
@@ -8151,9 +8323,9 @@ if input.UserInputType ~= Enum.UserInputType.Keyboard then
 return
 end
 local k = input.KeyCode
-if k == Enum.KeyCode.F then
+if k == FC_KEY_TOGGLE then
 freecamToggle()
-elseif k == Enum.KeyCode.LeftBracket then
+elseif k == FC_KEY_SLOW then
 FreeCam.Speed = math.max(5, FreeCam.Speed - FC_SPEED_STEP)
 if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
 pcall(function()
@@ -8161,7 +8333,7 @@ UIRegistry.FreeCamSpeed:Set(FreeCam.Speed)
 end)
 end
 journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
-elseif k == Enum.KeyCode.RightBracket then
+elseif k == FC_KEY_FAST then
 FreeCam.Speed = math.min(300, FreeCam.Speed + FC_SPEED_STEP)
 if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
 pcall(function()
@@ -10712,6 +10884,20 @@ Players.PlayerRemoving:Connect(function(player)
 removeEspDrawings(player)
 hitboxOriginals[player] = nil
 end)
+pcall(function()
+journal(string.format(
+"МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
+tostring(AimPage ~= nil), tostring(EspPage ~= nil), tostring(BotPage ~= nil), #UI_ERRORS
+))
+end)
+pcall(function()
+if #UI_ERRORS > 0 and MainPage and MainPage.Section then
+local errSec = MainPage:Section({ Name = "ОШИБКИ СБОРКИ (скрин — в чат)", Tab = "Функции", Side = 1 })
+if errSec and errSec.Label then
+errSec:Label("⚠ " .. table.concat(UI_ERRORS, "  ||  "))
+end
+end
+end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
@@ -10723,4 +10909,77 @@ end
 warn("[FUST] СКИнь СКРИН с этим текстом — без него не понять, где упало.")
 warn("[FUST] Executor: " .. tostring(EXECUTOR_NAME or "неизвестен"))
 warn("[FUST] Drawing.new работает: " .. tostring(DRAWING_OK))
+pcall(function()
+local msg = tostring(err)
+if #msg > 400 then
+msg = msg:sub(1, 400)
+end
+local tb = ""
+if type(debug) == "table" and type(debug.traceback) == "function" then
+tb = tostring(debug.traceback("", 2))
+if #tb > 600 then
+tb = tb:sub(1, 600)
+end
+end
+local banner = Instance.new("ScreenGui")
+banner.Name = "FUST_ErrorBanner"
+banner.ResetOnSpawn = false
+banner.DisplayOrder = 999999
+local okCore = pcall(function()
+banner.Parent = game:GetService("CoreGui")
+end)
+if not okCore or not banner.Parent then
+pcall(function()
+banner.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui", 3)
+end)
+end
+if not banner.Parent then
+return
+end
+local fr = Instance.new("Frame")
+fr.Size = UDim2.new(1, -40, 0, 230)
+fr.Position = UDim2.new(0, 20, 0, 60)
+fr.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+fr.BorderSizePixel = 0
+fr.Parent = banner
+pcall(function()
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, 8)
+c.Parent = fr
+end)
+local t1 = Instance.new("TextLabel")
+t1.Size = UDim2.new(1, -120, 0, 34)
+t1.Position = UDim2.new(0, 10, 0, 4)
+t1.BackgroundTransparency = 1
+t1.Font = Enum.Font.GothamBold
+t1.TextSize = 17
+t1.TextColor3 = Color3.fromRGB(255, 130, 130)
+t1.TextXAlignment = Enum.TextXAlignment.Left
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.37 — ОШИБКА ЗАПУСКА"
+t1.Parent = fr
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 100, 0, 26)
+close.Position = UDim2.new(1, -110, 0, 6)
+close.Font = Enum.Font.GothamBold
+close.TextSize = 13
+close.TextColor3 = Color3.fromRGB(255, 255, 255)
+close.BackgroundColor3 = Color3.fromRGB(150, 25, 25)
+close.Text = "СКРЫТЬ"
+close.Parent = fr
+close.MouseButton1Click:Connect(function()
+banner:Destroy()
+end)
+local t2 = Instance.new("TextLabel")
+t2.Size = UDim2.new(1, -20, 1, -46)
+t2.Position = UDim2.new(0, 10, 0, 40)
+t2.BackgroundTransparency = 1
+t2.Font = Enum.Font.Code
+t2.TextSize = 13
+t2.TextColor3 = Color3.fromRGB(255, 235, 235)
+t2.TextXAlignment = Enum.TextXAlignment.Left
+t2.TextYAlignment = Enum.TextYAlignment.Top
+t2.TextWrapped = true
+t2.Text = msg .. "\n" .. tb .. "\nСкрин этого окна — в чат."
+t2.Parent = fr
+end)
 end

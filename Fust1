@@ -1,7 +1,28 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.36.1
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.37
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.37 — ФРИКАМ ПОЧИНЕН + КЛАВИШИ ДРУГИЕ + МЕНЮ НЕ ОБРЫВАЕТСЯ:
+    • НА XENO КАМЕРА ТЕПЕРЬ ВЕРТИТСЯ: старый код брал обзор через
+      GetMouseDelta, а он в Roblox работает ТОЛЬКО с заблокированной
+      мышью и без неё всегда даёт (0,0) — камера «стояла». Теперь
+      обзор: ЗАЖМИ ПКМ и веди мышью (Input.Delta, работает всегда).
+    • НА ТЕЛЕФОНЕ ПЕРСОНАЖ БОЛЬШЕ НЕ ХОДИТ: на время фрикама тело
+      заякоривается на месте (после выключения всё возвращается).
+      Полёт — ЛЕВЫМ ДЖОЙСТИКОМ (летит камера, а не персонаж), обзор —
+      палец по ПРАВОЙ половине экрана (джойстик камеру не крутит),
+      кнопка ПРЫЖКА — набор высоты. «Авто-полёт вперёд» остался.
+    • КЛАВИШИ XENO ПЕРЕНАЗНАЧЕНЫ: F конфликтовал с игрой, [ и ] не
+      на всех раскладках. ТЕПЕРЬ: K — вкл/выкл фрикама, Z — скорость
+      МЕНЬШЕ, X — скорость БОЛЬШЕ. WASD — лететь, Space — вверх,
+      Ctrl — вниз, Shift — ускорение x2.5.
+    • МЕНЮ БОЛЬШЕ НЕ ПАДАЕТ МОЛЧА: вкладки собираются блоками, упавший
+      блок не убивает остальные, а в меню появляется красная плашка
+      «ОШИБКИ СБОРКИ». Если упал весь запуск — на экране красное окно
+      с текстом ошибки: скрин в чат — и я чиню по конкретному месту.
+    • ЗЛОЙ АИМ: проверка видимости тела кэшируется на 0.15с — заметно
+      меньше raycast'ов на каждый кадр, выше FPS при включённом аиме.
 
     НОВОЕ В 0.36.1 — ЗЛОЙ АИМ (КРАСНЫЙ, ТЕСТ), ПРОВЕРКА ВИДИМОСТИ ESP,
     ФРИКАМ С ПРОГРУЗКОЙ КАРТЫ, ЧАМСЫ ЛУТА ПО МОДЕЛЬКЕ:
@@ -28,11 +49,13 @@
       «СТЕНА». Урон через стену в любом случае не проходит — серый
       значит «не трать патроны».
     • ФРИКАМ (Main → «Свободная камера»): полёт камеры отдельно от
-      тела. WASD — движение, Space — вверх, Ctrl — вниз, ПКМ —
-      осмотреться (Xeno). ХОТКЕИ XENO: F — вкл/выкл фрика;
-      [ и ] — скорость меньше/больше. На Delta: тумблер в меню,
-      обзор пальцем (тянуть по экрану), тумблер «Авто-полёт вперёд»
-      и слайдер скорости. ГЛАВНОЕ: фрика ПРОГРУЖАЕТ КАРТУ — раз в
+      тела, тело на это время СТОИТ НА МЕСТЕ (якорь). Xeno: WASD —
+      лететь, Space — вверх, Ctrl — вниз, Shift — ускорение, обзор —
+      ЗАЖАТЬ ПКМ и вести мышью. ХОТКЕИ XENO: K — вкл/выкл фрикама,
+      Z и X — скорость меньше/больше. На Delta: тумблер в меню,
+      полёт — левый джойстик, обзор — палец по правой половине
+      экрана, кнопка прыжка — вверх, тумблер «Авто-полёт вперёд» и
+      слайдер скорости. ГЛАВНОЕ: фрикам ПРОГРУЖАЕТ КАРТУ — раз в
       0.7с просит стрим вокруг камеры (RequestStreamAroundAsync),
       так что далеко улетаешь — мир подгружается, а не пустота.
     • ЧАМСЫ ЛУТА ПЕРЕДЕЛАНЫ (вкладка ESP → Лут): вместо квадратов-
@@ -346,7 +369,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.36.1...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.37...")
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -490,7 +513,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.36.1 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.37 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -1023,34 +1046,3 @@ end
 end
 end
 Library.Holder = Instances:Create("ScreenGui", {
-Parent = gethui(),
-Name = "\0",
-ZIndexBehavior = Enum.ZIndexBehavior.Global,
-DisplayOrder = 2,
-ResetOnSpawn = false
-})
-Library.UnusedHolder = Instances:Create("ScreenGui", {
-Parent = gethui(),
-Name = "\0",
-ZIndexBehavior = Enum.ZIndexBehavior.Global,
-Enabled = false,
-ResetOnSpawn = false
-})
-Library.Unload = function(self)
-for Index, Value in self.Connections do
-Value.Connection:Disconnect()
-end
-for Index, Value in self.Threads do
-coroutine.close(Value)
-end
-if self.Holder then
-self.Holder:Clean()
-end
-Library = nil
-getgenv().Library = nil
-end
-Library.Round = function(self, Number, Float)
-local Multiplier = 1 / (Float or 1)
-return MathFloor(Number * Multiplier + 0.5) / Multiplier
-end
-Library.Thread = function(self, Function)

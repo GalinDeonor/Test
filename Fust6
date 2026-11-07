@@ -1,38 +1,3 @@
-local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "игрок"
-end
-end
-end
-end
-end
-end
-end
-end
-end
-end
-end
-if Aim.TargetsNPC or Aim.TargetsAnimals or Aim.TargetsSleepers then
-for model in pairs(trackedNPCs) do
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local aimCat = npcGetCategory(model, hum, root)
-local catWanted =
-((aimCat == "Guard" or aimCat == "Peaceful") and Aim.TargetsNPC)
-or (aimCat == "Animal" and Aim.TargetsAnimals)
-or (aimCat == "Sleeper" and Aim.TargetsSleepers)
-if not catWanted then
-continue
-end
-local worldDist = (root.Position - localRoot.Position).Magnitude
-if worldDist <= Aim.Distance then
-local part = resolveAimPart(model, Aim.Part)
-if part then
-local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
 local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
 local aimPos = part.Position + vel * lead
 local toPoint = aimPos - camPos
@@ -2019,6 +1984,20 @@ Players.PlayerRemoving:Connect(function(player)
 removeEspDrawings(player)
 hitboxOriginals[player] = nil
 end)
+pcall(function()
+journal(string.format(
+"МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
+tostring(AimPage ~= nil), tostring(EspPage ~= nil), tostring(BotPage ~= nil), #UI_ERRORS
+))
+end)
+pcall(function()
+if #UI_ERRORS > 0 and MainPage and MainPage.Section then
+local errSec = MainPage:Section({ Name = "ОШИБКИ СБОРКИ (скрин — в чат)", Tab = "Функции", Side = 1 })
+if errSec and errSec.Label then
+errSec:Label("⚠ " .. table.concat(UI_ERRORS, "  ||  "))
+end
+end
+end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
@@ -2030,4 +2009,77 @@ end
 warn("[FUST] СКИнь СКРИН с этим текстом — без него не понять, где упало.")
 warn("[FUST] Executor: " .. tostring(EXECUTOR_NAME or "неизвестен"))
 warn("[FUST] Drawing.new работает: " .. tostring(DRAWING_OK))
+pcall(function()
+local msg = tostring(err)
+if #msg > 400 then
+msg = msg:sub(1, 400)
+end
+local tb = ""
+if type(debug) == "table" and type(debug.traceback) == "function" then
+tb = tostring(debug.traceback("", 2))
+if #tb > 600 then
+tb = tb:sub(1, 600)
+end
+end
+local banner = Instance.new("ScreenGui")
+banner.Name = "FUST_ErrorBanner"
+banner.ResetOnSpawn = false
+banner.DisplayOrder = 999999
+local okCore = pcall(function()
+banner.Parent = game:GetService("CoreGui")
+end)
+if not okCore or not banner.Parent then
+pcall(function()
+banner.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui", 3)
+end)
+end
+if not banner.Parent then
+return
+end
+local fr = Instance.new("Frame")
+fr.Size = UDim2.new(1, -40, 0, 230)
+fr.Position = UDim2.new(0, 20, 0, 60)
+fr.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+fr.BorderSizePixel = 0
+fr.Parent = banner
+pcall(function()
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, 8)
+c.Parent = fr
+end)
+local t1 = Instance.new("TextLabel")
+t1.Size = UDim2.new(1, -120, 0, 34)
+t1.Position = UDim2.new(0, 10, 0, 4)
+t1.BackgroundTransparency = 1
+t1.Font = Enum.Font.GothamBold
+t1.TextSize = 17
+t1.TextColor3 = Color3.fromRGB(255, 130, 130)
+t1.TextXAlignment = Enum.TextXAlignment.Left
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.37 — ОШИБКА ЗАПУСКА"
+t1.Parent = fr
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 100, 0, 26)
+close.Position = UDim2.new(1, -110, 0, 6)
+close.Font = Enum.Font.GothamBold
+close.TextSize = 13
+close.TextColor3 = Color3.fromRGB(255, 255, 255)
+close.BackgroundColor3 = Color3.fromRGB(150, 25, 25)
+close.Text = "СКРЫТЬ"
+close.Parent = fr
+close.MouseButton1Click:Connect(function()
+banner:Destroy()
+end)
+local t2 = Instance.new("TextLabel")
+t2.Size = UDim2.new(1, -20, 1, -46)
+t2.Position = UDim2.new(0, 10, 0, 40)
+t2.BackgroundTransparency = 1
+t2.Font = Enum.Font.Code
+t2.TextSize = 13
+t2.TextColor3 = Color3.fromRGB(255, 235, 235)
+t2.TextXAlignment = Enum.TextXAlignment.Left
+t2.TextYAlignment = Enum.TextYAlignment.Top
+t2.TextWrapped = true
+t2.Text = msg .. "\n" .. tb .. "\nСкрин этого окна — в чат."
+t2.Parent = fr
+end)
 end

@@ -1,3 +1,34 @@
+Parent = gethui(),
+Name = "\0",
+ZIndexBehavior = Enum.ZIndexBehavior.Global,
+DisplayOrder = 2,
+ResetOnSpawn = false
+})
+Library.UnusedHolder = Instances:Create("ScreenGui", {
+Parent = gethui(),
+Name = "\0",
+ZIndexBehavior = Enum.ZIndexBehavior.Global,
+Enabled = false,
+ResetOnSpawn = false
+})
+Library.Unload = function(self)
+for Index, Value in self.Connections do
+Value.Connection:Disconnect()
+end
+for Index, Value in self.Threads do
+coroutine.close(Value)
+end
+if self.Holder then
+self.Holder:Clean()
+end
+Library = nil
+getgenv().Library = nil
+end
+Library.Round = function(self, Number, Float)
+local Multiplier = 1 / (Float or 1)
+return MathFloor(Number * Multiplier + 0.5) / Multiplier
+end
+Library.Thread = function(self, Function)
 local NewThread = coroutine.create(Function)
 coroutine.wrap(function()
 coroutine.resume(NewThread)
@@ -1793,3 +1824,41 @@ BorderColor3 = FromRGB(0, 0, 0),
 Text = Section.Name,
 Size = UDim2New(0, 0, 0, 14),
 AnchorPoint = Vector2New(0, 0.5),
+BorderSizePixel = 0,
+BackgroundTransparency = 1,
+Position = UDim2New(0, 14, 0.5, 0),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 15
+}):AddToTheme({TextColor3 = 'Text'})
+Items["Content"] = Instances:Create("Frame", {
+Parent = Items["Section"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+BackgroundTransparency = 1,
+Position = UDim2New(0, 0, 0, 38),
+Size = UDim2New(1, 0, 0, 0),
+BorderSizePixel = 0,
+AutomaticSize = Enum.AutomaticSize.Y
+})
+Instances:Create("UIPadding", {
+Parent = Items["Content"].Instance,
+Name = "\0",
+PaddingTop = UDimNew(0, 4),
+PaddingBottom = UDimNew(0, 10),
+PaddingRight = UDimNew(0, 12),
+PaddingLeft = UDimNew(0, 12)
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Content"].Instance,
+Name = "\0",
+Padding = UDimNew(0, 8),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Section.Items = Items
+end
+return setmetatable(Section, Library.Sections)
+end
+Library.Sections.Toggle = function(self, Data)
+Data = Data or { }
+local Toggle = {
+Window = self.Window,

@@ -1,41 +1,3 @@
-BorderSizePixel = 0,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 14, 0.5, 0),
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 15
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Content"] = Instances:Create("Frame", {
-Parent = Items["Section"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-BackgroundTransparency = 1,
-Position = UDim2New(0, 0, 0, 38),
-Size = UDim2New(1, 0, 0, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.Y
-})
-Instances:Create("UIPadding", {
-Parent = Items["Content"].Instance,
-Name = "\0",
-PaddingTop = UDimNew(0, 4),
-PaddingBottom = UDimNew(0, 10),
-PaddingRight = UDimNew(0, 12),
-PaddingLeft = UDimNew(0, 12)
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Content"].Instance,
-Name = "\0",
-Padding = UDimNew(0, 8),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Section.Items = Items
-end
-return setmetatable(Section, Library.Sections)
-end
-Library.Sections.Toggle = function(self, Data)
-Data = Data or { }
-local Toggle = {
-Window = self.Window,
 Page = self.Page,
 Section = self,
 Name = Data.Name or Data.name or "Toggle",
@@ -1740,6 +1702,19 @@ end
 pcall(function()
 Library:CreateSettingsPage(Window, nil)
 end)
+UI_ERRORS = {}
+function uiStep(stepName, fn)
+local ok, err = pcall(fn)
+if ok then
+print("[FUST][UI] блок собран: " .. stepName)
+else
+warn("[FUST][UI] ОШИБКА БЛОКА '" .. stepName .. "': " .. tostring(err))
+pcall(function()
+journal("ОШИБКА UI '" .. stepName .. "': " .. tostring(err))
+end)
+table.insert(UI_ERRORS, stepName .. ": " .. tostring(err))
+end
+end
 ICON_SETTINGS = "rbxassetid://80758916183665"
 ICON_COMBAT = "rbxassetid://87563802520297"
 ICON_VISUALS = "rbxassetid://100033680381365"
@@ -1785,14 +1760,106 @@ FreeCam.AutoFly = state
 journal("ФРИКАМ: авто-полёт " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-FreeCamSection:Label("Xeno: F — вкл/выкл, [ и ] — скорость. Обзор — ПКМ. Телефон: тяни пальцем по экрану, полёт — авто-полёт вперёд. Карта прогружается вокруг камеры сама.")
+FreeCamSection:Label("Xeno: K — вкл/выкл, Z и X — скорость. WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение. ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. Карта прогружается сама.")
+uiStep("Вкладка Аимбот", function()
 Window:Group("Бой")
 AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
 AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
 HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
 TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
 Window:Group("Визуал")
 EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
 EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
 VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
 WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 9, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 9,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+Chams = false, 
+},
+}
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
+CollectionService = game:GetService("CollectionService")
+NPC_COLOR = Color3.fromRGB(255, 145, 0) 
+NPC_CAT_COLORS = {
+Guard = Color3.fromRGB(255, 145, 0), 
+Peaceful = Color3.fromRGB(80, 255, 140), 
+Animal = Color3.fromRGB(255, 80, 95), 
+Sleeper = Color3.fromRGB(80, 190, 255), 
+}
+NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
