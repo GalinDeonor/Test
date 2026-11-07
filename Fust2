@@ -1,3 +1,20 @@
+local NewThread = coroutine.create(Function)
+coroutine.wrap(function()
+coroutine.resume(NewThread)
+end)()
+TableInsert(self.Threads, NewThread)
+return NewThread
+end
+Library.SafeCall = function(self, Function, ...)
+local Arguements = { ... }
+local Success, Result = pcall(Function, TableUnpack(Arguements))
+if not Success then
+warn(Result)
+return false
+end
+return Success
+end
+Library.Connect = function(self, Event, Callback, Name)
 Name = Name or StringFormat("connection_number_%s_%s", self.UnnamedConnections + 1, HttpService:GenerateGUID(false))
 local NewConnection = {
 Event = Event,
@@ -1663,3 +1680,116 @@ for _, Name in Page.TabOrder do
 Page.Tabs[Name].Button.Instance.Visible = false
 end
 local HiddenTab = Page.CurrentTab and Page.Tabs[Page.CurrentTab] or nil
+if HiddenTab and HiddenTab.OnHide then
+HiddenTab.OnHide()
+end
+end
+task.delay(0.25, function()
+Debounce = false
+end)
+end
+Items["Inactive"]:Connect("MouseEnter", function()
+if not Page.Active then
+Items["Text"]:Tween(nil, {TextTransparency = 0.12})
+Items["Icon"]:Tween(nil, {ImageTransparency = 0.12})
+Items["Background"]:Tween(nil, {BackgroundTransparency = 0.93, Size = UDim2New(1, 0, 0, 35)})
+end
+end)
+Items["Inactive"]:Connect("MouseLeave", function()
+if not Page.Active then
+Items["Text"]:Tween(nil, {TextTransparency = 0.4})
+Items["Icon"]:Tween(nil, {ImageTransparency = 0.4})
+Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
+end
+end)
+Items["Inactive"]:Connect("MouseButton1Down", function()
+for Index, Value in Page.Window.Pages do
+if Value == Page and Page.Active then
+return
+end
+Value:Turn(Value == Page)
+end
+end)
+if #Page.Window.Pages == 0 then
+Page:Turn(true)
+end
+TableInsert(Page.Window.Pages, Page)
+return setmetatable(Page, Library.Pages)
+end
+Library.Group = function(self, Name)
+self._NavCounter = (self._NavCounter or 0) + 1
+Instances:Create("TextLabel", {
+Parent = self.Items["Pages"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+Text = Name,
+TextColor3 = Library.Theme["Text"],
+TextTransparency = 0.55,
+TextSize = 12,
+TextXAlignment = Enum.TextXAlignment.Left,
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+BorderSizePixel = 0,
+Size = UDim2New(1, 0, 0, 16),
+LayoutOrder = self._NavCounter
+}):AddToTheme({TextColor3 = 'Text'})
+end
+Library.Pages.Section = function(self, Data)
+Data = Data or { }
+local Section = {
+Window = self.Window,
+Page = self,
+Name = Data.Name or Data.name or "Section",
+Side = math.clamp(Data.Side or Data.side or 1, 1, 2),
+Icon = Data.Icon or Data.icon or "rbxassetid://127136375066593",
+Items = { }
+}
+local Tab = Section.Page:GetTab(Data.Tab)
+local TargetColumn = Tab.Columns[Section.Side].Instance
+local Items = { } do
+Items["SectionOutline"] = Instances:Create("Frame", {
+Parent = TargetColumn,
+Name = "\0",
+Size = UDim2New(1, 0, 0, 44),
+BorderColor3 = FromRGB(0, 0, 0),
+BorderSizePixel = 0,
+AutomaticSize = Enum.AutomaticSize.Y,
+BackgroundColor3 = Library.Theme["Outline"]
+}):AddToTheme({BackgroundColor3 = 'Outline'})
+Instances:Create("UICorner", {
+Parent = Items["SectionOutline"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 16)
+})
+Items["Section"] = Instances:Create("Frame", {
+Parent = Items["SectionOutline"].Instance,
+Name = "\0",
+Position = UDim2New(0, 1, 0, 1),
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, -2, 1, -2),
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Inline"]
+}):AddToTheme({BackgroundColor3 = 'Inline'})
+Instances:Create("UICorner", {
+Parent = Items["Section"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 15)
+})
+Items["Top"] = Instances:Create("Frame", {
+Parent = Items["Section"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 38),
+BorderSizePixel = 0
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Top"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextWrapped = true,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Section.Name,
+Size = UDim2New(0, 0, 0, 14),
+AnchorPoint = Vector2New(0, 0.5),

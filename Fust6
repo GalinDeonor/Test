@@ -1,3 +1,36 @@
+local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "игрок"
+end
+end
+end
+end
+end
+end
+end
+end
+end
+end
+end
+if Aim.TargetsNPC or Aim.TargetsAnimals or Aim.TargetsSleepers then
+for model in pairs(trackedNPCs) do
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local aimCat = npcGetCategory(model, hum, root)
+local catWanted =
+((aimCat == "Guard" or aimCat == "Peaceful") and Aim.TargetsNPC)
+or (aimCat == "Animal" and Aim.TargetsAnimals)
+or (aimCat == "Sleeper" and Aim.TargetsSleepers)
+if not catWanted then
+continue
+end
+local worldDist = (root.Position - localRoot.Position).Magnitude
+if worldDist <= Aim.Distance then
+local part = resolveAimPart(model, Aim.Part)
 if part then
 local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
 local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
@@ -46,6 +79,12 @@ fovCircle.Visible = false
 end
 return
 end
+if FreeCam.Enabled then
+if fovCircle then
+fovCircle.Visible = false
+end
+return
+end
 local part, aimPos = getAimTarget(camera)
 if fovCircle then
 fovCircle.Position = center
@@ -55,8 +94,13 @@ fovCircle.Visible = Aim.ShowFOV
 end
 if part and aimPos then
 AR_AimBusyUntil = os.clock() + 0.15
+local newCF = CFrame.new(camera.CFrame.Position, aimPos)
+if Evil.Enabled then
+camera.CFrame = newCF
+else
 local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
-camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPos), alpha)
+camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
+end
 end
 end)
 getgenv().FUST_AimCleanup = function()
@@ -284,6 +328,12 @@ Oscillation = AntiShake.Oscillation,
 AutoAim = {
 Enabled = AutoAim.Enabled,
 Radius = AutoAim.Radius,
+},
+Evil = {
+Enabled = Evil.Enabled,
+AutoPred = Evil.AutoPred,
+Snipe = Evil.Snipe,
+K = Evil.K,
 },
 HUD = {
 Enabled = S.HUD.Enabled,
@@ -518,6 +568,13 @@ AimHotkeyBusy = true
 applyFlag("AimHotkey", { Mode = hkMode, Key = enumKey })
 AimHotkeyBusy = false
 end
+end
+if type(cfg.Evil) == "table" then
+local ev = cfg.Evil
+applyFlag("EvilEnabled", ev.Enabled)
+applyFlag("EvilAutoPred", ev.AutoPred)
+applyFlag("EvilSnipe", ev.Snipe)
+applyFlag("EvilK", ev.K)
 end
 end
 end
@@ -1194,6 +1251,68 @@ local limit = math.max(maxDist or 1000, 100)
 local t = math.clamp(dist / limit, 0, 1)
 return 1 - t * 0.55, true
 end
+ESP_VIS_COLOR_WALL = Color3.fromRGB(150, 150, 150)
+ESP_VIS_COLOR_HB = Color3.fromRGB(255, 190, 40)
+espVisCache = {}
+espVisCacheCount = 0
+espVisRayParams = RaycastParams.new()
+espVisRayParams.FilterType = Enum.RaycastFilterType.Exclude
+espVisRayParams.IgnoreWater = true
+function espVisCacheClear()
+table.clear(espVisCache)
+espVisCacheCount = 0
+end
+function espVisPointClear(camPos, char, point)
+if LocalPlayer.Character then
+espVisRayParams.FilterDescendantsInstances = { LocalPlayer.Character, char }
+else
+espVisRayParams.FilterDescendantsInstances = { char }
+end
+return Workspace:Raycast(camPos, point - camPos, espVisRayParams) == nil
+end
+function espVisState(char, root, camPos, now)
+local hit = espVisCache[char]
+if hit and now - hit.at < 0.2 then
+return hit.state
+end
+if espVisCacheCount > 60 then
+table.clear(espVisCache)
+espVisCacheCount = 0
+end
+local state = "vis"
+local head = char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso")
+local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+local bodySeen = false
+if head and espVisPointClear(camPos, char, head.Position) then
+bodySeen = true
+end
+if not bodySeen and torso and espVisPointClear(camPos, char, torso.Position) then
+bodySeen = true
+end
+if not bodySeen then
+if S.ESP.VisHitbox and root then
+local hbSeen = false
+local half = root.Size * 0.5
+local pts = {
+root.Position,
+root.Position + Vector3.new(0, half.Y * 0.8, 0),
+root.Position - Vector3.new(0, half.Y * 0.8, 0),
+}
+for _, p in ipairs(pts) do
+if espVisPointClear(camPos, char, p) then
+hbSeen = true
+break
+end
+end
+state = hbSeen and "hb" or "wall"
+else
+state = "wall"
+end
+end
+espVisCache[char] = { state = state, at = now }
+espVisCacheCount = espVisCacheCount + 1
+return state
+end
 renderConnection = nil
 renderConnection = RunService.RenderStepped:Connect(function()
 if getgenv().FUST_SESSION ~= FUST_SESSION then
@@ -1399,6 +1518,11 @@ end
 if S.ESP.Enabled and char and root and myRoot and hum and hum.Health > 0 and not isTeammate then
 local dist = (root.Position - myRoot.Position).Magnitude
 if dist <= S.ESP.MaxDistance * 1.06 + 10 then
+local vState = "vis"
+if S.ESP.VisCheck and not isWhitelisted then
+vState = espVisState(char, root, Camera.CFrame.Position, os.clock())
+end
+local visColor = (vState == "wall") and ESP_VIS_COLOR_WALL or (vState == "hb") and ESP_VIS_COLOR_HB or nil
 local topLeft, boxSize = getScreenBox(Camera, root)
 if topLeft then
 local MINW, MINH = 7, 10
@@ -1430,15 +1554,15 @@ local centerX = bx + bw * 0.5
 if S.ESP.Box then
 ed.Box.Position = Vector2.new(bx, by)
 ed.Box.Size = Vector2.new(bw, bh)
-ed.Box.Color = isWhitelisted and COLOR_WHITELIST or S.ESPColors.Box
+ed.Box.Color = isWhitelisted and COLOR_WHITELIST or (visColor or S.ESPColors.Box)
 ed.Box.Visible = true
 else
 ed.Box.Visible = false
 end
 if S.ESP.Name then
-ed.Name.Text = player.Name
+ed.Name.Text = player.Name .. ((vState == "wall") and " • СТЕНА" or "")
 ed.Name.Position = Vector2.new(centerX, by - (nameSize + 4))
-ed.Name.Color = isWhitelisted and COLOR_WHITELIST or COLOR_DEFAULT
+ed.Name.Color = isWhitelisted and COLOR_WHITELIST or (visColor or COLOR_DEFAULT)
 ed.Name.Visible = true
 else
 ed.Name.Visible = false
@@ -1729,9 +1853,11 @@ end
 NpcHitboxAppliedCount = 0
 end
 if myRoot then
+lootPoolUpdate(myRoot, os.clock())
 updateBackpackEsp(Camera, myRoot)
 else
 bpHideAll()
+lootPoolDisableAll()
 end
 if HitboxAnnouncePending then
 HitboxAnnouncePending = false
@@ -1823,6 +1949,18 @@ pcall(function()
 journal("ДЕАКТИВАЦИЯ: скрипт выключен кнопкой")
 end)
 getgenv().FUST_SESSION = {}
+pcall(function()
+lootPoolCleanup()
+end)
+pcall(function()
+freecamDisable()
+end)
+pcall(function()
+if getgenv().FUST_FCKeyConn then
+getgenv().FUST_FCKeyConn:Disconnect()
+getgenv().FUST_FCKeyConn = nil
+end
+end)
 pcall(function()
 getgenv().FUST_RenderCleanup()
 end)
