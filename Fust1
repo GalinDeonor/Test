@@ -446,10 +446,12 @@
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
-LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
-pcall(function()
-if type(readfile) == "function" and isfile and isfile("FUST_noLoadScreen.txt") then
+-- 0.39v4: экран загрузки ОТКЛЮЧЕН по умолчанию — на Xeno он может блокировать
+-- запуск. Включается toggle в настройках (если работает — будет при следующем запуске).
 LoadScreenEnabled = false
+pcall(function()
+if type(readfile) == "function" and isfile and isfile("FUST_loadScreen_ON.txt") then
+LoadScreenEnabled = true
 end
 end)
 local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
@@ -594,6 +596,8 @@ table.insert(loadScreenDetected, "camera.CFrame: используем лерп (
 end)
 end
 local function updateLoadScreen()
+-- 0.39v4: pcall вокруг — если что-то упадёт, экран всё равно скроется через 3с
+pcall(function()
 if not LoadScreenEnabled then return end
 local now = os.clock()
 local elapsed = now - loadScreenStart
@@ -615,6 +619,7 @@ end
 if elapsed >= 3.0 then
 hideLoadScreen()
 end
+end)
 end
 if LoadScreenEnabled then
 showLoadScreen()
@@ -1284,11 +1289,4 @@ end
 if not loaded then
 pcall(function() delfile("AltHack_Inter") end)
 loaded = pcall(function()
-Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
-Id = "OutfitMedium",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
-})
-end)
-end
-if not loaded or not Library.Font then
-Library.Font = Font.new(Enum.Font.GothamM
+Library.Font = CustomFont:New("O

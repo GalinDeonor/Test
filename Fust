@@ -446,10 +446,12 @@
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
-LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
-pcall(function()
-if type(readfile) == "function" and isfile and isfile("FUST_noLoadScreen.txt") then
+-- 0.39v4: экран загрузки ОТКЛЮЧЕН по умолчанию — на Xeno он может блокировать
+-- запуск. Включается toggle в настройках (если работает — будет при следующем запуске).
 LoadScreenEnabled = false
+pcall(function()
+if type(readfile) == "function" and isfile and isfile("FUST_loadScreen_ON.txt") then
+LoadScreenEnabled = true
 end
 end)
 local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
@@ -594,6 +596,8 @@ table.insert(loadScreenDetected, "camera.CFrame: используем лерп (
 end)
 end
 local function updateLoadScreen()
+-- 0.39v4: pcall вокруг — если что-то упадёт, экран всё равно скроется через 3с
+pcall(function()
 if not LoadScreenEnabled then return end
 local now = os.clock()
 local elapsed = now - loadScreenStart
@@ -615,6 +619,7 @@ end
 if elapsed >= 3.0 then
 hideLoadScreen()
 end
+end)
 end
 if LoadScreenEnabled then
 showLoadScreen()
@@ -4360,20 +4365,20 @@ end
 MenuSection:Toggle({
 Name = "Экран загрузки при старте (петух + проверки)",
 Flag = "LoadScreenEnabled",
-Default = true,
+Default = false,
 Callback = function(state)
 LoadScreenEnabled = state
--- 0.39: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
+-- 0.39v4: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
 pcall(function()
 if type(writefile) == "function" then
 if state then
-if type(delfile) == "function" then pcall(delfile, "FUST_noLoadScreen.txt") end
+writefile("FUST_loadScreen_ON.txt", "1")
 else
-writefile("FUST_noLoadScreen.txt", "1")
+if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
 end
 end
 end)
-journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ" or "ВЫКЛ (не будет при следующем запуске)"))
+journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ (при следующем запуске)" or "ВЫКЛ"))
 end
 })
 MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
@@ -10213,8 +10218,10 @@ local okV, vim = pcall(function()
 return game:GetService("VirtualInputManager")
 end)
 if okV and vim then
+-- 0.39v4 FIX: task.wait здесь ЗАПРЕЩЁН (yield в RenderStepped ломает
+-- весь aim loop). Шлём press+release без задержки — Roblox сам
+-- обработает порядок.
 vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-task.wait(0.02)
 vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 end
 end
@@ -12687,6 +12694,8 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
+-- 0.39v4: гарантированно скрыть экран загрузки при ошибке
+pcall(hideLoadScreen)
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then

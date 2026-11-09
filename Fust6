@@ -1,4 +1,4 @@
-trs = plr:GetAttributes()
+tAttributes()
 for k, v in pairs(attrs) do
 local kl = string.lower(tostring(k))
 for _, attr in ipairs(ADMIN_ATTRS) do
@@ -2336,6 +2336,8 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
+-- 0.39v4: гарантированно скрыть экран загрузки при ошибке
+pcall(hideLoadScreen)
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then

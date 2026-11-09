@@ -1,4 +1,11 @@
-edium)
+utfitMedium", 400, "Regular", {
+Id = "OutfitMedium",
+Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
+})
+end)
+end
+if not loaded or not Library.Font then
+Library.Font = Font.new(Enum.Font.GothamMedium)
 end
 end
 end
@@ -2341,5 +2348,4 @@ end)
 InputChanged = nil
 end
 Slider.Sliding = true
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Sli
+local SizeX = (Input.Pos

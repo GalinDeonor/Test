@@ -1,3 +1,4 @@
+ate
 end
 })
 UIRegistry.ESPBoxColor = UIRegistry.ESPBox:Colorpicker({
@@ -2437,4 +2438,6 @@ Legs = "Ноги",
 Random = "Рандом",
 }
 UIRegistry.AimPart = TargetSection:Dropdown({
-N
+Name = "Аим парт",
+Items = { "Голова", "Тело", "Ноги", "Рандом" },
+Default = "�

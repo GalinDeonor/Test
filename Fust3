@@ -1,4 +1,5 @@
-der.Max - Slider.Min) * SizeX) + Slider.Min
+ition.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
 Slider:Set(Value)
 InputChanged = Input.Changed:Connect(function()
 if Input.UserInputState == Enum.UserInputState.End
@@ -723,20 +724,20 @@ end
 MenuSection:Toggle({
 Name = "Экран загрузки при старте (петух + проверки)",
 Flag = "LoadScreenEnabled",
-Default = true,
+Default = false,
 Callback = function(state)
 LoadScreenEnabled = state
--- 0.39: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
+-- 0.39v4: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
 pcall(function()
 if type(writefile) == "function" then
 if state then
-if type(delfile) == "function" then pcall(delfile, "FUST_noLoadScreen.txt") end
+writefile("FUST_loadScreen_ON.txt", "1")
 else
-writefile("FUST_noLoadScreen.txt", "1")
+if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
 end
 end
 end)
-journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ" or "ВЫКЛ (не будет при следующем запуске)"))
+journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ (при следующем запуске)" or "ВЫКЛ"))
 end
 })
 MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
@@ -1797,4 +1798,4 @@ Name = "ESP Box",
 Flag = "ESPBox",
 Default = false,
 Callback = function(state)
-S.ESP.Box = state
+S.ESP.Box = st

@@ -1,6 +1,4 @@
-ame = "Аим парт",
-Items = { "Голова", "Тело", "Ноги", "Рандом" },
-Default = "Голова",
+�олова",
 Flag = "AimPart",
 Multi = false,
 Callback = function(label)
@@ -2337,8 +2335,10 @@ local okV, vim = pcall(function()
 return game:GetService("VirtualInputManager")
 end)
 if okV and vim then
+-- 0.39v4 FIX: task.wait здесь ЗАПРЕЩЁН (yield в RenderStepped ломает
+-- весь aim loop). Шлём press+release без задержки — Roblox сам
+-- обработает порядок.
 vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-task.wait(0.02)
 vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 end
 end
@@ -2473,4 +2473,4 @@ end)
 -- 2. Атрибуты игрока
 if not isAdm then
 pcall(function()
-local at
+local attrs = plr:Ge
