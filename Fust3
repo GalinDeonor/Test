@@ -1,34 +1,4 @@
-Center = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-}):AddToTheme({ImageColor3 = 'Accent'})
-end
-table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
-function Slider:Get()
-return Slider.Value
-end
-function Slider:SetVisibility(Bool)
-Items["Slider"].Instance.Visible = Bool
-end
-function Slider:Set(Value)
-Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
-Library.Flags[Slider.Flag] = Slider.Value
-Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
-Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
-if Slider.Callback then
-Library:SafeCall(Slider.Callback, Slider.Value)
-end
-end
-local InputChanged
-Items["RealSlider"]:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if InputChanged then
-pcall(function()
-InputChanged:Disconnect()
-end)
-InputChanged = nil
-end
-Slider.Sliding = true
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+der.Max - Slider.Min) * SizeX) + Slider.Min
 Slider:Set(Value)
 InputChanged = Input.Changed:Connect(function()
 if Input.UserInputState == Enum.UserInputState.End
@@ -736,13 +706,16 @@ Flag = "PetuhMenuKey",
 Default = Enum.KeyCode.RightControl,
 Mode = "Toggle",
 Callback = function(state)
--- 0.39 FIX: callback получает только state. Ключ читаем из Library.Flags.
+-- 0.39v3 FIX: правильно извлекаем имя клавиши
 pcall(function()
 local f = Library.Flags and Library.Flags["PetuhMenuKey"]
 if f and f.Key then
--- f.Key это строка вида "Enum.KeyCode.RightControl"
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
-if kc then PETUH_MENU_KEY = kc end
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
+if kc then
+PETUH_MENU_KEY = kc
+journal("МЕНЮ: клавиша = " .. keyName)
+end
 end
 end)
 end
@@ -1444,14 +1417,16 @@ Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
 Mode = "Toggle",
 Callback = function(state)
--- 0.39 FIX: читаем ключ из Library.Flags после назначения
+-- 0.39v3 FIX: правильно извлекаем имя клавиши из строки "Enum.KeyCode.K"
 pcall(function()
 local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
 if f and f.Key then
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
 if kc then
 FreeCamKeys.Toggle = kc
 FC_KEY_TOGGLE = kc
+journal("ФРИКАМ: клавиша toggle = " .. keyName)
 end
 end
 end)
@@ -1467,10 +1442,12 @@ Callback = function(state)
 pcall(function()
 local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
 if f and f.Key then
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
 if kc then
 FreeCamKeys.Slow = kc
 FC_KEY_SLOW = kc
+journal("ФРИКАМ: клавиша slow = " .. keyName)
 end
 end
 end)
@@ -1486,10 +1463,12 @@ Callback = function(state)
 pcall(function()
 local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
 if f and f.Key then
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
 if kc then
 FreeCamKeys.Fast = kc
 FC_KEY_FAST = kc
+journal("ФРИКАМ: клавиша fast = " .. keyName)
 end
 end
 end)
@@ -1747,4 +1726,75 @@ if now - npcHorizontalSince[model] >= 4 then
 cat = "Sleeper"
 end
 else
-npcHo
+npcHorizontalSince[model] = nil
+end
+if not cat and (npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model)) then
+cat = "Guard"
+end
+if not cat then
+cat = "Peaceful"
+end
+end
+end
+npcCategoryCache[model] = { Cat = cat, Expire = now + NPC_CAT_TTL }
+local on = (
+(cat == "Guard" and S.NPC.CatGuards)
+or (cat == "Peaceful" and S.NPC.CatPeaceful)
+or (cat == "Animal" and S.NPC.CatAnimals)
+or (cat == "Sleeper" and S.NPC.CatSleepers)
+) and true or false
+return cat, on, NPC_CAT_COLORS[cat] or NPC_COLOR
+end
+Whitelist = {} 
+FUST_BulletsSet = nil 
+HitboxAnnouncePending = false 
+NpcHitboxAnnouncePending = false 
+NpcHitboxAppliedCount = 0 
+AntiRecoil = {
+Enabled = false, 
+Rollback = true, 
+Offset = true, 
+Drift = true, 
+DriftStrength = 1, 
+Threshold = 1.2, 
+}
+AR_SnapCF = nil 
+AR_LastStateJournal = 0 
+AR_LastPitch = nil 
+AR_DriftFrames = 0 
+AR_AimBusyUntil = 0 
+AR_Anchor = nil 
+AR_LastDriftAt = 0 
+FUST_FireUntil = 0 
+FUST_FireTool = nil 
+FUST_FireConns = nil 
+AntiShake = {
+Enabled = false, 
+Roll = true, 
+Position = true, 
+Oscillation = true, 
+}
+AS_SmoothPos = nil 
+AS_LastRawPitch = nil 
+AS_LastLX, AS_LastLZ = nil, nil 
+AS_LastDp, AS_LastDy = nil, nil 
+AS_PitchFlips, AS_YawFlips = 0, 0 
+AS_AnchorLook = nil 
+AS_LastShakeAt = 0 
+COLOR_WHITELIST = Color3.fromRGB(0, 255, 0)
+COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)
+UIRegistry.ESPEnabled = EspSection:Toggle({
+Name = "ESP Enabled",
+Flag = "ESPEnabled",
+Default = false,
+Callback = function(state)
+S.ESP.Enabled = state
+journal("ESP " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.ESPBox = EspSection:Toggle({
+Name = "ESP Box",
+Flag = "ESPBox",
+Default = false,
+Callback = function(state)
+S.ESP.Box = state

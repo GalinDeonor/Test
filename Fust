@@ -4343,13 +4343,16 @@ Flag = "PetuhMenuKey",
 Default = Enum.KeyCode.RightControl,
 Mode = "Toggle",
 Callback = function(state)
--- 0.39 FIX: callback получает только state. Ключ читаем из Library.Flags.
+-- 0.39v3 FIX: правильно извлекаем имя клавиши
 pcall(function()
 local f = Library.Flags and Library.Flags["PetuhMenuKey"]
 if f and f.Key then
--- f.Key это строка вида "Enum.KeyCode.RightControl"
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
-if kc then PETUH_MENU_KEY = kc end
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
+if kc then
+PETUH_MENU_KEY = kc
+journal("МЕНЮ: клавиша = " .. keyName)
+end
 end
 end)
 end
@@ -5051,14 +5054,16 @@ Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
 Mode = "Toggle",
 Callback = function(state)
--- 0.39 FIX: читаем ключ из Library.Flags после назначения
+-- 0.39v3 FIX: правильно извлекаем имя клавиши из строки "Enum.KeyCode.K"
 pcall(function()
 local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
 if f and f.Key then
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
 if kc then
 FreeCamKeys.Toggle = kc
 FC_KEY_TOGGLE = kc
+journal("ФРИКАМ: клавиша toggle = " .. keyName)
 end
 end
 end)
@@ -5074,10 +5079,12 @@ Callback = function(state)
 pcall(function()
 local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
 if f and f.Key then
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
 if kc then
 FreeCamKeys.Slow = kc
 FC_KEY_SLOW = kc
+journal("ФРИКАМ: клавиша slow = " .. keyName)
 end
 end
 end)
@@ -5093,10 +5100,12 @@ Callback = function(state)
 pcall(function()
 local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
 if f and f.Key then
-local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
 if kc then
 FreeCamKeys.Fast = kc
 FC_KEY_FAST = kc
+journal("ФРИКАМ: клавиша fast = " .. keyName)
 end
 end
 end)
@@ -7022,8 +7031,10 @@ Radius = 500,
 -- 0.39v2: АВТО-СТРЕЛЬБА
 AutoFire = {
 Enabled = false,
-Delay = 0.1,        -- задержка между выстрелами (сек)
+Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
 OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
+WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
 PCKey = nil,        -- не используется (всегда автомат)
 }
 AF_LastShot = 0
@@ -7457,10 +7468,10 @@ journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 UIRegistry.AutoFireDelay = AutoFireSection:Slider({
-Name = "Задержка между выстрелами (сек)",
+Name = "Задержка между выстрелами (0 = макс)",
 Flag = "AutoFireDelay",
-Default = 0.1,
-Min = 0.05,
+Default = 0,
+Min = 0,
 Max = 0.5,
 Decimals = 0.01,
 Callback = function(v) AutoFire.Delay = v end
@@ -7471,7 +7482,19 @@ Flag = "AutoFireOnlyOnTarget",
 Default = true,
 Callback = function(state) AutoFire.OnlyOnTarget = state end
 })
-AutoFireSection:Label("ПК: симулирует левый клик (mouse1click / VirtualInputManager). Телефон: вызывает Tool:Activate() — не перехватывает управление.")
+UIRegistry.AutoFireUntilDead = AutoFireSection:Toggle({
+Name = "Стрелять пока цель не умрёт",
+Flag = "AutoFireUntilDead",
+Default = true,
+Callback = function(state) AutoFire.UntilDead = state end
+})
+UIRegistry.AutoFireWallCheck = AutoFireSection:Toggle({
+Name = "Не стрелять через стены (WallCheck)",
+Flag = "AutoFireWallCheck",
+Default = true,
+Callback = function(state) AutoFire.WallCheck = state end
+})
+AutoFireSection:Label("ПК: mouse1click / VirtualInputManager. Телефон: Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -9131,7 +9154,9 @@ else
 FC_MOD.yaw, FC_MOD.pitch = 0, 0
 end
 pcall(function()
-cam.CameraType = Enum.CameraType.Scriptable
+-- 0.39v3 STEALTH: НЕ ставим CameraType.Scriptable — это детектится анти-читом
+-- как аномалия (камера脱离 player control). Оставляем Custom и просто
+-- пишем CFrame каждый кадр. Far поднимаем (безопасно).
 cam.Far = math.max(cam.Far or 1000, 8000)
 end)
 FC_MOD.rmb = false
@@ -9215,9 +9240,7 @@ local cam = Workspace.CurrentCamera
 if not cam then
 return
 end
-pcall(function()
-cam.CameraType = Enum.CameraType.Scriptable
-end)
+-- 0.39v3 STEALTH: НЕ трогаем CameraType каждый кадр — детект. Custom работает.
 local rot = CFrame.fromEulerAnglesYXZ(FC_MOD.pitch, FC_MOD.yaw, 0)
 local fwd = rot.LookVector
 local flat = Vector3.new(fwd.X, 0, fwd.Z)
@@ -10155,7 +10178,22 @@ local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
 camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
 end
 -- 0.39v2: АВТО-СТРЕЛЬБА
-if AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part) then
+-- 0.39v4: WallCheck — не стрелять если цель за стеной
+local afCanFire = AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part)
+if afCanFire and AutoFire.WallCheck and part and aimPos then
+-- ищем модель цели для raycast (part.Parent обычно модель игрока/НПС/вертолёта)
+local targetModel = part.Parent
+if not targetModel or not targetModel:IsA("Model") then
+targetModel = part:FindFirstAncestorOfClass("Model")
+end
+if targetModel then
+local camPos2 = camera.CFrame.Position
+if wallBetween(camPos2, targetModel, aimPos) then
+afCanFire = false
+end
+end
+end
+if afCanFire then
 local now = os.clock()
 if now - AF_LastShot >= AutoFire.Delay then
 AF_LastShot = now
@@ -12356,36 +12394,58 @@ end
 local function klScanKickBanner()
 local found = nil
 pcall(function()
-local promptRoot
-pcall(function()
-promptRoot = game:GetService("CoreGui"):FindFirstChild("RobloxPromptDialog")
-end)
-if not promptRoot then
-pcall(function()
-for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
-if gui:IsA("ScreenGui") then
-local p = gui:FindFirstChild("PromptDialog") or gui:FindFirstChild("RobloxPromptDialog")
-or gui:FindFirstChildWhichIsA("Frame")
-if p then promptRoot = p break end
-end
-end
-end)
-end
-if promptRoot then
-local scanned = 0
-for _, desc in ipairs(promptRoot:GetDescendants()) do
-scanned = scanned + 1
-if scanned > 60 then break end
+-- 0.39v3: ищем по всем ScreenGui в CoreGui, не только RobloxPromptDialog
+local coreGui = game:GetService("CoreGui")
+local scannedTotal = 0
+for _, gui in ipairs(coreGui:GetChildren()) do
+if gui:IsA("ScreenGui") and gui.Name ~= "PetuhMenuToggle" and gui.Name ~= "PetuhHUD" and gui.Name ~= "PetuhLoadScreen" then
+-- проверяем имя gui тоже
+local guiName = string.lower(tostring(gui.Name))
+if guiName:find("prompt") or guiName:find("dialog") or guiName:find("message") or guiName:find("error") then
+for _, desc in ipairs(gui:GetDescendants()) do
+scannedTotal = scannedTotal + 1
+if scannedTotal > 120 then break end
 if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
 local t = desc.Text
-if t:lower():find("kick") or t:lower():find("ban")
-or t:lower():find("вы kicked") or t:lower():find("вы ban")
-or t:lower():find("обнаружен") or t:lower():find("detect")
-or t:lower():find("cheat") or t:lower():find("чит")
-or t:lower():find("exploit") or t:lower():find("hack")
-or t:lower():find("разблокирован") or t:lower():find("нарушен") then
+local tl = string.lower(t)
+if tl:find("kick") or tl:find("ban")
+or tl:find("вы ") or tl:find("ты ")
+or tl:find("обнаружен") or tl:find("detect")
+or tl:find("cheat") or tl:find("чит")
+or tl:find("exploit") or tl:find("hack")
+or tl:find("разблокирован") or tl:find("нарушен")
+or tl:find("disconnect") or tl:find("timed out")
+or tl:find("соединение") or tl:find("потеряно")
+or tl:find("вышли") or tl:find("покинул") then
 found = t
 break
+end
+end
+end
+end
+if found then break end
+end
+end
+-- 0.39v3: если не нашли в CoreGui, проверим PlayerGui
+if not found then
+local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then
+for _, gui in ipairs(pg:GetChildren()) do
+if gui:IsA("ScreenGui") then
+for _, desc in ipairs(gui:GetDescendants()) do
+scannedTotal = scannedTotal + 1
+if scannedTotal > 200 then break end
+if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
+local t = desc.Text
+local tl = string.lower(t)
+if tl:find("kick") or tl:find("ban") or tl:find("чит") or tl:find("cheat")
+or tl:find("detect") or tl:find("обнаружен") then
+found = t
+break
+end
+end
+end
+if found then break end
 end
 end
 end
@@ -12466,14 +12526,38 @@ end
 
 -- Главный слушатель: PlayerRemoving для LocalPlayer = кик/бан/выход
 local klPlayerRemoved = false
-Players.PlayerRemoving:Connect(function(player)
-if player == LocalPlayer and not klPlayerRemoved then
+local function klCheckAndLog(reason, banner)
+if klPlayerRemoved then return end
 klPlayerRemoved = true
+klLogExit(reason, banner)
+end
+Players.PlayerRemoving:Connect(function(player)
+if player == LocalPlayer then
 -- Даём CoreGui 0.3с на отрисовку баннера кика
 task.delay(0.3, function()
 local banner = klScanKickBanner()
 local reason = banner and "KICK/BAN (найден баннер в CoreGui)" or "EXIT/QUIT (баннер не найден — возможно ручной выход)"
-klLogExit(reason, banner)
+klCheckAndLog(reason, banner)
+end)
+-- 0.39v3: логируем СРАЗУ тоже, без delay — вдруг delay не выполнится
+local banner2 = klScanKickBanner()
+klCheckAndLog("PLAYER_REMOVING (без баннера, мгновенный лог)", banner2)
+end
+end)
+-- 0.39v3: перехват Player:Kick убран — на Delta hookfunction на Instance-методах
+-- может ломать загрузку. PlayerRemoving + heartbeat достаточно.
+-- 0.39v3: также слушаем сообщения в чат (некоторые анти-читы пишут причину туда)
+pcall(function()
+TextChatService = game:GetService("TextChatService")
+if TextChatService and TextChatService.MessageReceived then
+TextChatService.MessageReceived:Connect(function(msg)
+local txt = tostring(msg.Text or "")
+if txt:lower():find("kick") or txt:lower():find("ban")
+or txt:lower():find("detect") or txt:lower():find("cheat") then
+pcall(function()
+klAppend("[" .. klTimestamp() .. "] CHAT_MSG: " .. txt)
+end)
+end
 end)
 end
 end)
@@ -12483,11 +12567,12 @@ klRotateIfNeeded()
 klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.39, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
--- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
+-- Тихий фоновый heartbeat: раз в 2с проверяем, что LocalPlayer ещё в игре.
 -- Если LocalPlayer.Parent ~= Players (вдруг PlayerRemoving не успел) — лог.
+-- 0.39v3: было 30с — слишком поздно ловило. 2с = быстро и безопасно.
 task.spawn(function()
 while true do
-task.wait(30)
+task.wait(2)
 if getgenv().FUST_SESSION ~= FUST_SESSION then break end
 local p = LocalPlayer
 if not p or not p.Parent or not p.Parent:IsA("Players") then

@@ -1269,4 +1269,26 @@ do
 local loaded = pcall(function()
 Library.Font = CustomFont:New("SFProText", 400, "Regular", {
 Id = "AltHack_SFProText",
-Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/S
+Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/SF-Pro-Text-Regular.otf"
+})
+end)
+if not loaded then
+pcall(function() delfile("AltHack_SFProText") end)
+loaded = pcall(function()
+Library.Font = CustomFont:New("Inter", 400, "Regular", {
+Id = "AltHack_Inter",
+Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Inter.ttf"
+})
+end)
+end
+if not loaded then
+pcall(function() delfile("AltHack_Inter") end)
+loaded = pcall(function()
+Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
+Id = "OutfitMedium",
+Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
+})
+end)
+end
+if not loaded or not Library.Font then
+Library.Font = Font.new(Enum.Font.GothamM

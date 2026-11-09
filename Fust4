@@ -1,75 +1,3 @@
-rizontalSince[model] = nil
-end
-if not cat and (npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model)) then
-cat = "Guard"
-end
-if not cat then
-cat = "Peaceful"
-end
-end
-end
-npcCategoryCache[model] = { Cat = cat, Expire = now + NPC_CAT_TTL }
-local on = (
-(cat == "Guard" and S.NPC.CatGuards)
-or (cat == "Peaceful" and S.NPC.CatPeaceful)
-or (cat == "Animal" and S.NPC.CatAnimals)
-or (cat == "Sleeper" and S.NPC.CatSleepers)
-) and true or false
-return cat, on, NPC_CAT_COLORS[cat] or NPC_COLOR
-end
-Whitelist = {} 
-FUST_BulletsSet = nil 
-HitboxAnnouncePending = false 
-NpcHitboxAnnouncePending = false 
-NpcHitboxAppliedCount = 0 
-AntiRecoil = {
-Enabled = false, 
-Rollback = true, 
-Offset = true, 
-Drift = true, 
-DriftStrength = 1, 
-Threshold = 1.2, 
-}
-AR_SnapCF = nil 
-AR_LastStateJournal = 0 
-AR_LastPitch = nil 
-AR_DriftFrames = 0 
-AR_AimBusyUntil = 0 
-AR_Anchor = nil 
-AR_LastDriftAt = 0 
-FUST_FireUntil = 0 
-FUST_FireTool = nil 
-FUST_FireConns = nil 
-AntiShake = {
-Enabled = false, 
-Roll = true, 
-Position = true, 
-Oscillation = true, 
-}
-AS_SmoothPos = nil 
-AS_LastRawPitch = nil 
-AS_LastLX, AS_LastLZ = nil, nil 
-AS_LastDp, AS_LastDy = nil, nil 
-AS_PitchFlips, AS_YawFlips = 0, 0 
-AS_AnchorLook = nil 
-AS_LastShakeAt = 0 
-COLOR_WHITELIST = Color3.fromRGB(0, 255, 0)
-COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)
-UIRegistry.ESPEnabled = EspSection:Toggle({
-Name = "ESP Enabled",
-Flag = "ESPEnabled",
-Default = false,
-Callback = function(state)
-S.ESP.Enabled = state
-journal("ESP " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.ESPBox = EspSection:Toggle({
-Name = "ESP Box",
-Flag = "ESPBox",
-Default = false,
-Callback = function(state)
-S.ESP.Box = state
 end
 })
 UIRegistry.ESPBoxColor = UIRegistry.ESPBox:Colorpicker({
@@ -1666,8 +1594,10 @@ Radius = 500,
 -- 0.39v2: АВТО-СТРЕЛЬБА
 AutoFire = {
 Enabled = false,
-Delay = 0.1,        -- задержка между выстрелами (сек)
+Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
 OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
+WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
 PCKey = nil,        -- не используется (всегда автомат)
 }
 AF_LastShot = 0
@@ -2101,10 +2031,10 @@ journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 UIRegistry.AutoFireDelay = AutoFireSection:Slider({
-Name = "Задержка между выстрелами (сек)",
+Name = "Задержка между выстрелами (0 = макс)",
 Flag = "AutoFireDelay",
-Default = 0.1,
-Min = 0.05,
+Default = 0,
+Min = 0,
 Max = 0.5,
 Decimals = 0.01,
 Callback = function(v) AutoFire.Delay = v end
@@ -2115,7 +2045,19 @@ Flag = "AutoFireOnlyOnTarget",
 Default = true,
 Callback = function(state) AutoFire.OnlyOnTarget = state end
 })
-AutoFireSection:Label("ПК: симулирует левый клик (mouse1click / VirtualInputManager). Телефон: вызывает Tool:Activate() — не перехватывает управление.")
+UIRegistry.AutoFireUntilDead = AutoFireSection:Toggle({
+Name = "Стрелять пока цель не умрёт",
+Flag = "AutoFireUntilDead",
+Default = true,
+Callback = function(state) AutoFire.UntilDead = state end
+})
+UIRegistry.AutoFireWallCheck = AutoFireSection:Toggle({
+Name = "Не стрелять через стены (WallCheck)",
+Flag = "AutoFireWallCheck",
+Default = true,
+Callback = function(state) AutoFire.WallCheck = state end
+})
+AutoFireSection:Label("ПК: mouse1click / VirtualInputManager. Телефон: Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -2431,4 +2373,68 @@ AS_LastLZ = look2.Z
 end)
 end
 pcall(function()
-RunService:UnbindFromRenderStep
+RunService:UnbindFromRenderStep("FUST_AR_Snap")
+RunService:UnbindFromRenderStep("FUST_AR_Restore")
+end)
+RunService:BindToRenderStep("FUST_AR_Snap", Enum.RenderPriority.Camera.Value + 1, function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+RunService:UnbindFromRenderStep("FUST_AR_Snap")
+return
+end
+if not (AntiRecoil.Enabled and AntiRecoil.Rollback) then
+return
+end
+local camera = Workspace.CurrentCamera
+if camera then
+AR_SnapCF = camera.CFrame
+end
+end)
+RunService:BindToRenderStep("FUST_AR_Restore", Enum.RenderPriority.Last.Value + 1, function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+RunService:UnbindFromRenderStep("FUST_AR_Restore")
+return
+end
+if AntiRecoil.Enabled or AntiShake.Enabled then
+local myChar = LocalPlayer.Character
+FUST_BindFireTool(myChar and myChar:FindFirstChildOfClass("Tool"))
+else
+FUST_BindFireTool(nil)
+end
+AR_DriftPass()
+AS_Pass()
+if not (AntiRecoil.Enabled and AntiRecoil.Rollback) then
+return
+end
+if os.clock() < AR_AimBusyUntil then
+return
+end
+if os.clock() >= FUST_FireUntil + 0.5 then
+return
+end
+local camera = Workspace.CurrentCamera
+if not (camera and AR_SnapCF) then
+return
+end
+pcall(function()
+local cur = camera.CFrame
+local dPos = (cur.Position - AR_SnapCF.Position).Magnitude
+local dUp = cur.LookVector.Y - AR_SnapCF.LookVector.Y
+if dPos < 1 and dUp > math.rad(AntiRecoil.Threshold) then
+camera.CFrame = CFrame.new(cur.Position) * AR_SnapCF.Rotation
+end
+end)
+end)
+AIM_PART_LABELS = {
+["Голова"] = "Head",
+["Тело"] = "Torso",
+["Ноги"] = "Legs",
+["Рандом"] = "Random",
+}
+AIM_PART_TO_LABEL = {
+Head = "Голова",
+Torso = "Тело",
+Legs = "Ноги",
+Random = "Рандом",
+}
+UIRegistry.AimPart = TargetSection:Dropdown({
+N

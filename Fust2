@@ -1,26 +1,4 @@
-F-Pro-Text-Regular.otf"
-})
-end)
-if not loaded then
-pcall(function() delfile("AltHack_SFProText") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("Inter", 400, "Regular", {
-Id = "AltHack_Inter",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Inter.ttf"
-})
-end)
-end
-if not loaded then
-pcall(function() delfile("AltHack_Inter") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
-Id = "OutfitMedium",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
-})
-end)
-end
-if not loaded or not Library.Font then
-Library.Font = Font.new(Enum.Font.GothamMedium)
+edium)
 end
 end
 end
@@ -2334,4 +2312,34 @@ BackgroundTransparency = 1,
 Position = UDim2New(0.5, 0, 0.5, 0),
 ZIndex = 2,
 BorderSizePixel = 0,
-Slice
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+}):AddToTheme({ImageColor3 = 'Accent'})
+end
+table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
+function Slider:Get()
+return Slider.Value
+end
+function Slider:SetVisibility(Bool)
+Items["Slider"].Instance.Visible = Bool
+end
+function Slider:Set(Value)
+Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
+Library.Flags[Slider.Flag] = Slider.Value
+Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
+Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
+if Slider.Callback then
+Library:SafeCall(Slider.Callback, Slider.Value)
+end
+end
+local InputChanged
+Items["RealSlider"]:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+if InputChanged then
+pcall(function()
+InputChanged:Disconnect()
+end)
+InputChanged = nil
+end
+Slider.Sliding = true
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Sli
