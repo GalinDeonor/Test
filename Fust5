@@ -1,4 +1,12 @@
- (cf - cf.Position)
+era.CFrame = CFrame.lookAt(pos, pos + look)
+cf = camera.CFrame
+end
+end
+if AntiShake.Position then
+if firing then
+if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
+AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
+camera.CFrame = CFrame.new(AS_SmoothPos) * (cf - cf.Position)
 cf = camera.CFrame
 else
 AS_SmoothPos = pos
@@ -2425,5 +2433,4 @@ end
 task.spawn(function()
 while true do
 -- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ровные
--- интервалы сканера = бот-паттерн для эвристики. 0.18..0.24с неотличимо
--- от человеческой реакции, но не даёт «ритмичного
+-- интервалы сканера = бот-паттерн для эвристи�

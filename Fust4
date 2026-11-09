@@ -1,4 +1,21 @@
-ys.Slow = key
+"FreeCamKeyToggle",
+Default = Enum.KeyCode.K,
+Mode = "Toggle",
+Callback = function(state, key)
+if key then
+FreeCamKeys.Toggle = key
+FC_KEY_TOGGLE = key
+end
+end
+})
+UIRegistry.FreeCamKeySlow = FreeCamSection:Keybind({
+Name = "Клавиша: скорость МЕНЬШЕ",
+Flag = "FreeCamKeySlow",
+Default = Enum.KeyCode.Z,
+Mode = "Toggle",
+Callback = function(state, key)
+if key then
+FreeCamKeys.Slow = key
 FC_KEY_SLOW = key
 end
 end
@@ -2369,12 +2386,4 @@ local firing = now < FUST_FireUntil
 if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
 local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
 if math.abs(roll) > math.rad(0.05) then
-camera.CFrame = CFrame.lookAt(pos, pos + look)
-cf = camera.CFrame
-end
-end
-if AntiShake.Position then
-if firing then
-if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
-AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
-camera.CFrame = CFrame.new(AS_SmoothPos) *
+cam

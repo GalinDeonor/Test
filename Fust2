@@ -1,9 +1,4 @@
-0, EdgeThickness, 1, 0)),
-Side = "L"
-},
-{Button = MakeEdge(
-"Right",
-UDim2New(1, -EdgeThickness, 0, 0),
+dgeThickness, 0, 0),
 UDim2New(0, EdgeThickness, 1, 0)),
 Side = "R"
 },
@@ -2234,4 +2229,12 @@ local Items = { } do
 Items["Button"] = Instances:Create("TextButton", {
 Parent = Button.Section.Items["Content"].Instance,
 Name = "\0",
-TextColor3 = Library.
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(1, 0, 0, 30),
+Selectable = false,
+Active = false,
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Element"]

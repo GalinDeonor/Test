@@ -535,20 +535,19 @@ loadScreenText.Parent = bg
 end)
 end
 local function hideLoadScreen()
+-- 0.39 FIX: task.wait в RenderStepped запрещён — loadScreenGui:Destroy()
+-- после него никогда не выполнялся, чёрный экран висел вечно. Убираем
+-- wait и бесполезный tween, уничтожаем GUI сразу.
 pcall(function()
 if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
 if loadScreenGui then
-local tween = Instance.new("TweenInfo")
--- fade out 0.4с
-local okT, TS = pcall(function() return game:GetService("TweenService") end)
-if okT and TS then
-local t = TS:Create(loadScreenGui, TweenInfo.new(0.4), { DisplayOrder = 0 })
--- ScreenGui не имеет Transparency, используем child frames
-end
-task.wait(0.3)
 loadScreenGui:Destroy()
 end
 loadScreenGui = nil
+loadScreenPetuh = nil
+loadScreenBar = nil
+loadScreenText = nil
+loadScreenStatus = nil
 end)
 end
 local function setLoadProgress(pct, status)
@@ -1146,4 +1145,9 @@ local Edges = {
 {Button = MakeEdge(
 "Left",
 UDim2New(0, 0, 0, 0),
-UDim2New(
+UDim2New(0, EdgeThickness, 1, 0)),
+Side = "L"
+},
+{Button = MakeEdge(
+"Right",
+UDim2New(1, -E

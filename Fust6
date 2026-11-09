@@ -1,4 +1,5 @@
-» следа.
+�и. 0.18..0.24с неотличимо
+-- от человеческой реакции, но не даёт «ритмичного» следа.
 task.wait(0.18 + math.random() * 0.06)
 if getgenv().FUST_SESSION ~= FUST_SESSION then
 break
