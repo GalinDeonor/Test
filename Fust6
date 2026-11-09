@@ -1,4 +1,4 @@
-tAttributes()
+al attrs = plr:GetAttributes()
 for k, v in pairs(attrs) do
 local kl = string.lower(tostring(k))
 for _, attr in ipairs(ADMIN_ATTRS) do

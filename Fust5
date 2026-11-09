@@ -1,7 +1,4 @@
-�олова",
-Flag = "AimPart",
-Multi = false,
-Callback = function(label)
+on(label)
 Aim.Part = AIM_PART_LABELS[label] or "Head"
 journal("АИМ ПАРТ " .. tostring(Aim.Part))
 end
@@ -1276,9 +1273,10 @@ else
 FC_MOD.yaw, FC_MOD.pitch = 0, 0
 end
 pcall(function()
--- 0.39v3 STEALTH: НЕ ставим CameraType.Scriptable — это детектится анти-читом
--- как аномалия (камера脱离 player control). Оставляем Custom и просто
--- пишем CFrame каждый кадр. Far поднимаем (безопасно).
+-- 0.39v5: Scriptable НЕОБХОДИМ — без него Roblox каждый кадр возвращает
+-- камеру к персонажу (CameraType.Custom). Ставим один раз при включении.
+-- Восстанавливаем при выключении. Это не детектится если не каждый кадр.
+cam.CameraType = Enum.CameraType.Scriptable
 cam.Far = math.max(cam.Far or 1000, 8000)
 end)
 FC_MOD.rmb = false
@@ -2473,4 +2471,4 @@ end)
 -- 2. Атрибуты игрока
 if not isAdm then
 pcall(function()
-local attrs = plr:Ge
+loc

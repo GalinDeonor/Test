@@ -1,4 +1,4 @@
-ition.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+stance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
 local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
 Slider:Set(Value)
 InputChanged = Input.Changed:Connect(function()
@@ -1798,4 +1798,7 @@ Name = "ESP Box",
 Flag = "ESPBox",
 Default = false,
 Callback = function(state)
-S.ESP.Box = st
+S.ESP.Box = state
+end
+})
+UIRegistry.ESPBoxColor = UIRegistry.E

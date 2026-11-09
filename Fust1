@@ -1289,4 +1289,4 @@ end
 if not loaded then
 pcall(function() delfile("AltHack_Inter") end)
 loaded = pcall(function()
-Library.Font = CustomFont:New("O
+Library.Font = CustomFont:New("OutfitMedium", 40

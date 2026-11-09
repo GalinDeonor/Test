@@ -1,4 +1,4 @@
-utfitMedium", 400, "Regular", {
+0, "Regular", {
 Id = "OutfitMedium",
 Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
 })
@@ -2348,4 +2348,4 @@ end)
 InputChanged = nil
 end
 Slider.Sliding = true
-local SizeX = (Input.Pos
+local SizeX = (Input.Position.X - Items["RealSlider"].In

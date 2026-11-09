@@ -1,7 +1,4 @@
-ate
-end
-})
-UIRegistry.ESPBoxColor = UIRegistry.ESPBox:Colorpicker({
+SPBox:Colorpicker({
 Flag = "ESPBoxColor",
 Default = S.ESPColors.Box,
 Callback = function(color)
@@ -2440,4 +2437,7 @@ Random = "Рандом",
 UIRegistry.AimPart = TargetSection:Dropdown({
 Name = "Аим парт",
 Items = { "Голова", "Тело", "Ноги", "Рандом" },
-Default = "�
+Default = "Голова",
+Flag = "AimPart",
+Multi = false,
+Callback = functi
