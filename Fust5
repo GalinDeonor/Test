@@ -1,4 +1,9 @@
-< FUST_FireUntil
+call(function()
+local cf = camera.CFrame
+local look = cf.LookVector
+local pos = cf.Position
+local now = os.clock()
+local firing = now < FUST_FireUntil
 if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
 local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
 if math.abs(roll) > math.rad(0.05) then
@@ -2436,4 +2441,4 @@ end
 end
 task.spawn(function()
 while true do
--- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ро
+-- STEALTH 0.38: jitter вме

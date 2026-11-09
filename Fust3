@@ -1,8 +1,4 @@
-brary.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Button.Name,
-AnchorPoint = Vector2New(0.5, 0.5),
-Size = UDim2New(0, 0, 0, 15),
+ 15),
 BackgroundTransparency = 1,
 Position = UDim2New(0.5, 0, 0.5, 0),
 BorderSizePixel = 0,
@@ -940,7 +936,7 @@ Callback = function(state)
 petuhSetBtnHidden(state)
 end
 })
-MenuSection:Keybind({
+MenuSection:Label("Клавиша меню (назначить)"):Keybind({
 Name = "Клавиша открытия/закрытия меню",
 Flag = "PetuhMenuKey",
 Default = Enum.KeyCode.RightControl,
@@ -1636,4 +1632,6 @@ FreeCam.AutoFly = state
 journal("ФРИКАМ: авто-полёт " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.
+FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
+-- 0.39: настраиваемые клавиши фрикама
+FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.Ke

@@ -1,6 +1,4 @@
-Top", UDim2New(0, 0, 0, 0),
-UDim2New(1, 0, 0, EdgeThickness)),
-Side = "T"
+ = "T"
 },
 {Button = MakeEdge(
 "Bottom",
@@ -2238,4 +2236,8 @@ Items["Text"] = Instances:Create("TextLabel", {
 Parent = Items["Button"].Instance,
 Name = "\0",
 FontFace = Library.Font,
-TextColor3 = Li
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Button.Name,
+AnchorPoint = Vector2New(0.5, 0.5),
+Size = UDim2New(0, 0, 0,

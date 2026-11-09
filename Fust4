@@ -1,7 +1,5 @@
-")
--- 0.39: настраиваемые клавиши фрикама
-FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
-UIRegistry.FreeCamKeyToggle = FreeCamSection:Keybind({
+yCode.X }
+UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
 Name = "Клавиша: вкл/выкл фрикам",
 Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
@@ -13,7 +11,7 @@ FC_KEY_TOGGLE = key
 end
 end
 })
-UIRegistry.FreeCamKeySlow = FreeCamSection:Keybind({
+UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
 Name = "Клавиша: скорость МЕНЬШЕ",
 Flag = "FreeCamKeySlow",
 Default = Enum.KeyCode.Z,
@@ -25,7 +23,7 @@ FC_KEY_SLOW = key
 end
 end
 })
-UIRegistry.FreeCamKeyFast = FreeCamSection:Keybind({
+UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
 Name = "Клавиша: скорость БОЛЬШЕ",
 Flag = "FreeCamKeyFast",
 Default = Enum.KeyCode.X,
@@ -418,7 +416,7 @@ end
 })
 -- 0.39: цвет предмета в руках
 ESPItemColor = Color3.fromRGB(255, 215, 90)
-UIRegistry.ESPItemColor = EspSection:Colorpicker({
+UIRegistry.ESPItemColor = EspSection:Label("Цвет предмета в руках"):Colorpicker({
 Name = "Цвет предмета в руках",
 Flag = "ESPItemColor",
 Default = ESPItemColor,
@@ -931,7 +929,7 @@ hudApplyStyle()
 end
 })
 -- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
-UIRegistry.HUDBgColor = HudSection:Colorpicker({
+UIRegistry.HUDBgColor = HudSection:Label("Цвет фона HUD"):Colorpicker({
 Name = "Цвет фона HUD",
 Flag = "HUDBgColor",
 Default = Color3.fromRGB(12, 12, 16),
@@ -940,7 +938,7 @@ S.HUD.ColorBg = c
 hudApplyStyle()
 end
 })
-UIRegistry.HUDTextColor = HudSection:Colorpicker({
+UIRegistry.HUDTextColor = HudSection:Label("Цвет текста HUD"):Colorpicker({
 Name = "Цвет текста HUD",
 Flag = "HUDTextColor",
 Default = Color3.fromRGB(235, 235, 240),
@@ -949,7 +947,7 @@ S.HUD.ColorText = c
 hudApplyStyle()
 end
 })
-UIRegistry.HUDStrokeColor = HudSection:Colorpicker({
+UIRegistry.HUDStrokeColor = HudSection:Label("Цвет обводки HUD"):Colorpicker({
 Name = "Цвет обводки HUD",
 Flag = "HUDStrokeColor",
 Default = Color3.fromRGB(255, 170, 40),
@@ -1984,7 +1982,7 @@ Flag = "CHOutline",
 Default = true,
 Callback = function(state) CH.Outline = state end
 })
-UIRegistry.CHColor = AimSection:Colorpicker({
+UIRegistry.CHColor = AimSection:Label("Прицел: цвет"):Colorpicker({
 Name = "Прицел: цвет",
 Flag = "CHColor",
 Default = Color3.fromRGB(255, 30, 30),
@@ -2382,9 +2380,4 @@ AS_PitchFlips, AS_YawFlips = 0, 0
 return
 end
 local aimBusy = os.clock() < AR_AimBusyUntil
-pcall(function()
-local cf = camera.CFrame
-local look = cf.LookVector
-local pos = cf.Position
-local now = os.clock()
-local firing = now 
+p
