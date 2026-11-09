@@ -1,4 +1,4 @@
-сто фиксированного 0.2с — идеально ровные
+ированного 0.2с — идеально ровные
 -- интервалы сканера = бот-паттерн для эвристики. 0.18..0.24с неотличимо
 -- от человеческой реакции, но не даёт «ритмичного» следа.
 task.wait(0.18 + math.random() * 0.06)
@@ -1784,7 +1784,11 @@ NpcHitboxAppliedCount = 0
 end
 if myRoot then
 lootPoolUpdate(myRoot, os.clock())
+-- 0.39v2: лут ESP не каждый кадр — раз в 0.15с. Было каждый кадр = лаги.
+if not FUST_LootEspAt or os.clock() - FUST_LootEspAt > 0.15 then
+FUST_LootEspAt = os.clock()
 updateBackpackEsp(Camera, myRoot)
+end
 else
 bpHideAll()
 lootPoolDisableAll()
@@ -2226,6 +2230,87 @@ end)
 journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
 print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
 -- /FUST KICK/BAN LOGGER ======================================================
+
+-- ============================================================================
+-- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
+-- ============================================================================
+pcall(function()
+LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
+LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
+LogSection:Label("Лог сохраняется в FUST_kicks.log и переживает перезапуск чита и перезаход в игру.")
+-- Кнопка обновить
+UIRegistry.LogRefresh = LogSection:Button({
+Name = "Обновить лог",
+Callback = function()
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+-- последние 4000 символов (для UI)
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+})
+-- Кнопка очистить
+UIRegistry.LogClear = LogSection:Button({
+Name = "Очистить лог",
+Callback = function()
+pcall(function()
+if type(writefile) == "function" then
+writefile(KICKLOG_FILE, "")
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set("(лог очищен)")
+end
+journal("ЛОГ ОЧИЩЕН вручную")
+end)
+end
+})
+-- Многострочное текстовое поле с логом
+local logText = ""
+pcall(function()
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+logText = readfile(KICKLOG_FILE) or ""
+end
+if #logText > 4000 then
+logText = "...(предыдущие записи скрыты)...\n" .. logText:sub(#logText - 3900)
+end
+end)
+UIRegistry.LogText = LogSection:Textbox({
+Name = "Содержимое лога",
+Default = logText,
+Placeholder = "(лог пуст — ещё не было киков/банов)",
+MultiLine = true,
+})
+LogSection:Label("При кике/бане здесь появится запись: время, place, что было включено, причина если найдена.")
+-- Авто-обновление каждые 5 сек
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+end)
+end)
+-- /UI ЛОГОВ =================================================================
+
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",

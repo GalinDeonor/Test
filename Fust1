@@ -1157,4 +1157,116 @@ Side = "R"
 {Button = MakeEdge(
 "Top", UDim2New(0, 0, 0, 0),
 UDim2New(1, 0, 0, EdgeThickness)),
-Side
+Side = "T"
+},
+{Button = MakeEdge(
+"Bottom",
+UDim2New(0, 0, 1, -EdgeThickness),
+UDim2New(1, 0, 0, EdgeThickness)),
+Side = "B"
+},
+}
+local BeginResizing = function(Side)
+Resizing = true
+CurrentSide = Side
+StartMouse = UserInputService:GetMouseLocation()
+StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
+StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
+for Index, Value in Edges do
+Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
+end
+end
+local EndResizing = function()
+Resizing = false
+CurrentSide = nil
+for Index, Value in Edges do
+Value.Button.Instance.BackgroundTransparency = 1
+end
+end
+for Index, Value in Edges do
+Value.Button:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+BeginResizing(Value.Side)
+end
+end)
+end
+Library:Connect(UserInputService.InputEnded, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+if Resizing then
+EndResizing()
+end
+end
+end)
+Library:Connect(RunService.RenderStepped, function()
+if not Resizing or not CurrentSide then
+return
+end
+local MouseLocation = UserInputService:GetMouseLocation()
+local dx = MouseLocation.X - StartMouse.X
+local dy = MouseLocation.Y - StartMouse.Y
+local x, y = StartPosition.X, StartPosition.Y
+local w, h = StartSize.X, StartSize.Y
+if CurrentSide == "L" then
+x = StartPosition.X + dx
+w = StartSize.X - dx
+elseif CurrentSide == "R" then
+w = StartSize.X + dx
+elseif CurrentSide == "T" then
+y = StartPosition.Y + dy
+h = StartSize.Y - dy
+elseif CurrentSide == "B" then
+h = StartSize.Y + dy
+end
+if w < Minimum.X then
+if CurrentSide == "L" then
+x = x - (Minimum.X - w)
+end
+w = Minimum.X
+end
+if h < Minimum.Y then
+if CurrentSide == "T" then
+y = y - (Minimum.Y - h)
+end
+h = Minimum.Y
+end
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2FromOffset(x, y)})
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2FromOffset(w, h)})
+end)
+end
+Instances.OnHover = function(self, Function)
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseEnter, Function)
+end
+Instances.OnHoverLeave = function(self, Function)
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseLeave, Function)
+end
+end
+local CustomFont = { } do
+function CustomFont:New(Name, Weight, Style, Data)
+if not isfile(Data.Id) then
+writefile(Data.Id, game:HttpGet(Data.Url))
+end
+local Data = {
+name = Name,
+faces = {
+{
+name = Name,
+weight = Weight,
+style = Style,
+assetId = getcustomasset(Data.Id)
+}
+}
+}
+writefile(Library.Folders.Assets .. "/" .. Name .. ".font", HttpService:JSONEncode(Data))
+return Font.new(getcustomasset(Library.Folders.Assets .. "/" .. Name .. ".font"))
+end
+do
+local loaded = pcall(function()
+Library.Font = CustomFont:New("SFProText", 400, "Regular", {
+Id = "AltHack_SFProText",
+Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/S

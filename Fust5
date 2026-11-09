@@ -1,94 +1,4 @@
-call(function()
-local cf = camera.CFrame
-local look = cf.LookVector
-local pos = cf.Position
-local now = os.clock()
-local firing = now < FUST_FireUntil
-if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
-local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
-if math.abs(roll) > math.rad(0.05) then
-camera.CFrame = CFrame.lookAt(pos, pos + look)
-cf = camera.CFrame
-end
-end
-if AntiShake.Position then
-if firing then
-if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
-AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
-camera.CFrame = CFrame.new(AS_SmoothPos) * (cf - cf.Position)
-cf = camera.CFrame
-else
-AS_SmoothPos = pos
-end
-else
-AS_SmoothPos = pos
-end
-else
-AS_SmoothPos = nil
-end
-if AS_LastRawPitch then
-local lx, lz = look.X, look.Z
-local hh = lx * lx + lz * lz
-local dp = look.Y - AS_LastRawPitch
-local dyaw = 0
-if AS_LastLX and hh > 0.04 and (AS_LastLX * AS_LastLX + AS_LastLZ * AS_LastLZ) > 0.04 then
-local cross = lx * AS_LastLZ - lz * AS_LastLX
-dyaw = math.asin(math.clamp(cross / hh, -1, 1))
-end
-if AntiShake.Oscillation and not aimBusy then
-local bandP = math.abs(dp) > 0.0001 and math.abs(dp) < math.rad(2.5)
-local bandY = math.abs(dyaw) > 0.0001 and math.abs(dyaw) < math.rad(2.5)
-local flipP = bandP and AS_LastDp ~= nil and math.abs(AS_LastDp) < math.rad(2.5) and ((dp > 0) ~= (AS_LastDp > 0))
-local flipY = bandY and AS_LastDy ~= nil and math.abs(AS_LastDy) < math.rad(2.5) and ((dyaw > 0) ~= (AS_LastDy > 0))
-if flipP then
-AS_PitchFlips = AS_PitchFlips + 1
-else
-AS_PitchFlips = 0
-end
-if flipY then
-AS_YawFlips = AS_YawFlips + 1
-else
-AS_YawFlips = 0
-end
-if (flipP or flipY) and firing then
-if not AS_AnchorLook then
-local back = cf
-if bandP then
-back = back * CFrame.Angles(-dp, 0, 0)
-end
-if bandY then
-back = back * CFrame.Angles(0, -dyaw, 0)
-end
-AS_AnchorLook = back.LookVector
-end
-AS_LastShakeAt = now
-FUST_FireUntil = math.max(FUST_FireUntil, now + 0.2)
-elseif not bandP and not bandY then
-if now - AS_LastShakeAt > 0.25 then
-AS_AnchorLook = nil
-end
-end
-if AS_AnchorLook and math.abs(AS_AnchorLook.Y) < 0.999 then
-local dotAng = math.acos(math.clamp(cf.LookVector:Dot(AS_AnchorLook), -1, 1))
-if dotAng > math.rad(6) then
-AS_AnchorLook = nil
-elseif dotAng > 0.0006 then
-local target = CFrame.lookAt(cf.Position, cf.Position + AS_AnchorLook)
-camera.CFrame = cf:Lerp(target, 0.55)
-end
-end
-end
-AS_LastDp = dp
-AS_LastDy = dyaw
-end
-local look2 = camera.CFrame.LookVector
-AS_LastRawPitch = look2.Y
-AS_LastLX = look2.X
-AS_LastLZ = look2.Z
-end)
-end
-pcall(function()
-RunService:UnbindFromRenderStep("FUST_AR_Snap")
+("FUST_AR_Snap")
 RunService:UnbindFromRenderStep("FUST_AR_Restore")
 end)
 RunService:BindToRenderStep("FUST_AR_Snap", Enum.RenderPriority.Camera.Value + 1, function()
@@ -175,12 +85,12 @@ end
 })
 UIRegistry.AimTargets = TargetSection:Dropdown({
 Name = "Кого аимить",
-Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы" },
+Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Вертолёты" },
 Default = { "Игроки" },
 Flag = "AimTargets",
 Multi = true,
 Callback = function(list)
-local players, npc, animals, sleepers = false, false, false, false
+local players, npc, animals, sleepers, helis = false, false, false, false, false
 if type(list) == "table" then
 for _, v in ipairs(list) do
 if v == "Игроки" then
@@ -191,6 +101,8 @@ elseif v == "Животные" then
 animals = true
 elseif v == "Слиперы" then
 sleepers = true
+elseif v == "Вертолёты" then
+helis = true
 end
 end
 end
@@ -198,6 +110,7 @@ Aim.TargetsPlayers = players
 Aim.TargetsNPC = npc
 Aim.TargetsAnimals = animals
 Aim.TargetsSleepers = sleepers
+Aim.TargetsHelis = helis
 local labels = {}
 if players then
 table.insert(labels, "игроки")
@@ -210,6 +123,9 @@ table.insert(labels, "животные")
 end
 if sleepers then
 table.insert(labels, "слиперы")
+end
+if helis then
+table.insert(labels, "вертолёты")
 end
 journal("АИМ ЦЕЛИ: " .. (#labels > 0 and table.concat(labels, " + ") or "никого"))
 end
@@ -259,6 +175,12 @@ Thickness = 2,  -- толщина линий
 Dot = false,    -- точка в центре
 Outline = true, -- обводка (чёрная за цветом)
 Color = Color3.fromRGB(255, 30, 30),
+-- 0.39v2: расширенные настройки CS2
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
 }
 CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
 chLines = {}
@@ -294,13 +216,18 @@ function updateCrosshair(center, visible)
 local gap = CH.Gap
 local len = CH.Length
 local th = CH.Thickness
--- top
-if chLines[1] then
+local alpha = CH.Alpha or 1
+-- 0.39v2: T-style — верхняя линия не рисуется (как AWP)
+-- top (skipped if TStyle)
+if chLines[1] and not CH.TStyle then
 chLines[1].From = Vector2.new(center.X, center.Y - gap)
 chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
 chLines[1].Thickness = th
 chLines[1].Color = CH.Color
+chLines[1].Transparency = 1 - alpha
 chLines[1].Visible = visible
+elseif chLines[1] then
+chLines[1].Visible = false
 end
 -- bottom
 if chLines[2] then
@@ -308,6 +235,7 @@ chLines[2].From = Vector2.new(center.X, center.Y + gap)
 chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
 chLines[2].Thickness = th
 chLines[2].Color = CH.Color
+chLines[2].Transparency = 1 - alpha
 chLines[2].Visible = visible
 end
 -- left
@@ -316,6 +244,7 @@ chLines[3].From = Vector2.new(center.X - gap, center.Y)
 chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
 chLines[3].Thickness = th
 chLines[3].Color = CH.Color
+chLines[3].Transparency = 1 - alpha
 chLines[3].Visible = visible
 end
 -- right
@@ -324,36 +253,39 @@ chLines[4].From = Vector2.new(center.X + gap, center.Y)
 chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
 chLines[4].Thickness = th
 chLines[4].Color = CH.Color
+chLines[4].Transparency = 1 - alpha
 chLines[4].Visible = visible
 end
--- точка
+-- точка (размер через DotSize)
 if chDot then
 chDot.Position = center
-chDot.Radius = math.max(1, math.floor(th / 2))
+chDot.Radius = math.max(1, CH.DotSize or 1)
 chDot.Color = CH.Color
+chDot.Transparency = 1 - alpha
 chDot.Visible = visible and CH.Dot
 end
--- обводка (8 линий с микро-смещением вокруг основных)
+-- обводка (8 линий с микро-смещением вокруг основных; толщина через OutlineThickness)
 if CH.Outline and visible then
+local ot = CH.OutlineThickness or 1
 local offs = { {1,0}, {-1,0}, {0,1}, {0,-1} }
 local oi = 1
 for dir = 1, 4 do
 local base = chLines[dir]
-if base then
+if base and base.Visible then
 for _, off in ipairs(offs) do
 local o = chOutline[oi]
 if o then
-o.From = Vector2.new(base.From.X + off[1], base.From.Y + off[2])
-o.To = Vector2.new(base.To.X + off[1], base.To.Y + off[2])
-o.Thickness = th + 2
+o.From = Vector2.new(base.From.X + off[1] * ot, base.From.Y + off[2] * ot)
+o.To = Vector2.new(base.To.X + off[1] * ot, base.To.Y + off[2] * ot)
+o.Thickness = th + ot * 2
 o.Color = Color3.fromRGB(0, 0, 0)
+o.Transparency = 1 - alpha
 o.Visible = true
 end
 oi = oi + 1
 end
 end
 end
--- скрыть неиспользованные
 for i = oi, 8 do
 if chOutline[i] then chOutline[i].Visible = false end
 end
@@ -439,7 +371,8 @@ if hVel.Magnitude < 1 then
 return root, center 
 end
 local half = math.max(root.Size.X, root.Size.Z) * 0.5
-local lead = math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Evil.K or 1, 0.1, 5)
+-- 0.39v2: используем улучшенную autoLead с адаптивной коррекцией
+local lead = autoLead(dist, vel, nil) * math.clamp(Evil.K or 1, 0.1, 5)
 local dir = hVel.Unit
 return root, center + dir * half + vel * lead
 end
@@ -1993,7 +1926,7 @@ trackedBackpacks[inst] = nil
 end
 end
 walkTick = walkTick + 1
-if walkTick >= 3 then
+if walkTick >= 6 then -- 0.39v2: было 3 — лагало. 6 = реже полный обход Workspace.
 walkTick = 0
 bpScanContainer(Workspace, 3)
 end
@@ -2169,8 +2102,31 @@ end
 end)
 velEMA = {} 
 velEMALastClean = 0
-function autoLead(dist)
-return math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+-- 0.39v2: УЛУЧШЕННАЯ ПРЕДИКЦИЯ
+-- Старая: фиксированный lead = dist/900. Проблема: при быстрой цели наводились
+-- слишком вперёд, не успевали скорректировать. Новая: адаптивная — учитываем
+-- скорость цели относительно камеры + clamp по дальности + множитель.
+-- Если цель БЫСТРО движется перпендикулярно — упреждение больше.
+-- Если цель идёт НА нас или ОТ нас — упреждение меньше (не нужно).
+function autoLead(dist, targetVel, camLook)
+local base = math.clamp(dist / 900, 0.05, 1.2) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+-- если передана скорость цели и направление камеры — корректируем
+if targetVel and camLook then
+local vMag = targetVel.Magnitude
+if vMag > 0.1 then
+-- перпендикулярная составляющая скорости к camLook — её и нужно упреждать
+local perp = targetVel - camLook * targetVel:Dot(camLook)
+local perpMag = perp.Magnitude
+-- если цель идёт почти на нас — упреждение минимально
+if perpMag < 2 then
+base = base * 0.3
+elseif perpMag > 30 then
+-- быстрая перпендикулярная цель — упреждение больше
+base = base * 1.4
+end
+end
+end
+return base
 end
 function getSmoothedVelocity(root, vel)
 if not Aim.AutoPredict then
@@ -2304,6 +2260,42 @@ end
 end
 end
 end
+-- 0.39v2: вертолёты
+if Aim.TargetsHelis then
+heliScanWorkspace()
+for _, heli in ipairs(trackedHelis) do
+if heli.Parent and heli:IsA("Model") then
+local part = heliFindAimPart(heli)
+if part then
+local okD, d = pcall(function() return (part.Position - camPos).Magnitude end)
+if okD and d and d <= Aim.Distance then
+local vel = Vector3.new(0, 0, 0)
+pcall(function()
+vel = part.AssemblyLinearVelocity
+end)
+local lead = Aim.AutoPredict and autoLead(d) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, heli, aimPos) then
+local score = (Aim.Priority == "Дистанция") and d or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "вертолёт"
+end
+end
+end
+end
+end
+end
+end
+end
+end
 return bestPart, bestPoint, bestType
 end
 if getgenv().FUST_AimCleanup then
@@ -2358,10 +2350,60 @@ if dist < 30 then baseA = 0.92
 elseif dist < 80 then baseA = 0.85
 end
 if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
+-- 0.39v2: КОРРЕКЦИЯ ПЕРЕЛЁТА. Если угол между текущим LookVector и
+-- aimPos уже маленький (цель почти в прицеле) — уменьшаем alpha,
+-- чтобы не проскочить. Если угол большой — alpha максимум.
+local currentLook = camera.CFrame.LookVector
+local toAim = (aimPos - camera.CFrame.Position).Unit
+local dot = currentLook:Dot(toAim)
+if dot > 0.98 then
+-- уже почти навелись — плавная коррекция
+baseA = baseA * 0.5
+end
 camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
 else
 local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
 camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
+end
+-- 0.39v2: АВТО-СТРЕЛЬБА
+if AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part) then
+local now = os.clock()
+if now - AF_LastShot >= AutoFire.Delay then
+AF_LastShot = now
+AF_LastTargetPart = part
+pcall(function()
+-- ПК: симулируем левый клик мышью через mouse1click (если есть)
+-- или VirtualInputManager. НЕ перехватываем управление телефоном.
+local hasKeyboard = UserInputService.KeyboardEnabled
+if hasKeyboard then
+-- Xeno: mouse1click / mouse1press / mouse1release
+local m1c = getgenv().mouse1click
+if type(m1c) == "function" then
+m1c()
+else
+-- фолбэк: VirtualInputManager (Roblox)
+local okV, vim = pcall(function()
+return game:GetService("VirtualInputManager")
+end)
+if okV and vim then
+vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+task.wait(0.02)
+vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
+end
+else
+-- Телефон: НЕ перехватываем управление. Авто-стрельба только если
+-- в игре есть Tool с Activate() — вызываем его напрямую.
+local char = LocalPlayer.Character
+local tool = char and char:FindFirstChildOfClass("Tool")
+if tool then
+pcall(function()
+tool:Activate()
+end)
+end
+end
+end)
+end
 end
 end
 end)
@@ -2441,4 +2483,4 @@ end
 end
 task.spawn(function()
 while true do
--- STEALTH 0.38: jitter вме
+-- STEALTH 0.38: jitter вместо фикс

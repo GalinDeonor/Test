@@ -1,210 +1,4 @@
- 15),
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 16
-}):AddToTheme({TextColor3 = 'Text'})
-Instances:Create("UICorner", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Items["Stroke"] = Instances:Create("UIStroke", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Icon"] = Instances:Create("ImageLabel", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0, 16, 0, 16),
-AnchorPoint = Vector2New(1, 0.5),
-Image = "rbxassetid://117716971575946",
-BackgroundTransparency = 1,
-Position = UDim2New(1, -6, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0
-}):AddToTheme({ImageColor3 = 'Text'})
-end
-function Button:SetVisibility(Bool)
-Items["Button"].Instance.Visible = Bool
-end
-function Button:Press()
-Items["Stroke"]:ChangeItemTheme({Color = "Accent"})
-Items["Stroke"]:Tween(nil, {Color = Library.Theme.Accent})
-task.wait(0.1)
-Library:SafeCall(Button.Callback)
-Items["Stroke"]:ChangeItemTheme({Color = "Outline"})
-Items["Stroke"]:Tween(nil, {Color = Library.Theme.Outline})
-end
-Items["Button"]:Connect("MouseButton1Down", function()
-Button:Press()
-end)
-return Button
-end
-Library.Sections.Slider = function(self, Data)
-Data = Data or { }
-local Slider = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Slider",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Min = Data.Min or Data.min or 0,
-Default = Data.Default or Data.default or 0,
-Max = Data.Max or Data.max or 100,
-Suffix = Data.Suffix or Data.suffix or "",
-Decimals = Data.Decimals or Data.decimals or 1,
-Callback = Data.Callback or Data.callback or function() end,
-Value = 0,
-Sliding = false
-}
-local Items = { } do
-Items["Slider"] = Instances:Create("Frame", {
-Parent = Slider.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 32),
-BorderSizePixel = 0
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Slider"].Instance,
-Name = "\0",
-FillDirection = Enum.FillDirection.Vertical,
-VerticalAlignment = Enum.VerticalAlignment.Center,
-Padding = UDimNew(0, 4),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Items["Header"] = Instances:Create("Frame", {
-Parent = Items["Slider"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 15),
-BorderSizePixel = 0,
-LayoutOrder = 1
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Header"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Slider.Name,
-Size = UDim2New(1, -56, 0, 15),
-BackgroundTransparency = 1,
-BorderSizePixel = 0,
-TextXAlignment = Enum.TextXAlignment.Left,
-TextTruncate = Enum.TextTruncate.AtEnd,
-TextSize = 14
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Value"] = Instances:Create("TextLabel", {
-Parent = Items["Header"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-Text = "50%",
-Size = UDim2New(0, 48, 0, 15),
-AnchorPoint = Vector2New(1, 0),
-Position = UDim2New(1, 0, 0, 0),
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Element"],
-TextXAlignment = Enum.TextXAlignment.Center,
-TextTruncate = Enum.TextTruncate.AtEnd,
-TextSize = 12
-}):AddToTheme({BackgroundColor3 = 'Element', TextColor3 = 'Text'})
-Instances:Create("UICorner", {
-Parent = Items["Value"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Items["RealSlider"] = Instances:Create("TextButton", {
-Parent = Items["Slider"].Instance,
-Name = "\0",
-Active = false,
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(1, 0, 0, 7),
-Selectable = false,
-BorderSizePixel = 0,
-LayoutOrder = 2,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-Instances:Create("UICorner", {
-Parent = Items["RealSlider"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Instances:Create("UIStroke", {
-Parent = Items["RealSlider"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Accent"] = Instances:Create("Frame", {
-Parent = Items["RealSlider"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0.6000000238418579, 0, 1, 0),
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Accent"]
-}):AddToTheme({BackgroundColor3 = 'Accent'})
-Instances:Create("UICorner", {
-Parent = Items["Accent"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Items["Glow"] = Instances:Create("ImageLabel", {
-Parent = Items["Accent"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-}):AddToTheme({ImageColor3 = 'Accent'})
-Items["Dragger"] = Instances:Create("Frame", {
-Parent = Items["Accent"].Instance,
-Name = "\0",
-AnchorPoint = Vector2New(0, 0.5),
-Position = UDim2New(1, -4, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0, 13, 0, 13),
-BorderSizePixel = 0
-})
-Instances:Create("UICorner", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Items["Glow2"] = Instances:Create("ImageLabel", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+Center = RectNew(Vector2New(21, 21), Vector2New(79, 79))
 }):AddToTheme({ImageColor3 = 'Accent'})
 end
 table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
@@ -941,8 +735,16 @@ Name = "Клавиша открытия/закрытия меню",
 Flag = "PetuhMenuKey",
 Default = Enum.KeyCode.RightControl,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then PETUH_MENU_KEY = key end
+Callback = function(state)
+-- 0.39 FIX: callback получает только state. Ключ читаем из Library.Flags.
+pcall(function()
+local f = Library.Flags and Library.Flags["PetuhMenuKey"]
+if f and f.Key then
+-- f.Key это строка вида "Enum.KeyCode.RightControl"
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then PETUH_MENU_KEY = kc end
+end
+end)
 end
 })
 MenuSection:Toggle({
@@ -1634,4 +1436,315 @@ end
 })
 FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
 -- 0.39: настраиваемые клавиши фрикама
-FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.Ke
+FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
+local FC_KEY_OBJ = nil
+UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
+Name = "Клавиша: вкл/выкл фрикам",
+Flag = "FreeCamKeyToggle",
+Default = Enum.KeyCode.K,
+Mode = "Toggle",
+Callback = function(state)
+-- 0.39 FIX: читаем ключ из Library.Flags после назначения
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
+if f and f.Key then
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then
+FreeCamKeys.Toggle = kc
+FC_KEY_TOGGLE = kc
+end
+end
+end)
+end
+})
+local FC_KEY_SLOW_OBJ = nil
+UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
+Name = "Клавиша: скорость МЕНЬШЕ",
+Flag = "FreeCamKeySlow",
+Default = Enum.KeyCode.Z,
+Mode = "Toggle",
+Callback = function(state)
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
+if f and f.Key then
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then
+FreeCamKeys.Slow = kc
+FC_KEY_SLOW = kc
+end
+end
+end)
+end
+})
+local FC_KEY_FAST_OBJ = nil
+UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
+Name = "Клавиша: скорость БОЛЬШЕ",
+Flag = "FreeCamKeyFast",
+Default = Enum.KeyCode.X,
+Mode = "Toggle",
+Callback = function(state)
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
+if f and f.Key then
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then
+FreeCamKeys.Fast = kc
+FC_KEY_FAST = kc
+end
+end
+end)
+end
+})
+uiStep("Вкладка Аимбот", function()
+Window:Group("Бой")
+AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
+AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
+HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
+TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
+Window:Group("Визуал")
+EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
+EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
+VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
+WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 5,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+-- 0.39: новые поля
+ColorBg = Color3.fromRGB(12, 12, 16),
+ColorText = Color3.fromRGB(235, 235, 240),
+ColorStroke = Color3.fromRGB(255, 170, 40),
+ShowAdmin = true, 
+Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+Chams = false, 
+},
+}
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
+CollectionService = game:GetService("CollectionService")
+NPC_COLOR = Color3.fromRGB(255, 145, 0) 
+NPC_CAT_COLORS = {
+Guard = Color3.fromRGB(255, 145, 0), 
+Peaceful = Color3.fromRGB(80, 255, 140), 
+Animal = Color3.fromRGB(255, 80, 95), 
+Sleeper = Color3.fromRGB(80, 190, 255), 
+}
+NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
+NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
+SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
+SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
+ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
+GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
+SLEEPER_PATTERNS = { "sleeper", "пящ" }
+WEAPON_PATTERNS = {
+"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
+"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
+"меч", "сабл", "катан",
+"rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
+}
+npcCategoryCache = {} 
+npcHorizontalSince = {} 
+NPC_CAT_TTL = 0.75 
+function npcNameMatches(model, patterns)
+local okN, name = pcall(function()
+return string.lower(tostring(model.Name))
+end)
+if not okN then
+return false
+end
+for _, pat in ipairs(patterns) do
+if string.find(name, pat, 1, true) then
+return true
+end
+end
+return false
+end
+function npcHasAnyTag(model, tags)
+for _, tag in ipairs(tags) do
+local okT, has = pcall(CollectionService.HasTag, CollectionService, model, tag)
+if okT and has then
+return true
+end
+end
+return false
+end
+function npcInsideFolder(model, names)
+local p = model.Parent
+local depth = 0
+while p and p ~= Workspace and depth < 8 do
+for _, n in ipairs(names) do
+if p.Name == n then
+return true
+end
+end
+p = p.Parent
+depth = depth + 1
+end
+return false
+end
+function npcHasWeaponInHands(model)
+local okT, tool = pcall(function()
+return model:FindFirstChildOfClass("Tool")
+end)
+if okT and tool then
+local okN, tname = pcall(function()
+return string.lower(tostring(tool.Name))
+end)
+if okN and tname then
+for _, pat in ipairs(WEAPON_PATTERNS) do
+if string.find(tname, pat, 1, true) then
+return true
+end
+end
+end
+end
+return false
+end
+function npcSleeperMarked(model, hum, root)
+if npcHasAnyTag(model, SLEEPER_TAGS) then
+return true
+end
+if npcInsideFolder(model, { "Sleepers", "Sleeper", "Bodies", "SleepingPlayers", "Спящие" }) then
+return true
+end
+for _, inst in ipairs({ model, hum, root }) do
+if inst then
+for _, attr in ipairs(SLEEPER_ATTRS) do
+local okA, v = pcall(inst.GetAttribute, inst, attr)
+if okA and v == true then
+return true
+end
+end
+end
+end
+local okC, children = pcall(model.GetChildren, model)
+if okC and children then
+for _, child in ipairs(children) do
+if child:IsA("BoolValue") then
+local cn = string.lower(tostring(child.Name))
+if (string.find(cn, "sleep", 1, true) or string.find(cn, "пящ", 1, true))
+and child.Value == true then
+return true
+end
+end
+end
+end
+if npcNameMatches(model, SLEEPER_PATTERNS) then
+return true
+end
+return false
+end
+function npcGetCategory(model, hum, root)
+local now = os.clock()
+local cached = npcCategoryCache[model]
+if cached and cached.Cat and cached.Expire > now then
+local on = (
+(cached.Cat == "Guard" and S.NPC.CatGuards)
+or (cached.Cat == "Peaceful" and S.NPC.CatPeaceful)
+or (cached.Cat == "Animal" and S.NPC.CatAnimals)
+or (cached.Cat == "Sleeper" and S.NPC.CatSleepers)
+) and true or false
+return cached.Cat, on, NPC_CAT_COLORS[cached.Cat] or NPC_COLOR
+end
+local cat
+local inNpcFolder = npcInsideFolder(model, { "Npcs", "NPCs", "NPC" })
+or npcHasAnyTag(model, NPC_NPC_TAGS)
+local inAnimalFolder = npcInsideFolder(model, { "Animals", "Animal" })
+or npcHasAnyTag(model, NPC_ANIMAL_TAGS)
+if inAnimalFolder or npcNameMatches(model, ANIMAL_PATTERNS) then
+cat = "Animal"
+elseif inNpcFolder then
+if npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model) then
+cat = "Guard"
+else
+cat = "Peaceful"
+end
+else
+if npcSleeperMarked(model, hum, root) then
+cat = "Sleeper"
+else
+local okU, upDot = pcall(function()
+return root and root.CFrame.UpVector:Dot(Vector3.new(0, 1, 0)) or 1
+end)
+if okU and upDot and upDot < 0.45 then
+if not npcHorizontalSince[model] then
+npcHorizontalSince[model] = now
+end
+if now - npcHorizontalSince[model] >= 4 then
+cat = "Sleeper"
+end
+else
+npcHo

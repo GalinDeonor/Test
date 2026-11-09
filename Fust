@@ -4342,8 +4342,16 @@ Name = "Клавиша открытия/закрытия меню",
 Flag = "PetuhMenuKey",
 Default = Enum.KeyCode.RightControl,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then PETUH_MENU_KEY = key end
+Callback = function(state)
+-- 0.39 FIX: callback получает только state. Ключ читаем из Library.Flags.
+pcall(function()
+local f = Library.Flags and Library.Flags["PetuhMenuKey"]
+if f and f.Key then
+-- f.Key это строка вида "Enum.KeyCode.RightControl"
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then PETUH_MENU_KEY = kc end
+end
+end)
 end
 })
 MenuSection:Toggle({
@@ -5036,40 +5044,62 @@ end
 FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
 -- 0.39: настраиваемые клавиши фрикама
 FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
+local FC_KEY_OBJ = nil
 UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
 Name = "Клавиша: вкл/выкл фрикам",
 Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Toggle = key
-FC_KEY_TOGGLE = key
+Callback = function(state)
+-- 0.39 FIX: читаем ключ из Library.Flags после назначения
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
+if f and f.Key then
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then
+FreeCamKeys.Toggle = kc
+FC_KEY_TOGGLE = kc
 end
+end
+end)
 end
 })
+local FC_KEY_SLOW_OBJ = nil
 UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
 Name = "Клавиша: скорость МЕНЬШЕ",
 Flag = "FreeCamKeySlow",
 Default = Enum.KeyCode.Z,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Slow = key
-FC_KEY_SLOW = key
+Callback = function(state)
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
+if f and f.Key then
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then
+FreeCamKeys.Slow = kc
+FC_KEY_SLOW = kc
 end
+end
+end)
 end
 })
+local FC_KEY_FAST_OBJ = nil
 UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
 Name = "Клавиша: скорость БОЛЬШЕ",
 Flag = "FreeCamKeyFast",
 Default = Enum.KeyCode.X,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Fast = key
-FC_KEY_FAST = key
+Callback = function(state)
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
+if f and f.Key then
+local kc = Enum.KeyCode[f.Key:gsub("Enum.KeyCode.%", "")]
+if kc then
+FreeCamKeys.Fast = kc
+FC_KEY_FAST = kc
 end
+end
+end)
 end
 })
 uiStep("Вкладка Аимбот", function()
@@ -6620,6 +6650,85 @@ end
 end)
 end
 })
+-- 0.39v2: ULTRA ОПТИМИЗАЦИЯ — максимальный FPS ценой визуала
+UltraOpt = false
+function applyUltraOpt(state)
+UltraOpt = state
+pcall(function()
+if state then
+-- 1. Текстуры выкл
+applyTextureDegradation(true)
+UIRegistry.TextureDegradation:Set(true) if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(true) end) end
+-- 2. FullBright (больше света — меньше теней)
+if not S.FullBright then
+UIRegistry.FullBright:Set(true) if UIRegistry.FullBright and UIRegistry.FullBright.Set then pcall(function() UIRegistry.FullBright:Set(true) end) end
+end
+-- 3. NoFog
+if not S.NoFog then
+if UIRegistry.NoFog and UIRegistry.NoFog.Set then pcall(function() UIRegistry.NoFog:Set(true) end) end
+end
+-- 4. NoGrass
+if not S.NoGrass then
+if UIRegistry.NoGrass and UIRegistry.NoGrass.Set then pcall(function() UIRegistry.NoGrass:Set(true) end) end
+end
+-- 5. NoDecoration
+if not S.NoDecoration then
+if UIRegistry.NoDecoration and UIRegistry.NoDecoration.Set then pcall(function() UIRegistry.NoDecoration:Set(true) end) end
+end
+-- 6. Уменьшить дальность ESP (меньше raycast)
+if S.ESP.MaxDistance > 800 then
+S.ESP.MaxDistance = 800
+if UIRegistry.ESPMaxDistance and UIRegistry.ESPMaxDistance.Set then pcall(function() UIRegistry.ESPMaxDistance:Set(800) end) end
+end
+-- 7. Уменьшить дальность лута
+if S.Loot.MaxDistance > 400 then
+S.Loot.MaxDistance = 400
+if UIRegistry.LootMaxDistance and UIRegistry.LootMaxDistance.Set then pcall(function() UIRegistry.LootMaxDistance:Set(400) end) end
+end
+-- 8. Уменьшить дальность НПС
+if S.NPC.MaxDistance > 1500 then
+S.NPC.MaxDistance = 1500
+if UIRegistry.NPCMaxDistance and UIRegistry.NPCMaxDistance.Set then pcall(function() UIRegistry.NPCMaxDistance:Set(1500) end) end
+end
+-- 9. Отключить трассеры (большой overhead)
+if S.Bullets.Enabled then
+if UIRegistry.BulletsEnabled and UIRegistry.BulletsEnabled.Set then pcall(function() UIRegistry.BulletsEnabled:Set(false) end) end
+end
+-- 10. Отключить чамсы лута (Highlight pool)
+if S.Loot.Chams then
+if UIRegistry.LootChams and UIRegistry.LootChams.Set then pcall(function() UIRegistry.LootChams:Set(false) end) end
+end
+if S.LootC.Chams then
+if UIRegistry.LootCChams and UIRegistry.LootCChams.Set then pcall(function() UIRegistry.LootCChams:Set(false) end) end
+end
+-- 11. Увеличить интервалы сканеров
+LOOT_POOL_INTERVAL = 2.5
+-- 12. GraphicsQuality минимум
+pcall(function()
+settings().Studio.GraphicsQuality = 1
+end)
+pcall(function()
+LocalPlayer.DeviceCameraMode = nil
+end)
+journal("ULTRA ОПТИМИЗАЦИЯ ВКЛ — максимальный FPS, визуал урезан")
+else
+-- Возврат к норме
+LOOT_POOL_INTERVAL = 1.2
+applyTextureDegradation(false)
+if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(false) end) end
+journal("ULTRA ОПТИМИЗАЦИЯ ВЫКЛ — визуал восстановлен")
+end
+end)
+end
+UIRegistry.UltraOpt = WorldSection:Toggle({
+Name = "ULTRA ОПТИМИЗАЦИЯ (макс FPS)",
+Flag = "UltraOpt",
+Default = false,
+Callback = function(state)
+S.UltraOpt = state
+applyUltraOpt(state)
+end
+})
 function normalizeName(raw)
 if type(raw) ~= "string" then
 return ""
@@ -6896,6 +7005,7 @@ TargetsPlayers = true,
 TargetsNPC = false, 
 TargetsAnimals = false, 
 TargetsSleepers = false, 
+TargetsHelis = false, -- 0.39v2: вертолёты
 AutoPredict = false, 
 AutoPredictK = 1, 
 }
@@ -6909,10 +7019,113 @@ AutoAim = {
 Enabled = false, 
 Radius = 500, 
 }
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFire = {
+Enabled = false,
+Delay = 0.1,        -- задержка между выстрелами (сек)
+OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+PCKey = nil,        -- не используется (всегда автомат)
+}
+AF_LastShot = 0
+AF_LastTargetPart = nil
 AA_EnemyNear = false 
 AA_NearestDist = nil 
 AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
 AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+-- 0.39v2: паттерны вертолётов для поиска в Workspace
+HELI_PATTERNS = {
+"вертолет", "вертолёт", "верталёт", "helicopter", "heli", "chopper",
+"боевой вертолет", "combat heli", "attack heli", "military heli",
+"transport heli", "грузовой вертолет", "mi-8", "mi-24", "ka-50", "ka-52",
+"uh-60", "ah-64", "ah-1", "bell", "robinson", "apache", "hind",
+}
+HELI_TAGS = { "FustHeli", "FustVehicle", "FustHelicopter", "Vehicle", "Heli" }
+HELI_FOLDER_NAMES = { "Helicopters", "Vehicles", "Heli", "Helis", "Авиация", "Транспорт" }
+trackedHelis = {} -- кэш найденных вертолётов
+heliScanAt = 0
+function heliScanWorkspace()
+local now = os.clock()
+if now - heliScanAt < 2.0 then return end -- раз в 2с
+heliScanAt = now
+local found = {}
+pcall(function()
+-- 1. По тегам CollectionService
+for _, tag in ipairs(HELI_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst:IsA("Model") and inst.Parent then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. Поиск по папкам
+for _, folder in ipairs(HELI_FOLDER_NAMES) do
+local okF, f = pcall(function()
+return Workspace:FindFirstChild(folder, true)
+end)
+if okF and f then
+for _, d in ipairs(f:GetDescendants()) do
+if d:IsA("Model") then
+table.insert(found, d)
+end
+end
+end
+end
+-- 3. Поиск по имени в верхнем уровне Workspace
+for _, d in ipairs(Workspace:GetChildren()) do
+if d:IsA("Model") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN then
+for _, pat in ipairs(HELI_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, h in ipairs(found) do
+if not seen[h] then
+seen[h] = true
+table.insert(unique, h)
+end
+end
+trackedHelis = unique
+end
+function heliFindAimPart(heli)
+-- ищем BodyPart / Seat / Main rotor для прицеливания
+local bestPart = nil
+local bestScore = -math.huge
+pcall(function()
+-- приоритет: PilotSeat, DriverSeat, Main, Body, HeliBody
+local priority = { "PilotSeat", "DriverSeat", "Main", "Body", "HeliBody", "Cabin", "Tail", "Rotor", "MainRotor" }
+for _, p in ipairs(heli:GetDescendants()) do
+if p:IsA("BasePart") then
+local name = string.lower(tostring(p.Name))
+local score = 0
+for i, pn in ipairs(priority) do
+if string.find(name, string.lower(pn), 1, true) then
+score = 100 - i
+break
+end
+end
+if score == 0 then score = 10 end -- любой BasePart подходит
+if score > bestScore then
+bestScore = score
+bestPart = p
+end
+end
+end
+end)
+return bestPart
+end
 AimHotkeyObj = nil 
 AimHotkeyBusy = false 
 UIRegistry.AimEnabled = AimSection:Toggle({
@@ -7024,6 +7237,46 @@ Name = "Прицел: цвет",
 Flag = "CHColor",
 Default = Color3.fromRGB(255, 30, 30),
 Callback = function(c) CH.Color = c end
+})
+-- 0.39v2: расширенные настройки CS2
+UIRegistry.CHTStyle = AimSection:Toggle({
+Name = "Прицел: T-стиль (без верха, как AWP)",
+Flag = "CHTStyle",
+Default = false,
+Callback = function(state) CH.TStyle = state end
+})
+UIRegistry.CHDotSize = AimSection:Slider({
+Name = "Прицел: размер точки",
+Flag = "CHDotSize",
+Default = 1,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.DotSize = v end
+})
+UIRegistry.CHOutlineThickness = AimSection:Slider({
+Name = "Прицел: толщина обводки",
+Flag = "CHOutlineThickness",
+Default = 1,
+Min = 1,
+Max = 3,
+Decimals = 0.5,
+Callback = function(v) CH.OutlineThickness = v end
+})
+UIRegistry.CHAlpha = AimSection:Slider({
+Name = "Прицел: прозрачность (0-1)",
+Flag = "CHAlpha",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v) CH.Alpha = v end
+})
+UIRegistry.CHRecoilFollow = AimSection:Toggle({
+Name = "Прицел: следует за отдачей (CS recoil)",
+Flag = "CHRecoilFollow",
+Default = false,
+Callback = function(state) CH.RecoilFollow = state end
 })
 UIRegistry.AimFOV = AimSection:Slider({
 Name = "FOV радиус",
@@ -7192,6 +7445,33 @@ Callback = function(Value)
 AutoAim.Radius = Value
 end
 })
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
+Name = "Авто-стрельба (когда есть цель)",
+Flag = "AutoFireEnabled",
+Default = false,
+Callback = function(state)
+AutoFire.Enabled = state
+journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoFireDelay = AutoFireSection:Slider({
+Name = "Задержка между выстрелами (сек)",
+Flag = "AutoFireDelay",
+Default = 0.1,
+Min = 0.05,
+Max = 0.5,
+Decimals = 0.01,
+Callback = function(v) AutoFire.Delay = v end
+})
+UIRegistry.AutoFireOnlyOnTarget = AutoFireSection:Toggle({
+Name = "Стрелять только при захвате цели",
+Flag = "AutoFireOnlyOnTarget",
+Default = true,
+Callback = function(state) AutoFire.OnlyOnTarget = state end
+})
+AutoFireSection:Label("ПК: симулирует левый клик (mouse1click / VirtualInputManager). Телефон: вызывает Tool:Activate() — не перехватывает управление.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -7594,12 +7874,12 @@ end
 })
 UIRegistry.AimTargets = TargetSection:Dropdown({
 Name = "Кого аимить",
-Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы" },
+Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Вертолёты" },
 Default = { "Игроки" },
 Flag = "AimTargets",
 Multi = true,
 Callback = function(list)
-local players, npc, animals, sleepers = false, false, false, false
+local players, npc, animals, sleepers, helis = false, false, false, false, false
 if type(list) == "table" then
 for _, v in ipairs(list) do
 if v == "Игроки" then
@@ -7610,6 +7890,8 @@ elseif v == "Животные" then
 animals = true
 elseif v == "Слиперы" then
 sleepers = true
+elseif v == "Вертолёты" then
+helis = true
 end
 end
 end
@@ -7617,6 +7899,7 @@ Aim.TargetsPlayers = players
 Aim.TargetsNPC = npc
 Aim.TargetsAnimals = animals
 Aim.TargetsSleepers = sleepers
+Aim.TargetsHelis = helis
 local labels = {}
 if players then
 table.insert(labels, "игроки")
@@ -7629,6 +7912,9 @@ table.insert(labels, "животные")
 end
 if sleepers then
 table.insert(labels, "слиперы")
+end
+if helis then
+table.insert(labels, "вертолёты")
 end
 journal("АИМ ЦЕЛИ: " .. (#labels > 0 and table.concat(labels, " + ") or "никого"))
 end
@@ -7678,6 +7964,12 @@ Thickness = 2,  -- толщина линий
 Dot = false,    -- точка в центре
 Outline = true, -- обводка (чёрная за цветом)
 Color = Color3.fromRGB(255, 30, 30),
+-- 0.39v2: расширенные настройки CS2
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
 }
 CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
 chLines = {}
@@ -7713,13 +8005,18 @@ function updateCrosshair(center, visible)
 local gap = CH.Gap
 local len = CH.Length
 local th = CH.Thickness
--- top
-if chLines[1] then
+local alpha = CH.Alpha or 1
+-- 0.39v2: T-style — верхняя линия не рисуется (как AWP)
+-- top (skipped if TStyle)
+if chLines[1] and not CH.TStyle then
 chLines[1].From = Vector2.new(center.X, center.Y - gap)
 chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
 chLines[1].Thickness = th
 chLines[1].Color = CH.Color
+chLines[1].Transparency = 1 - alpha
 chLines[1].Visible = visible
+elseif chLines[1] then
+chLines[1].Visible = false
 end
 -- bottom
 if chLines[2] then
@@ -7727,6 +8024,7 @@ chLines[2].From = Vector2.new(center.X, center.Y + gap)
 chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
 chLines[2].Thickness = th
 chLines[2].Color = CH.Color
+chLines[2].Transparency = 1 - alpha
 chLines[2].Visible = visible
 end
 -- left
@@ -7735,6 +8033,7 @@ chLines[3].From = Vector2.new(center.X - gap, center.Y)
 chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
 chLines[3].Thickness = th
 chLines[3].Color = CH.Color
+chLines[3].Transparency = 1 - alpha
 chLines[3].Visible = visible
 end
 -- right
@@ -7743,36 +8042,39 @@ chLines[4].From = Vector2.new(center.X + gap, center.Y)
 chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
 chLines[4].Thickness = th
 chLines[4].Color = CH.Color
+chLines[4].Transparency = 1 - alpha
 chLines[4].Visible = visible
 end
--- точка
+-- точка (размер через DotSize)
 if chDot then
 chDot.Position = center
-chDot.Radius = math.max(1, math.floor(th / 2))
+chDot.Radius = math.max(1, CH.DotSize or 1)
 chDot.Color = CH.Color
+chDot.Transparency = 1 - alpha
 chDot.Visible = visible and CH.Dot
 end
--- обводка (8 линий с микро-смещением вокруг основных)
+-- обводка (8 линий с микро-смещением вокруг основных; толщина через OutlineThickness)
 if CH.Outline and visible then
+local ot = CH.OutlineThickness or 1
 local offs = { {1,0}, {-1,0}, {0,1}, {0,-1} }
 local oi = 1
 for dir = 1, 4 do
 local base = chLines[dir]
-if base then
+if base and base.Visible then
 for _, off in ipairs(offs) do
 local o = chOutline[oi]
 if o then
-o.From = Vector2.new(base.From.X + off[1], base.From.Y + off[2])
-o.To = Vector2.new(base.To.X + off[1], base.To.Y + off[2])
-o.Thickness = th + 2
+o.From = Vector2.new(base.From.X + off[1] * ot, base.From.Y + off[2] * ot)
+o.To = Vector2.new(base.To.X + off[1] * ot, base.To.Y + off[2] * ot)
+o.Thickness = th + ot * 2
 o.Color = Color3.fromRGB(0, 0, 0)
+o.Transparency = 1 - alpha
 o.Visible = true
 end
 oi = oi + 1
 end
 end
 end
--- скрыть неиспользованные
 for i = oi, 8 do
 if chOutline[i] then chOutline[i].Visible = false end
 end
@@ -7858,7 +8160,8 @@ if hVel.Magnitude < 1 then
 return root, center 
 end
 local half = math.max(root.Size.X, root.Size.Z) * 0.5
-local lead = math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Evil.K or 1, 0.1, 5)
+-- 0.39v2: используем улучшенную autoLead с адаптивной коррекцией
+local lead = autoLead(dist, vel, nil) * math.clamp(Evil.K or 1, 0.1, 5)
 local dir = hVel.Unit
 return root, center + dir * half + vel * lead
 end
@@ -9412,7 +9715,7 @@ trackedBackpacks[inst] = nil
 end
 end
 walkTick = walkTick + 1
-if walkTick >= 3 then
+if walkTick >= 6 then -- 0.39v2: было 3 — лагало. 6 = реже полный обход Workspace.
 walkTick = 0
 bpScanContainer(Workspace, 3)
 end
@@ -9588,8 +9891,31 @@ end
 end)
 velEMA = {} 
 velEMALastClean = 0
-function autoLead(dist)
-return math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+-- 0.39v2: УЛУЧШЕННАЯ ПРЕДИКЦИЯ
+-- Старая: фиксированный lead = dist/900. Проблема: при быстрой цели наводились
+-- слишком вперёд, не успевали скорректировать. Новая: адаптивная — учитываем
+-- скорость цели относительно камеры + clamp по дальности + множитель.
+-- Если цель БЫСТРО движется перпендикулярно — упреждение больше.
+-- Если цель идёт НА нас или ОТ нас — упреждение меньше (не нужно).
+function autoLead(dist, targetVel, camLook)
+local base = math.clamp(dist / 900, 0.05, 1.2) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+-- если передана скорость цели и направление камеры — корректируем
+if targetVel and camLook then
+local vMag = targetVel.Magnitude
+if vMag > 0.1 then
+-- перпендикулярная составляющая скорости к camLook — её и нужно упреждать
+local perp = targetVel - camLook * targetVel:Dot(camLook)
+local perpMag = perp.Magnitude
+-- если цель идёт почти на нас — упреждение минимально
+if perpMag < 2 then
+base = base * 0.3
+elseif perpMag > 30 then
+-- быстрая перпендикулярная цель — упреждение больше
+base = base * 1.4
+end
+end
+end
+return base
 end
 function getSmoothedVelocity(root, vel)
 if not Aim.AutoPredict then
@@ -9723,6 +10049,42 @@ end
 end
 end
 end
+-- 0.39v2: вертолёты
+if Aim.TargetsHelis then
+heliScanWorkspace()
+for _, heli in ipairs(trackedHelis) do
+if heli.Parent and heli:IsA("Model") then
+local part = heliFindAimPart(heli)
+if part then
+local okD, d = pcall(function() return (part.Position - camPos).Magnitude end)
+if okD and d and d <= Aim.Distance then
+local vel = Vector3.new(0, 0, 0)
+pcall(function()
+vel = part.AssemblyLinearVelocity
+end)
+local lead = Aim.AutoPredict and autoLead(d) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, heli, aimPos) then
+local score = (Aim.Priority == "Дистанция") and d or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "вертолёт"
+end
+end
+end
+end
+end
+end
+end
+end
+end
 return bestPart, bestPoint, bestType
 end
 if getgenv().FUST_AimCleanup then
@@ -9777,10 +10139,60 @@ if dist < 30 then baseA = 0.92
 elseif dist < 80 then baseA = 0.85
 end
 if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
+-- 0.39v2: КОРРЕКЦИЯ ПЕРЕЛЁТА. Если угол между текущим LookVector и
+-- aimPos уже маленький (цель почти в прицеле) — уменьшаем alpha,
+-- чтобы не проскочить. Если угол большой — alpha максимум.
+local currentLook = camera.CFrame.LookVector
+local toAim = (aimPos - camera.CFrame.Position).Unit
+local dot = currentLook:Dot(toAim)
+if dot > 0.98 then
+-- уже почти навелись — плавная коррекция
+baseA = baseA * 0.5
+end
 camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
 else
 local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
 camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
+end
+-- 0.39v2: АВТО-СТРЕЛЬБА
+if AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part) then
+local now = os.clock()
+if now - AF_LastShot >= AutoFire.Delay then
+AF_LastShot = now
+AF_LastTargetPart = part
+pcall(function()
+-- ПК: симулируем левый клик мышью через mouse1click (если есть)
+-- или VirtualInputManager. НЕ перехватываем управление телефоном.
+local hasKeyboard = UserInputService.KeyboardEnabled
+if hasKeyboard then
+-- Xeno: mouse1click / mouse1press / mouse1release
+local m1c = getgenv().mouse1click
+if type(m1c) == "function" then
+m1c()
+else
+-- фолбэк: VirtualInputManager (Roblox)
+local okV, vim = pcall(function()
+return game:GetService("VirtualInputManager")
+end)
+if okV and vim then
+vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+task.wait(0.02)
+vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
+end
+else
+-- Телефон: НЕ перехватываем управление. Авто-стрельба только если
+-- в игре есть Tool с Activate() — вызываем его напрямую.
+local char = LocalPlayer.Character
+local tool = char and char:FindFirstChildOfClass("Tool")
+if tool then
+pcall(function()
+tool:Activate()
+end)
+end
+end
+end)
+end
 end
 end
 end)
@@ -11646,7 +12058,11 @@ NpcHitboxAppliedCount = 0
 end
 if myRoot then
 lootPoolUpdate(myRoot, os.clock())
+-- 0.39v2: лут ESP не каждый кадр — раз в 0.15с. Было каждый кадр = лаги.
+if not FUST_LootEspAt or os.clock() - FUST_LootEspAt > 0.15 then
+FUST_LootEspAt = os.clock()
 updateBackpackEsp(Camera, myRoot)
+end
 else
 bpHideAll()
 lootPoolDisableAll()
@@ -12088,6 +12504,87 @@ end)
 journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
 print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
 -- /FUST KICK/BAN LOGGER ======================================================
+
+-- ============================================================================
+-- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
+-- ============================================================================
+pcall(function()
+LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
+LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
+LogSection:Label("Лог сохраняется в FUST_kicks.log и переживает перезапуск чита и перезаход в игру.")
+-- Кнопка обновить
+UIRegistry.LogRefresh = LogSection:Button({
+Name = "Обновить лог",
+Callback = function()
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+-- последние 4000 символов (для UI)
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+})
+-- Кнопка очистить
+UIRegistry.LogClear = LogSection:Button({
+Name = "Очистить лог",
+Callback = function()
+pcall(function()
+if type(writefile) == "function" then
+writefile(KICKLOG_FILE, "")
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set("(лог очищен)")
+end
+journal("ЛОГ ОЧИЩЕН вручную")
+end)
+end
+})
+-- Многострочное текстовое поле с логом
+local logText = ""
+pcall(function()
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+logText = readfile(KICKLOG_FILE) or ""
+end
+if #logText > 4000 then
+logText = "...(предыдущие записи скрыты)...\n" .. logText:sub(#logText - 3900)
+end
+end)
+UIRegistry.LogText = LogSection:Textbox({
+Name = "Содержимое лога",
+Default = logText,
+Placeholder = "(лог пуст — ещё не было киков/банов)",
+MultiLine = true,
+})
+LogSection:Label("При кике/бане здесь появится запись: время, place, что было включено, причина если найдена.")
+-- Авто-обновление каждые 5 сек
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+end)
+end)
+-- /UI ЛОГОВ =================================================================
+
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",

@@ -1,293 +1,4 @@
-yCode.X }
-UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
-Name = "Клавиша: вкл/выкл фрикам",
-Flag = "FreeCamKeyToggle",
-Default = Enum.KeyCode.K,
-Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Toggle = key
-FC_KEY_TOGGLE = key
-end
-end
-})
-UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
-Name = "Клавиша: скорость МЕНЬШЕ",
-Flag = "FreeCamKeySlow",
-Default = Enum.KeyCode.Z,
-Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Slow = key
-FC_KEY_SLOW = key
-end
-end
-})
-UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
-Name = "Клавиша: скорость БОЛЬШЕ",
-Flag = "FreeCamKeyFast",
-Default = Enum.KeyCode.X,
-Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Fast = key
-FC_KEY_FAST = key
-end
-end
-})
-uiStep("Вкладка Аимбот", function()
-Window:Group("Бой")
-AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
-AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
-HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
-TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
-end)
-uiStep("Вкладки ESP/Визуалы/Лут", function()
-Window:Group("Визуал")
-EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
-EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
-VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
-WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
-TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
-LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
-end)
-print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
-S = {
-ESP = {
-Enabled = false,
-Box = false,
-Chams = false,
-ChamsTransparency = 0.5,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-MaxDistance = 1500,
-DistanceScale = true, 
-TeamCheck = false, 
-VisCheck = false, 
-VisHitbox = false, 
-},
-ESPColors = {
-Box = Color3.fromRGB(0, 255, 255),
-},
-Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
-FullBright = false,
-NoDecoration = false,
-NoGrass = false,
-NoFog = false,
-Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
-NPC = {
-ESP = false,
-CatGuards = true, 
-CatPeaceful = false, 
-CatAnimals = false, 
-CatSleepers = false, 
-DebugLog = false, 
-Box = false,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-Chams = false,
-ChamsTransparency = 0.5,
-MaxDistance = 3000,
-HitboxEnabled = false,
-HitboxSize = 5,
-HitboxTransparency = 0.7,
-HitboxAnimals = false, 
-HitboxSleepers = false, 
-},
-HUD = {
-Enabled = true,
-Size = 11, 
-BgTransparency = 0.35, 
-TextTransparency = 0, 
-Corner = "Лево-низ", 
-ShowTPS = true, 
-ShowBg = true, 
--- 0.39: новые поля
-ColorBg = Color3.fromRGB(12, 12, 16),
-ColorText = Color3.fromRGB(235, 235, 240),
-ColorStroke = Color3.fromRGB(255, 170, 40),
-ShowAdmin = true, 
-Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
-},
-Loot = {
-Enabled = false,
-Owner = true, 
-Slots = true, 
-Distance = true,
-Box = true,
-Chams = true, 
-MaxDistance = 1500,
-DebugLog = false, 
-},
-LootC = {
-Enabled = false,
-Name = true, 
-Distance = true,
-Box = true,
-MaxDistance = 800,
-Chams = false, 
-},
-}
-LOOT_COLOR = Color3.fromRGB(255, 70, 255)
-LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
-CollectionService = game:GetService("CollectionService")
-NPC_COLOR = Color3.fromRGB(255, 145, 0) 
-NPC_CAT_COLORS = {
-Guard = Color3.fromRGB(255, 145, 0), 
-Peaceful = Color3.fromRGB(80, 255, 140), 
-Animal = Color3.fromRGB(255, 80, 95), 
-Sleeper = Color3.fromRGB(80, 190, 255), 
-}
-NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
-NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
-SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
-SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
-ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
-GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
-SLEEPER_PATTERNS = { "sleeper", "пящ" }
-WEAPON_PATTERNS = {
-"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
-"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
-"меч", "сабл", "катан",
-"rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
-}
-npcCategoryCache = {} 
-npcHorizontalSince = {} 
-NPC_CAT_TTL = 0.75 
-function npcNameMatches(model, patterns)
-local okN, name = pcall(function()
-return string.lower(tostring(model.Name))
-end)
-if not okN then
-return false
-end
-for _, pat in ipairs(patterns) do
-if string.find(name, pat, 1, true) then
-return true
-end
-end
-return false
-end
-function npcHasAnyTag(model, tags)
-for _, tag in ipairs(tags) do
-local okT, has = pcall(CollectionService.HasTag, CollectionService, model, tag)
-if okT and has then
-return true
-end
-end
-return false
-end
-function npcInsideFolder(model, names)
-local p = model.Parent
-local depth = 0
-while p and p ~= Workspace and depth < 8 do
-for _, n in ipairs(names) do
-if p.Name == n then
-return true
-end
-end
-p = p.Parent
-depth = depth + 1
-end
-return false
-end
-function npcHasWeaponInHands(model)
-local okT, tool = pcall(function()
-return model:FindFirstChildOfClass("Tool")
-end)
-if okT and tool then
-local okN, tname = pcall(function()
-return string.lower(tostring(tool.Name))
-end)
-if okN and tname then
-for _, pat in ipairs(WEAPON_PATTERNS) do
-if string.find(tname, pat, 1, true) then
-return true
-end
-end
-end
-end
-return false
-end
-function npcSleeperMarked(model, hum, root)
-if npcHasAnyTag(model, SLEEPER_TAGS) then
-return true
-end
-if npcInsideFolder(model, { "Sleepers", "Sleeper", "Bodies", "SleepingPlayers", "Спящие" }) then
-return true
-end
-for _, inst in ipairs({ model, hum, root }) do
-if inst then
-for _, attr in ipairs(SLEEPER_ATTRS) do
-local okA, v = pcall(inst.GetAttribute, inst, attr)
-if okA and v == true then
-return true
-end
-end
-end
-end
-local okC, children = pcall(model.GetChildren, model)
-if okC and children then
-for _, child in ipairs(children) do
-if child:IsA("BoolValue") then
-local cn = string.lower(tostring(child.Name))
-if (string.find(cn, "sleep", 1, true) or string.find(cn, "пящ", 1, true))
-and child.Value == true then
-return true
-end
-end
-end
-end
-if npcNameMatches(model, SLEEPER_PATTERNS) then
-return true
-end
-return false
-end
-function npcGetCategory(model, hum, root)
-local now = os.clock()
-local cached = npcCategoryCache[model]
-if cached and cached.Cat and cached.Expire > now then
-local on = (
-(cached.Cat == "Guard" and S.NPC.CatGuards)
-or (cached.Cat == "Peaceful" and S.NPC.CatPeaceful)
-or (cached.Cat == "Animal" and S.NPC.CatAnimals)
-or (cached.Cat == "Sleeper" and S.NPC.CatSleepers)
-) and true or false
-return cached.Cat, on, NPC_CAT_COLORS[cached.Cat] or NPC_COLOR
-end
-local cat
-local inNpcFolder = npcInsideFolder(model, { "Npcs", "NPCs", "NPC" })
-or npcHasAnyTag(model, NPC_NPC_TAGS)
-local inAnimalFolder = npcInsideFolder(model, { "Animals", "Animal" })
-or npcHasAnyTag(model, NPC_ANIMAL_TAGS)
-if inAnimalFolder or npcNameMatches(model, ANIMAL_PATTERNS) then
-cat = "Animal"
-elseif inNpcFolder then
-if npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model) then
-cat = "Guard"
-else
-cat = "Peaceful"
-end
-else
-if npcSleeperMarked(model, hum, root) then
-cat = "Sleeper"
-else
-local okU, upDot = pcall(function()
-return root and root.CFrame.UpVector:Dot(Vector3.new(0, 1, 0)) or 1
-end)
-if okU and upDot and upDot < 0.45 then
-if not npcHorizontalSince[model] then
-npcHorizontalSince[model] = now
-end
-if now - npcHorizontalSince[model] >= 4 then
-cat = "Sleeper"
-end
-else
-npcHorizontalSince[model] = nil
+rizontalSince[model] = nil
 end
 if not cat and (npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model)) then
 cat = "Guard"
@@ -1583,6 +1294,85 @@ end
 end)
 end
 })
+-- 0.39v2: ULTRA ОПТИМИЗАЦИЯ — максимальный FPS ценой визуала
+UltraOpt = false
+function applyUltraOpt(state)
+UltraOpt = state
+pcall(function()
+if state then
+-- 1. Текстуры выкл
+applyTextureDegradation(true)
+UIRegistry.TextureDegradation:Set(true) if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(true) end) end
+-- 2. FullBright (больше света — меньше теней)
+if not S.FullBright then
+UIRegistry.FullBright:Set(true) if UIRegistry.FullBright and UIRegistry.FullBright.Set then pcall(function() UIRegistry.FullBright:Set(true) end) end
+end
+-- 3. NoFog
+if not S.NoFog then
+if UIRegistry.NoFog and UIRegistry.NoFog.Set then pcall(function() UIRegistry.NoFog:Set(true) end) end
+end
+-- 4. NoGrass
+if not S.NoGrass then
+if UIRegistry.NoGrass and UIRegistry.NoGrass.Set then pcall(function() UIRegistry.NoGrass:Set(true) end) end
+end
+-- 5. NoDecoration
+if not S.NoDecoration then
+if UIRegistry.NoDecoration and UIRegistry.NoDecoration.Set then pcall(function() UIRegistry.NoDecoration:Set(true) end) end
+end
+-- 6. Уменьшить дальность ESP (меньше raycast)
+if S.ESP.MaxDistance > 800 then
+S.ESP.MaxDistance = 800
+if UIRegistry.ESPMaxDistance and UIRegistry.ESPMaxDistance.Set then pcall(function() UIRegistry.ESPMaxDistance:Set(800) end) end
+end
+-- 7. Уменьшить дальность лута
+if S.Loot.MaxDistance > 400 then
+S.Loot.MaxDistance = 400
+if UIRegistry.LootMaxDistance and UIRegistry.LootMaxDistance.Set then pcall(function() UIRegistry.LootMaxDistance:Set(400) end) end
+end
+-- 8. Уменьшить дальность НПС
+if S.NPC.MaxDistance > 1500 then
+S.NPC.MaxDistance = 1500
+if UIRegistry.NPCMaxDistance and UIRegistry.NPCMaxDistance.Set then pcall(function() UIRegistry.NPCMaxDistance:Set(1500) end) end
+end
+-- 9. Отключить трассеры (большой overhead)
+if S.Bullets.Enabled then
+if UIRegistry.BulletsEnabled and UIRegistry.BulletsEnabled.Set then pcall(function() UIRegistry.BulletsEnabled:Set(false) end) end
+end
+-- 10. Отключить чамсы лута (Highlight pool)
+if S.Loot.Chams then
+if UIRegistry.LootChams and UIRegistry.LootChams.Set then pcall(function() UIRegistry.LootChams:Set(false) end) end
+end
+if S.LootC.Chams then
+if UIRegistry.LootCChams and UIRegistry.LootCChams.Set then pcall(function() UIRegistry.LootCChams:Set(false) end) end
+end
+-- 11. Увеличить интервалы сканеров
+LOOT_POOL_INTERVAL = 2.5
+-- 12. GraphicsQuality минимум
+pcall(function()
+settings().Studio.GraphicsQuality = 1
+end)
+pcall(function()
+LocalPlayer.DeviceCameraMode = nil
+end)
+journal("ULTRA ОПТИМИЗАЦИЯ ВКЛ — максимальный FPS, визуал урезан")
+else
+-- Возврат к норме
+LOOT_POOL_INTERVAL = 1.2
+applyTextureDegradation(false)
+if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(false) end) end
+journal("ULTRA ОПТИМИЗАЦИЯ ВЫКЛ — визуал восстановлен")
+end
+end)
+end
+UIRegistry.UltraOpt = WorldSection:Toggle({
+Name = "ULTRA ОПТИМИЗАЦИЯ (макс FPS)",
+Flag = "UltraOpt",
+Default = false,
+Callback = function(state)
+S.UltraOpt = state
+applyUltraOpt(state)
+end
+})
 function normalizeName(raw)
 if type(raw) ~= "string" then
 return ""
@@ -1859,6 +1649,7 @@ TargetsPlayers = true,
 TargetsNPC = false, 
 TargetsAnimals = false, 
 TargetsSleepers = false, 
+TargetsHelis = false, -- 0.39v2: вертолёты
 AutoPredict = false, 
 AutoPredictK = 1, 
 }
@@ -1872,10 +1663,113 @@ AutoAim = {
 Enabled = false, 
 Radius = 500, 
 }
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFire = {
+Enabled = false,
+Delay = 0.1,        -- задержка между выстрелами (сек)
+OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+PCKey = nil,        -- не используется (всегда автомат)
+}
+AF_LastShot = 0
+AF_LastTargetPart = nil
 AA_EnemyNear = false 
 AA_NearestDist = nil 
 AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
 AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+-- 0.39v2: паттерны вертолётов для поиска в Workspace
+HELI_PATTERNS = {
+"вертолет", "вертолёт", "верталёт", "helicopter", "heli", "chopper",
+"боевой вертолет", "combat heli", "attack heli", "military heli",
+"transport heli", "грузовой вертолет", "mi-8", "mi-24", "ka-50", "ka-52",
+"uh-60", "ah-64", "ah-1", "bell", "robinson", "apache", "hind",
+}
+HELI_TAGS = { "FustHeli", "FustVehicle", "FustHelicopter", "Vehicle", "Heli" }
+HELI_FOLDER_NAMES = { "Helicopters", "Vehicles", "Heli", "Helis", "Авиация", "Транспорт" }
+trackedHelis = {} -- кэш найденных вертолётов
+heliScanAt = 0
+function heliScanWorkspace()
+local now = os.clock()
+if now - heliScanAt < 2.0 then return end -- раз в 2с
+heliScanAt = now
+local found = {}
+pcall(function()
+-- 1. По тегам CollectionService
+for _, tag in ipairs(HELI_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst:IsA("Model") and inst.Parent then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. Поиск по папкам
+for _, folder in ipairs(HELI_FOLDER_NAMES) do
+local okF, f = pcall(function()
+return Workspace:FindFirstChild(folder, true)
+end)
+if okF and f then
+for _, d in ipairs(f:GetDescendants()) do
+if d:IsA("Model") then
+table.insert(found, d)
+end
+end
+end
+end
+-- 3. Поиск по имени в верхнем уровне Workspace
+for _, d in ipairs(Workspace:GetChildren()) do
+if d:IsA("Model") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN then
+for _, pat in ipairs(HELI_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, h in ipairs(found) do
+if not seen[h] then
+seen[h] = true
+table.insert(unique, h)
+end
+end
+trackedHelis = unique
+end
+function heliFindAimPart(heli)
+-- ищем BodyPart / Seat / Main rotor для прицеливания
+local bestPart = nil
+local bestScore = -math.huge
+pcall(function()
+-- приоритет: PilotSeat, DriverSeat, Main, Body, HeliBody
+local priority = { "PilotSeat", "DriverSeat", "Main", "Body", "HeliBody", "Cabin", "Tail", "Rotor", "MainRotor" }
+for _, p in ipairs(heli:GetDescendants()) do
+if p:IsA("BasePart") then
+local name = string.lower(tostring(p.Name))
+local score = 0
+for i, pn in ipairs(priority) do
+if string.find(name, string.lower(pn), 1, true) then
+score = 100 - i
+break
+end
+end
+if score == 0 then score = 10 end -- любой BasePart подходит
+if score > bestScore then
+bestScore = score
+bestPart = p
+end
+end
+end
+end)
+return bestPart
+end
 AimHotkeyObj = nil 
 AimHotkeyBusy = false 
 UIRegistry.AimEnabled = AimSection:Toggle({
@@ -1987,6 +1881,46 @@ Name = "Прицел: цвет",
 Flag = "CHColor",
 Default = Color3.fromRGB(255, 30, 30),
 Callback = function(c) CH.Color = c end
+})
+-- 0.39v2: расширенные настройки CS2
+UIRegistry.CHTStyle = AimSection:Toggle({
+Name = "Прицел: T-стиль (без верха, как AWP)",
+Flag = "CHTStyle",
+Default = false,
+Callback = function(state) CH.TStyle = state end
+})
+UIRegistry.CHDotSize = AimSection:Slider({
+Name = "Прицел: размер точки",
+Flag = "CHDotSize",
+Default = 1,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.DotSize = v end
+})
+UIRegistry.CHOutlineThickness = AimSection:Slider({
+Name = "Прицел: толщина обводки",
+Flag = "CHOutlineThickness",
+Default = 1,
+Min = 1,
+Max = 3,
+Decimals = 0.5,
+Callback = function(v) CH.OutlineThickness = v end
+})
+UIRegistry.CHAlpha = AimSection:Slider({
+Name = "Прицел: прозрачность (0-1)",
+Flag = "CHAlpha",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v) CH.Alpha = v end
+})
+UIRegistry.CHRecoilFollow = AimSection:Toggle({
+Name = "Прицел: следует за отдачей (CS recoil)",
+Flag = "CHRecoilFollow",
+Default = false,
+Callback = function(state) CH.RecoilFollow = state end
 })
 UIRegistry.AimFOV = AimSection:Slider({
 Name = "FOV радиус",
@@ -2155,6 +2089,33 @@ Callback = function(Value)
 AutoAim.Radius = Value
 end
 })
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
+Name = "Авто-стрельба (когда есть цель)",
+Flag = "AutoFireEnabled",
+Default = false,
+Callback = function(state)
+AutoFire.Enabled = state
+journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoFireDelay = AutoFireSection:Slider({
+Name = "Задержка между выстрелами (сек)",
+Flag = "AutoFireDelay",
+Default = 0.1,
+Min = 0.05,
+Max = 0.5,
+Decimals = 0.01,
+Callback = function(v) AutoFire.Delay = v end
+})
+UIRegistry.AutoFireOnlyOnTarget = AutoFireSection:Toggle({
+Name = "Стрелять только при захвате цели",
+Flag = "AutoFireOnlyOnTarget",
+Default = true,
+Callback = function(state) AutoFire.OnlyOnTarget = state end
+})
+AutoFireSection:Label("ПК: симулирует левый клик (mouse1click / VirtualInputManager). Телефон: вызывает Tool:Activate() — не перехватывает управление.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -2380,4 +2341,94 @@ AS_PitchFlips, AS_YawFlips = 0, 0
 return
 end
 local aimBusy = os.clock() < AR_AimBusyUntil
-p
+pcall(function()
+local cf = camera.CFrame
+local look = cf.LookVector
+local pos = cf.Position
+local now = os.clock()
+local firing = now < FUST_FireUntil
+if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
+local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
+if math.abs(roll) > math.rad(0.05) then
+camera.CFrame = CFrame.lookAt(pos, pos + look)
+cf = camera.CFrame
+end
+end
+if AntiShake.Position then
+if firing then
+if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
+AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
+camera.CFrame = CFrame.new(AS_SmoothPos) * (cf - cf.Position)
+cf = camera.CFrame
+else
+AS_SmoothPos = pos
+end
+else
+AS_SmoothPos = pos
+end
+else
+AS_SmoothPos = nil
+end
+if AS_LastRawPitch then
+local lx, lz = look.X, look.Z
+local hh = lx * lx + lz * lz
+local dp = look.Y - AS_LastRawPitch
+local dyaw = 0
+if AS_LastLX and hh > 0.04 and (AS_LastLX * AS_LastLX + AS_LastLZ * AS_LastLZ) > 0.04 then
+local cross = lx * AS_LastLZ - lz * AS_LastLX
+dyaw = math.asin(math.clamp(cross / hh, -1, 1))
+end
+if AntiShake.Oscillation and not aimBusy then
+local bandP = math.abs(dp) > 0.0001 and math.abs(dp) < math.rad(2.5)
+local bandY = math.abs(dyaw) > 0.0001 and math.abs(dyaw) < math.rad(2.5)
+local flipP = bandP and AS_LastDp ~= nil and math.abs(AS_LastDp) < math.rad(2.5) and ((dp > 0) ~= (AS_LastDp > 0))
+local flipY = bandY and AS_LastDy ~= nil and math.abs(AS_LastDy) < math.rad(2.5) and ((dyaw > 0) ~= (AS_LastDy > 0))
+if flipP then
+AS_PitchFlips = AS_PitchFlips + 1
+else
+AS_PitchFlips = 0
+end
+if flipY then
+AS_YawFlips = AS_YawFlips + 1
+else
+AS_YawFlips = 0
+end
+if (flipP or flipY) and firing then
+if not AS_AnchorLook then
+local back = cf
+if bandP then
+back = back * CFrame.Angles(-dp, 0, 0)
+end
+if bandY then
+back = back * CFrame.Angles(0, -dyaw, 0)
+end
+AS_AnchorLook = back.LookVector
+end
+AS_LastShakeAt = now
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.2)
+elseif not bandP and not bandY then
+if now - AS_LastShakeAt > 0.25 then
+AS_AnchorLook = nil
+end
+end
+if AS_AnchorLook and math.abs(AS_AnchorLook.Y) < 0.999 then
+local dotAng = math.acos(math.clamp(cf.LookVector:Dot(AS_AnchorLook), -1, 1))
+if dotAng > math.rad(6) then
+AS_AnchorLook = nil
+elseif dotAng > 0.0006 then
+local target = CFrame.lookAt(cf.Position, cf.Position + AS_AnchorLook)
+camera.CFrame = cf:Lerp(target, 0.55)
+end
+end
+end
+AS_LastDp = dp
+AS_LastDy = dyaw
+end
+local look2 = camera.CFrame.LookVector
+AS_LastRawPitch = look2.Y
+AS_LastLX = look2.X
+AS_LastLZ = look2.Z
+end)
+end
+pcall(function()
+RunService:UnbindFromRenderStep
