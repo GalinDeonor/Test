@@ -1,4 +1,9 @@
-"FreeCamKeyToggle",
+")
+-- 0.39: настраиваемые клавиши фрикама
+FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
+UIRegistry.FreeCamKeyToggle = FreeCamSection:Keybind({
+Name = "Клавиша: вкл/выкл фрикам",
+Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
 Mode = "Toggle",
 Callback = function(state, key)
@@ -2382,8 +2387,4 @@ local cf = camera.CFrame
 local look = cf.LookVector
 local pos = cf.Position
 local now = os.clock()
-local firing = now < FUST_FireUntil
-if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
-local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
-if math.abs(roll) > math.rad(0.05) then
-cam
+local firing = now 

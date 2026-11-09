@@ -1,4 +1,8 @@
-era.CFrame = CFrame.lookAt(pos, pos + look)
+< FUST_FireUntil
+if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
+local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
+if math.abs(roll) > math.rad(0.05) then
+camera.CFrame = CFrame.lookAt(pos, pos + look)
 cf = camera.CFrame
 end
 end
@@ -2432,5 +2436,4 @@ end
 end
 task.spawn(function()
 while true do
--- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ровные
--- интервалы сканера = бот-паттерн для эвристи�
+-- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ро

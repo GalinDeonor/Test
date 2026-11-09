@@ -1,9 +1,4 @@
-}):AddToTheme({BackgroundColor3 = 'Element'})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
+brary.Theme["Text"],
 BorderColor3 = FromRGB(0, 0, 0),
 Text = Button.Name,
 AnchorPoint = Vector2New(0.5, 0.5),
@@ -1321,6 +1316,9 @@ local b64 = "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAvuElEQVR42t19eZhkRZX
 -- 0.39 FIX: b64decode переписан — старая версия накапливала биты в buffer
 -- без маскирования, после ~5 символов переполняла 32 бита и выдавала мусор.
 -- Новая версия: обрабатываем по 4 base64-символа → 3 байта, без накопления.
+-- 0.39 FIX2: НЕ используем << >> & | побитовые операторы — старые экзекуторы
+-- (Delta, старые версии Xeno) их не поддерживают и падают с ошибкой компиляции
+-- "Fust:4731". Используем bit32.* (доступно везде с Roblox Luau).
 local function b64decode(s)
 local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local lookup = {}
@@ -1336,16 +1334,16 @@ local d = lookup[s:byte(i + 3)] or 0
 local b2 = s:byte(i + 2)
 local b3 = s:byte(i + 3)
 if b2 == 61 then
-table.insert(out, string.char((a << 2) | (b >> 4)))
+table.insert(out, string.char(bit32.bor(bit32.lshift(a, 2), bit32.rshift(b, 4))))
 break
 elseif b3 == 61 then
-table.insert(out, string.char((a << 2) | (b >> 4)))
-table.insert(out, string.char(((b & 0xF) << 4) | (c >> 2)))
+table.insert(out, string.char(bit32.bor(bit32.lshift(a, 2), bit32.rshift(b, 4))))
+table.insert(out, string.char(bit32.bor(bit32.lshift(bit32.band(b, 0xF), 4), bit32.rshift(c, 2))))
 break
 else
-table.insert(out, string.char((a << 2) | (b >> 4)))
-table.insert(out, string.char(((b & 0xF) << 4) | (c >> 2)))
-table.insert(out, string.char(((c & 0x3) << 6) | d))
+table.insert(out, string.char(bit32.bor(bit32.lshift(a, 2), bit32.rshift(b, 4))))
+table.insert(out, string.char(bit32.bor(bit32.lshift(bit32.band(b, 0xF), 4), bit32.rshift(c, 2))))
+table.insert(out, string.char(bit32.bor(bit32.lshift(bit32.band(c, 0x3), 6), d)))
 end
 i = i + 4
 end
@@ -1638,9 +1636,4 @@ FreeCam.AutoFly = state
 journal("ФРИКАМ: авто-полёт " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
--- 0.39: настраиваемые клавиши фрикама
-FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
-UIRegistry.FreeCamKeyToggle = FreeCamSection:Keybind({
-Name = "Клавиша: вкл/выкл фрикам",
-Flag = 
+FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.

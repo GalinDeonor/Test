@@ -1150,4 +1150,9 @@ Side = "L"
 },
 {Button = MakeEdge(
 "Right",
-UDim2New(1, -E
+UDim2New(1, -EdgeThickness, 0, 0),
+UDim2New(0, EdgeThickness, 1, 0)),
+Side = "R"
+},
+{Button = MakeEdge(
+"
