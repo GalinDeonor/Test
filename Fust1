@@ -1294,4 +1294,8 @@ end
 Library.IsClipped = function(self, Object, Column)
 local Parent = Column
 local BoundryTop = Parent.AbsolutePosition
-local Boundry
+local BoundryBottom = BoundryTop + Parent.AbsoluteSize
+local Top = Object.AbsolutePosition
+local Bottom = Top + Object.AbsoluteSize
+return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
+end

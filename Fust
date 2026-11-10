@@ -4513,6 +4513,19 @@ Library:ChangeTheme("Accent", Library.Theme.Accent)
 end)
 MainFrame = Window.Items["MainFrame"].Instance
 WINDOW_MARGIN = 8
+-- 0.39v10 FIX: принудительный resize при старте — на телефоне окно 900×600
+-- растянуто на весь экран. Уменьшаем сразу.
+task.defer(function()
+pcall(function()
+local vp = getViewSize()
+local wsW, wsH = windowedSize(vp)
+MainFrame.Size = UDim2.fromOffset(wsW, wsH)
+MainFrame.AnchorPoint = Vector2.new(0, 0)
+local x = math.max(WINDOW_MARGIN, math.floor((vp.X - wsW) / 2))
+local y = math.max(WINDOW_MARGIN, math.floor((vp.Y - wsH) / 2))
+MainFrame.Position = UDim2.fromOffset(x, y)
+end)
+end)
 function getViewSize()
 local cam = Workspace.CurrentCamera
 local vp = (cam and cam.ViewportSize and cam.ViewportSize.X > 100)
@@ -4550,15 +4563,27 @@ end
 function clampWindowOnScreen()
 pcall(function()
 local vp = getViewSize()
+-- 0.39v10 FIX: используем windowedSize для адаптивного размера (телефон/ПК)
+local wsW, wsH = windowedSize(vp)
 local maxW = math.max(200, vp.X - WINDOW_MARGIN * 2)
 local maxH = math.max(150, vp.Y - WINDOW_MARGIN * 2)
-local w = math.min(MainFrame.Size.X.Offset, maxW)
-local h = math.min(MainFrame.Size.Y.Offset, maxH)
+-- берём меньшее: текущий размер, windowedSize, или экран-маргины
+local w = math.min(MainFrame.Size.X.Offset, wsW, maxW)
+local h = math.min(MainFrame.Size.Y.Offset, wsH, maxH)
+-- гарантированно не больше экрана
+w = math.max(200, math.min(w, maxW))
+h = math.max(150, math.min(h, maxH))
 MainFrame.Size = UDim2.fromOffset(w, h)
+-- AnchorPoint (0,0) для корректного позиционирования
+MainFrame.AnchorPoint = Vector2.new(0, 0)
 local pos = MainFrame.AbsolutePosition
 local x = math.clamp(pos.X, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.X - w - WINDOW_MARGIN))
 local y = math.clamp(pos.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.Y - h - WINDOW_MARGIN))
-MainFrame.AnchorPoint = Vector2.new(0, 0)
+-- если позиция невалидна — центрируем
+if x >= vp.X - w - WINDOW_MARGIN or y >= vp.Y - h - WINDOW_MARGIN then
+x = math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2))
+y = math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
+end
 MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 end)
 end

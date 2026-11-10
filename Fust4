@@ -1,4 +1,25 @@
-pace.CurrentCamera
+ed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End
+or input.UserInputState == Enum.UserInputState.Cancel then
+hudDragging = false
+end
+end)
+end
+end)
+hudFrame.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = false
+end
+end)
+table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
+if not hudDragging then
+return
+end
+if input.UserInputType == Enum.UserInputType.MouseMovement
+or input.UserInputType == Enum.UserInputType.Touch then
+if hudDragStart and hudFrameStart and hudFrame then
+local cam = Workspace.CurrentCamera
 local view = cam and cam.ViewportSize or Vector2.new(1280, 720)
 local w = hudFrame.AbsoluteSize.X
 local h = hudFrame.AbsoluteSize.Y
@@ -2395,20 +2416,4 @@ end
 -- bottom
 if chLines[2] then
 chLines[2].From = Vector2.new(center.X, center.Y + gap)
-chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
-chLines[2].Thickness = th
-chLines[2].Color = CH.Color
-chLines[2].Transparency = 1 - alpha
-chLines[2].Visible = visible
-end
--- left
-if chLines[3] then
-chLines[3].From = Vector2.new(center.X - gap, center.Y)
-chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
-chLines[3].Thickness = th
-chLines[3].Color = CH.Color
-chLines[3].Transparency = 1 - alpha
-chLines[3].Visible = visible
-end
--- right
-if chLines[4] t
+chLines[2].To = Vector2.new(center.X, 
