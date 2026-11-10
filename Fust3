@@ -1,4 +1,5 @@
-ch then
+nect(UserInputService.InputChanged, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
 if Slider.Sliding then
 local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
 local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
@@ -14,7 +15,7 @@ Slider:Set(Value)
 end
 return Slider
 end
-task.wait() -- 0.39v15: yield перед Dropdown (416 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.Sections.Dropdown = function(self, Data)
 Data = Data or { }
 local Dropdown = {
@@ -672,7 +673,7 @@ end
 return Textbox
 end
 end
-task.wait() -- 0.39v15: yield перед CreateSettingsPage
+-- 0.39v16: yield убран (вешает Delta)
 Library.CreateSettingsPage = function(self, Window, Watermark)
 local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
 do
@@ -1152,7 +1153,7 @@ end
 MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 end)
 end
-task.wait() -- 0.39v15: yield после Library IIFE и Window setup
+-- 0.39v16: yield убран — в v13 без него работало
 WindowFullscreen = false
 SavedWindowed = nil
 FullBtn = Window.Items["FullBtn"]
@@ -1464,7 +1465,7 @@ WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "�
 TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
 LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
 end)
-task.wait() -- 0.39v15: yield после создания страниц
+-- 0.39v16: yield убран — в v13 без него работало
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
 S = {
 ESP = {
@@ -2139,8 +2140,4 @@ if hudLineTPS then
 hudLineTPS.Visible = S.HUD.ShowTPS and true or false
 end
 if hudLineAdmin then
-hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
-end
-end
-function hudDestroy()
-for _, c in ipairs(hudConn
+hudLineAd

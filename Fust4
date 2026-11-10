@@ -1,4 +1,8 @@
-s) do
+min.Visible = S.HUD.ShowAdmin and true or false
+end
+end
+function hudDestroy()
+for _, c in ipairs(hudConns) do
 pcall(function()
 c:Disconnect()
 end)
@@ -481,7 +485,7 @@ journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or 
 end
 })
 LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
-task.wait() -- 0.39v15: yield перед большим блоком
+-- 0.39v16: yield убран — в v13 без него работало
 uiStep("Вкладка Боты и НПС", function()
 BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
 BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
@@ -2462,5 +2466,4 @@ Dot = false,    -- точка в центре
 Outline = true, -- обводка (чёрная за цветом)
 Color = Color3.fromRGB(255, 30, 30),
 -- 0.39v2: расширенные настройки CS2
-TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
-DotSize = 1,       --
+TStyle = false,    -- T-стил

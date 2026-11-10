@@ -1,4 +1,17 @@
-Property] = Value
+GenerateGUID(false))
+end
+Library.AddToTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+local ThemeData = {
+Item = Item,
+Properties = Properties,
+}
+for Property, Value in ThemeData.Properties do
+if type(Value) == "string" then
+if not self.Theme[Value] then
+Item[Property] = Value
 end
 Item[Property] = self.Theme[Value]
 else
@@ -124,7 +137,7 @@ local Top = Object.AbsolutePosition
 local Bottom = Top + Object.AbsoluteSize
 return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
 end
-task.wait() -- 0.39v15: yield перед CreateColorpicker (367 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.CreateColorpicker = function(self, Data)
 local Colorpicker = {
 Flag = Data.Flag,
@@ -492,7 +505,7 @@ Colorpicker:Set(Value)
 end
 return Colorpicker, Items
 end
-task.wait() -- 0.39v15: yield перед CreateKeybind (357 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.CreateKeybind = function(self, Data)
 local Keybind = {
 Flag = Data.Flag,
@@ -849,7 +862,7 @@ Keybind:Set(Value)
 end
 return Keybind, Items
 end
-task.wait() -- 0.39v15: yield перед Watermark/Window (478 строк)
+-- 0.39v16: yield убран (вешает Delta)
 do
 Library.Watermark = function(self, Name, Logo)
 local Watermark = { }
@@ -921,7 +934,7 @@ Watermark:SetText(Name)
 Watermark:SetCenter()
 return Watermark
 end
-task.wait() -- 0.39v15: yield перед Library.Window (478 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.Window = function(self, Data)
 Data = Data or { }
 -- 0.39v15 FIX: гарантия что Library.Theme не nil перед созданием UI
@@ -968,7 +981,7 @@ BackgroundColor3 = Library.Theme["Background"]
 }):AddToTheme({BackgroundColor3 = 'Background'})
 Items["MainFrame"]:MakeDraggable()
 Items["MainFrame"]:MakeResizeable(Vector2New(320, 240), Vector2New(9999, 9999))
-task.wait() -- 0.39v15: yield после MainFrame создания
+-- 0.39v16: yield убран (вешает Delta)
 Instances:Create("UICorner", {
 Parent = Items["MainFrame"].Instance,
 Name = "\0",
@@ -1150,7 +1163,7 @@ PaddingBottom = UDimNew(0, 8),
 PaddingRight = UDimNew(0, 8),
 PaddingLeft = UDimNew(0, 8)
 })
-task.wait() -- 0.39v15: yield после Pages layout
+-- 0.39v16: yield убран (вешает Delta)
 Items["Content"] = Instances:Create("Frame", {
 Parent = Items["MainFrame"].Instance,
 Name = "\0",
@@ -1299,7 +1312,7 @@ Position = UDim2New(0.5, 0, 0.5, 0),
 Size = UDim2New(0, 15, 0, 15),
 BorderSizePixel = 0
 }):AddToTheme({ImageColor3 = 'Text'})
-task.wait() -- 0.39v15: yield перед FullBtn/CloseBtn
+-- 0.39v16: yield убран (вешает Delta)
 Items["FullBtn"] = Instances:Create("TextButton", {
 Parent = Items["TopBar"].Instance,
 Name = "\0",
@@ -2297,5 +2310,4 @@ end
 end)
 end
 end)
-Library:Connect(UserInputService.InputChanged, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Tou
+Library:Con

@@ -1,18 +1,20 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v15)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v16)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
-    0.39v15 — асинхронная загрузка (фикс зависания Roblox):
-    • Весь pcall загрузки чита обёрнут в task.spawn — Roblox watchdog
-      больше не убивает поток за "freeze" (>5сек без yield).
-    • Между большими блоками вставлены task.wait() — поток дышит.
-    • Виджет "ЗАГРУЗКА ЧИТА..." показывается сразу, исчезает когда
-      чит полностью загружен (или при ошибке — появляется красный баннер).
-    • 30-сек задержка убрана — была бессмысленна, проблема была в зависании.
-    • УБРАНА модификация root.Size на чужих персонажах при старте —
-      это детектилось в первые секунды (sethiddenproperty на HRP).
-    • FUST_LOAD_SKIP = true (заглушка, задержки больше нет).
+    0.39v16 — возврат к рабочей структуре v13 (фикс зависания Delta):
+    • УБРАН task.spawn вокруг pcall — на Delta фоновая корутина
+      убивается после завершения лоадера. Синхронный pcall как в v13.
+    • УБРАНЫ ВСЕ yield'ы (task.wait) внутри кода загрузки — в v13
+      их не было и всё работало. 16 yield'ов из v15 могли вешать Delta.
+    • ОСТАВЛЕНЫ фиксы ошибок из v15:
+      - Font.fromEnum в pcall с fallback на Enum.Font.GothamMedium
+      - Library.Theme fallback если nil (дефолтные цвета)
+      - safeGetHui с fallback на CoreGui
+      - УБРАНА модификация root.Size на чужих персонажах при старте
+    • Виджет "ЗАГРУЗКА ЧИТА..." показывается и скрывается сразу
+      после завершения pcall (успех или ошибка).
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -496,7 +498,9 @@ lwText.TextColor3 = Color3.fromRGB(240, 130, 30); lwText.TextXAlignment = Enum.T
 lwText.Text = "ЗАГРУЗКА ЧИТА..."
 lwText.Parent = lwPanel
 
-task.spawn(function()
+-- 0.39v16: task.spawn УБРАН — на Delta фоновая корутина убивается
+-- после завершения лоадера. Возвращена синхронная структура v13
+-- (которая работала). Виджет исчезнет сразу после загрузки ниже.
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -1144,7 +1148,7 @@ end
 return Library:Connect(self.Instance.MouseLeave, Function)
 end
 end
-task.wait() -- 0.39v15: yield после Instances/CustomFont/Holder
+-- 0.39v16: yield УБРАН — внутри IIFE Library yield вешает Delta намертво
 local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
 -- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
@@ -1389,7 +1393,7 @@ local Top = Object.AbsolutePosition
 local Bottom = Top + Object.AbsoluteSize
 return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
 end
-task.wait() -- 0.39v15: yield перед CreateColorpicker (367 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.CreateColorpicker = function(self, Data)
 local Colorpicker = {
 Flag = Data.Flag,
@@ -1757,7 +1761,7 @@ Colorpicker:Set(Value)
 end
 return Colorpicker, Items
 end
-task.wait() -- 0.39v15: yield перед CreateKeybind (357 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.CreateKeybind = function(self, Data)
 local Keybind = {
 Flag = Data.Flag,
@@ -2114,7 +2118,7 @@ Keybind:Set(Value)
 end
 return Keybind, Items
 end
-task.wait() -- 0.39v15: yield перед Watermark/Window (478 строк)
+-- 0.39v16: yield убран (вешает Delta)
 do
 Library.Watermark = function(self, Name, Logo)
 local Watermark = { }
@@ -2186,7 +2190,7 @@ Watermark:SetText(Name)
 Watermark:SetCenter()
 return Watermark
 end
-task.wait() -- 0.39v15: yield перед Library.Window (478 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.Window = function(self, Data)
 Data = Data or { }
 -- 0.39v15 FIX: гарантия что Library.Theme не nil перед созданием UI
@@ -2233,7 +2237,7 @@ BackgroundColor3 = Library.Theme["Background"]
 }):AddToTheme({BackgroundColor3 = 'Background'})
 Items["MainFrame"]:MakeDraggable()
 Items["MainFrame"]:MakeResizeable(Vector2New(320, 240), Vector2New(9999, 9999))
-task.wait() -- 0.39v15: yield после MainFrame создания
+-- 0.39v16: yield убран (вешает Delta)
 Instances:Create("UICorner", {
 Parent = Items["MainFrame"].Instance,
 Name = "\0",
@@ -2415,7 +2419,7 @@ PaddingBottom = UDimNew(0, 8),
 PaddingRight = UDimNew(0, 8),
 PaddingLeft = UDimNew(0, 8)
 })
-task.wait() -- 0.39v15: yield после Pages layout
+-- 0.39v16: yield убран (вешает Delta)
 Items["Content"] = Instances:Create("Frame", {
 Parent = Items["MainFrame"].Instance,
 Name = "\0",
@@ -2564,7 +2568,7 @@ Position = UDim2New(0.5, 0, 0.5, 0),
 Size = UDim2New(0, 15, 0, 15),
 BorderSizePixel = 0
 }):AddToTheme({ImageColor3 = 'Text'})
-task.wait() -- 0.39v15: yield перед FullBtn/CloseBtn
+-- 0.39v16: yield убран (вешает Delta)
 Items["FullBtn"] = Instances:Create("TextButton", {
 Parent = Items["TopBar"].Instance,
 Name = "\0",
@@ -3579,7 +3583,7 @@ Slider:Set(Value)
 end
 return Slider
 end
-task.wait() -- 0.39v15: yield перед Dropdown (416 строк)
+-- 0.39v16: yield убран (вешает Delta)
 Library.Sections.Dropdown = function(self, Data)
 Data = Data or { }
 local Dropdown = {
@@ -4237,7 +4241,7 @@ end
 return Textbox
 end
 end
-task.wait() -- 0.39v15: yield перед CreateSettingsPage
+-- 0.39v16: yield убран (вешает Delta)
 Library.CreateSettingsPage = function(self, Window, Watermark)
 local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
 do
@@ -4717,7 +4721,7 @@ end
 MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 end)
 end
-task.wait() -- 0.39v15: yield после Library IIFE и Window setup
+-- 0.39v16: yield убран — в v13 без него работало
 WindowFullscreen = false
 SavedWindowed = nil
 FullBtn = Window.Items["FullBtn"]
@@ -5029,7 +5033,7 @@ WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "�
 TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
 LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
 end)
-task.wait() -- 0.39v15: yield после создания страниц
+-- 0.39v16: yield убран — в v13 без него работало
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
 S = {
 ESP = {
@@ -6191,7 +6195,7 @@ journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or 
 end
 })
 LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
-task.wait() -- 0.39v15: yield перед большим блоком
+-- 0.39v16: yield убран — в v13 без него работало
 uiStep("Вкладка Боты и НПС", function()
 BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
 BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
@@ -10632,7 +10636,7 @@ if getgenv().FUST_SESSION ~= FUST_SESSION then break end
 pcall(adminScanTick)
 end
 end)
-task.wait() -- 0.39v15: yield перед блоком конфигов
+-- 0.39v16: yield убран — в v13 без него работало
 HttpService = game:GetService("HttpService")
 CONFIG_FILE = "FUST_config.json"
 function colorToTable(c)
@@ -12473,7 +12477,7 @@ Players.PlayerRemoving:Connect(function(player)
 removeEspDrawings(player)
 hitboxOriginals[player] = nil
 end)
-task.wait() -- 0.39v15: yield перед логгером киков
+-- 0.39v16: yield убран — в v13 без него работало
 
 -- ============================================================================
 -- FUST KICK/BAN LOGGER 0.38 — лог киков/банов с persist между запусками
@@ -12802,7 +12806,7 @@ print("[FUST-KL] лог киков/банов активен. Файл: " .. KIC
 -- ============================================================================
 -- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
 -- ============================================================================
-task.wait() -- 0.39v15: yield перед UI логов
+-- 0.39v16: yield убран — в v13 без него работало
 pcall(function()
 LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
 LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
@@ -12997,10 +13001,9 @@ t2.Text = msg .. "\n" .. tb .. "\nСкрин этого окна — в чат."
 t2.Parent = fr
 end)
 end
--- 0.39v15: скрываем виджет загрузки при ошибке (если ещё не скрыт)
+-- 0.39v16: скрываем виджет загрузки при ошибке (если ещё не скрыт)
 pcall(function() loadWidget:Destroy() end)
 FUST_LOAD_DONE = true
 FUST_LOAD_OK = false
 FUST_LOAD_ERR = err
-end)
-print("[FUST] v15: асинхронная загрузка запущена. Виджет исчезнет когда чит будет готов.")
+print("[FUST] v16: загрузка завершена (с ошибкой — смотри баннер выше).")

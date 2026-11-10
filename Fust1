@@ -1,18 +1,20 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v15)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v16)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
-    0.39v15 — асинхронная загрузка (фикс зависания Roblox):
-    • Весь pcall загрузки чита обёрнут в task.spawn — Roblox watchdog
-      больше не убивает поток за "freeze" (>5сек без yield).
-    • Между большими блоками вставлены task.wait() — поток дышит.
-    • Виджет "ЗАГРУЗКА ЧИТА..." показывается сразу, исчезает когда
-      чит полностью загружен (или при ошибке — появляется красный баннер).
-    • 30-сек задержка убрана — была бессмысленна, проблема была в зависании.
-    • УБРАНА модификация root.Size на чужих персонажах при старте —
-      это детектилось в первые секунды (sethiddenproperty на HRP).
-    • FUST_LOAD_SKIP = true (заглушка, задержки больше нет).
+    0.39v16 — возврат к рабочей структуре v13 (фикс зависания Delta):
+    • УБРАН task.spawn вокруг pcall — на Delta фоновая корутина
+      убивается после завершения лоадера. Синхронный pcall как в v13.
+    • УБРАНЫ ВСЕ yield'ы (task.wait) внутри кода загрузки — в v13
+      их не было и всё работало. 16 yield'ов из v15 могли вешать Delta.
+    • ОСТАВЛЕНЫ фиксы ошибок из v15:
+      - Font.fromEnum в pcall с fallback на Enum.Font.GothamMedium
+      - Library.Theme fallback если nil (дефолтные цвета)
+      - safeGetHui с fallback на CoreGui
+      - УБРАНА модификация root.Size на чужих персонажах при старте
+    • Виджет "ЗАГРУЗКА ЧИТА..." показывается и скрывается сразу
+      после завершения pcall (успех или ошибка).
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -496,7 +498,9 @@ lwText.TextColor3 = Color3.fromRGB(240, 130, 30); lwText.TextXAlignment = Enum.T
 lwText.Text = "ЗАГРУЗКА ЧИТА..."
 lwText.Parent = lwPanel
 
-task.spawn(function()
+-- 0.39v16: task.spawn УБРАН — на Delta фоновая корутина убивается
+-- после завершения лоадера. Возвращена синхронная структура v13
+-- (которая работала). Виджет исчезнет сразу после загрузки ниже.
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -1144,7 +1148,7 @@ end
 return Library:Connect(self.Instance.MouseLeave, Function)
 end
 end
-task.wait() -- 0.39v15: yield после Instances/CustomFont/Holder
+-- 0.39v16: yield УБРАН — внутри IIFE Library yield вешает Delta намертво
 local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
 -- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
@@ -1250,17 +1254,4 @@ end
 end
 Library.NextFlag = function(self)
 local FlagNumber = self.UnnamedFlags + 1
-return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
-end
-Library.AddToTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-local ThemeData = {
-Item = Item,
-Properties = Properties,
-}
-for Property, Value in ThemeData.Properties do
-if type(Value) == "string" then
-if not self.Theme[Value] then
-Item[
+return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:

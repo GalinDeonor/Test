@@ -1,10 +1,12 @@
- true do
+an_LastJournal = 0
+task.spawn(function()
+while true do
 task.wait(5)
 if getgenv().FUST_SESSION ~= FUST_SESSION then break end
 pcall(adminScanTick)
 end
 end)
-task.wait() -- 0.39v15: yield перед блоком конфигов
+-- 0.39v16: yield убран — в v13 без него работало
 HttpService = game:GetService("HttpService")
 CONFIG_FILE = "FUST_config.json"
 function colorToTable(c)
@@ -1845,7 +1847,7 @@ Players.PlayerRemoving:Connect(function(player)
 removeEspDrawings(player)
 hitboxOriginals[player] = nil
 end)
-task.wait() -- 0.39v15: yield перед логгером киков
+-- 0.39v16: yield убран — в v13 без него работало
 
 -- ============================================================================
 -- FUST KICK/BAN LOGGER 0.38 — лог киков/банов с persist между запусками
@@ -2174,7 +2176,7 @@ print("[FUST-KL] лог киков/банов активен. Файл: " .. KIC
 -- ============================================================================
 -- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
 -- ============================================================================
-task.wait() -- 0.39v15: yield перед UI логов
+-- 0.39v16: yield убран — в v13 без него работало
 pcall(function()
 LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
 LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
@@ -2369,10 +2371,9 @@ t2.Text = msg .. "\n" .. tb .. "\nСкрин этого окна — в чат."
 t2.Parent = fr
 end)
 end
--- 0.39v15: скрываем виджет загрузки при ошибке (если ещё не скрыт)
+-- 0.39v16: скрываем виджет загрузки при ошибке (если ещё не скрыт)
 pcall(function() loadWidget:Destroy() end)
 FUST_LOAD_DONE = true
 FUST_LOAD_OK = false
 FUST_LOAD_ERR = err
-end)
-print("[FUST] v15: асинхронная загрузка запущена. Виджет исчезнет когда чит будет готов.")
+print("[FUST] v16: загрузка завершена (с ошибкой — смотри баннер выше).")
