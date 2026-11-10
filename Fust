@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v16)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.41 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.40 LiquidGlass...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.41 LiquidGlass...")
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -647,7 +647,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.40 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.41 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: гружу LiquidGlass (красный акцент, iOS-стекло)...")
 Library = (function()
 -- ============================================================================
@@ -686,7 +686,7 @@ MathClamp = math.clamp
 
 local Library = {}
 Library.LG = LG
-Library.Version = "0.40-LiquidGlass"
+Library.Version = "0.41-LiquidGlass"
 Library.MenuKeybind = "RightControl"
 Library.Flags = {}      -- [flag] = значение или {Key=..}/{Color="#hex"}
 Library.SetFlags = {}   -- [flag] = обёртка элемента (для LoadConfig)
@@ -728,7 +728,9 @@ gui.Parent = parent
 end)
 if not gui.Parent then
 pcall(function()
-local pg = Players.LocalPlayer and Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+local P = game:GetService("Players")
+local lp = P and P.LocalPlayer
+local pg = lp and lp:FindFirstChildOfClass("PlayerGui")
 if pg then gui.Parent = pg end
 end)
 end
@@ -919,8 +921,12 @@ end
 if userCb then userCb(v) end
 end,
 }
+-- 0.41 FIX: в старой VOMAGLA Decimals = ШАГ слайдера (0.05, 5, 50...),
+-- а не кол-во знаков. LiquidGlass Rounding = кол-во знаков, и при дробном
+-- шаге (0.05) string.format("%.0.05f") падает с invalid option '%.'.
+-- Передаём Decimals как Step — LiquidGlass сам посчитает знаки из шага.
 if data.Decimals and data.Decimals > 0 then
-opts.Rounding = data.Decimals
+opts.Step = data.Decimals
 end
 local obj = sec:AddSlider(opts)
 w = wrapElement(obj, sec, "slider", data)
@@ -1472,8 +1478,16 @@ end
 -- он клампит окно в экран и не даёт ему улететь (старые костыли удалены).
 PETUH_MENU_KEY = Enum.KeyCode.RightControl
 PETUH_BTN_HIDDEN = false
--- 0.39/0.40: КНОПКА-ПЕТУХ — перетаскиваемая, с клампом в границы экрана
-local btn = Instance.new("ImageButton")
+-- 0.41: КНОПКА-ПЕТУХ — только на ПК. На мобиле LiquidGlass сам создаёт
+-- нативную MobileButton (слева сверху, с драгом и пружиной), и наша была
+-- бы лишней — юзер видел «два плавающих меню». На ПК MobileButton не
+-- создаётся (LiquidGlass проверяет TouchEnabled) — там наша кнопка или
+-- хоткей RightControl.
+local btn = nil
+local mobileBtn = nil
+local isTouch = UserInputService.TouchEnabled == true
+if not isTouch then
+btn = Instance.new("ImageButton")
 btn.Name = "PetuhMenuToggle"
 btn.Image = PETUH_ICON_ASSET
 btn.ScaleType = Enum.ScaleType.Fit
@@ -1494,25 +1508,11 @@ stroke.Color = Color3.fromRGB(255, 59, 48)
 stroke.Thickness = 1.5
 stroke.Transparency = 0.3
 stroke.Parent = btn
--- 0.40: перекраска петуха при смене акцента (красный по умолчанию)
-function petuhAccentChanged(c)
-pcall(function()
-if stroke and c then stroke.Color = c end
-if btn and c then
-btn.BackgroundColor3 = Color3.new(
-math.min(1, c.R * 0.25),
-math.min(1, c.G * 0.25),
-math.min(1, c.B * 0.25)
-)
-end
-end)
-end
 local dragging = false
 local dragStart, startPos
 local moved = false
 btn.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
 dragging = true
 moved = false
 dragStart = input.Position
@@ -1520,45 +1520,50 @@ startPos = btn.AbsolutePosition
 end
 end)
 UserInputService.InputChanged:Connect(function(input)
-if dragging
-and (input.UserInputType == Enum.UserInputType.MouseMovement
-or input.UserInputType == Enum.UserInputType.Touch) then
+if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 local delta = input.Position - dragStart
 if delta.Magnitude > 8 then
 moved = true
 end
--- 0.39v17 FIX: кламп — кнопка не может улететь за экран
 local bvp = getViewSize()
 local bs = btn.AbsoluteSize
-local nx = MathClamp(
-startPos.X + delta.X,
-WINDOW_MARGIN,
-math.max(WINDOW_MARGIN, bvp.X - bs.X - WINDOW_MARGIN)
-)
-local ny = MathClamp(
-startPos.Y + delta.Y,
-WINDOW_MARGIN,
-math.max(WINDOW_MARGIN, bvp.Y - bs.Y - WINDOW_MARGIN)
-)
+local nx = MathClamp(startPos.X + delta.X, WINDOW_MARGIN, math.max(WINDOW_MARGIN, bvp.X - bs.X - WINDOW_MARGIN))
+local ny = MathClamp(startPos.Y + delta.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, bvp.Y - bs.Y - WINDOW_MARGIN))
 btn.Position = UDim2.fromOffset(nx, ny)
 end
 end)
 UserInputService.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
 if dragging and not moved then
-pcall(function()
-Window:SetOpen(not Window:IsOpenLive())
-end)
+pcall(function() Window:SetOpen(not Window:IsOpenLive()) end)
 end
 dragging = false
 end
 end)
--- 0.40: хоткей меню держит LiquidGlass (LiquidGlass.ToggleKey, по умолчанию
--- RightControl, меняется в разделе «Кнопка меню» и в нативных настройках)
+else
+-- мобила: берём нативную MobileButton из LiquidGlass-окна (создаётся
+-- автоматически при TouchEnabled, хранится в Window.MobileButton)
+pcall(function()
+mobileBtn = Window.LGWindow and Window.LGWindow.MobileButton and Window.LGWindow.MobileButton.Root
+end)
+end
+-- 0.41: перекраска петуха при смене акцента. На ПК красим свою кнопку,
+-- на мобиле MobileButton перекрашивается через LiquidGlass:SetAccent.
+function petuhAccentChanged(c)
+pcall(function()
+if btn and c then
+for _, ch in ipairs(btn:GetChildren()) do
+if ch:IsA("UIStroke") then ch.Color = c end
+end
+btn.BackgroundColor3 = Color3.new(math.min(1, c.R * 0.25), math.min(1, c.G * 0.25), math.min(1, c.B * 0.25))
+end
+end)
+end
+-- 0.41: скрытие работает для обеих кнопок (на мобиле — MobileButton)
 function petuhSetBtnHidden(state)
 PETUH_BTN_HIDDEN = state
-btn.Visible = not state
+pcall(function() if btn then btn.Visible = not state end end)
+pcall(function() if mobileBtn then mobileBtn.Visible = not state end end)
 journal("КНОПКА-ПЕТУХ " .. (state and "СКРЫТА (только хоткей)" or "ВИДНА"))
 end
 getgenv().FUST_PetuhBtn = btn
@@ -9646,7 +9651,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.39 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.41 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

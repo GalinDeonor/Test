@@ -1,4 +1,39 @@
-nal("ESP СЖАТИЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
+efault = 1,
+Min = 0.5,
+Max = 5,
+Decimals = 0.1,
+Suffix = "с",
+Callback = function(Value)
+S.Bullets.Fade = Value
+end
+})
+UIRegistry.ESPHealthBar = EspSection:Toggle({
+Name = "ESP HealthBar",
+Flag = "ESPHealthBar",
+Default = false,
+Callback = function(state)
+S.ESP.HealthBar = state
+end
+})
+UIRegistry.ESPMaxDistance = EspSection:Slider({
+Name = "Max Distance",
+Flag = "ESPMaxDistance",
+Default = 3000,
+Min = 100,
+Max = 5000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.ESP.MaxDistance = Value
+end
+})
+UIRegistry.ESPDistanceScale = EspSection:Toggle({
+Name = "Сжатие ESP по дистанции (дальше = мельче)",
+Flag = "ESPDistanceScale",
+Default = true,
+Callback = function(state)
+S.ESP.DistanceScale = state
+journal("ESP СЖАТИЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 espVisCacheClear = function() end
@@ -1838,28 +1873,4 @@ Default = 1,
 Min = 0.1,
 Max = 1,
 Decimals = 0.05,
-Callback = function(v) CH.Alpha = v end
-})
-UIRegistry.CHRecoilFollow = AimSection:Toggle({
-Name = "Прицел: следует за отдачей (CS recoil)",
-Flag = "CHRecoilFollow",
-Default = false,
-Callback = function(state) CH.RecoilFollow = state end
-})
-UIRegistry.AimFOV = AimSection:Slider({
-Name = "FOV радиус",
-Flag = "AimFOV",
-Default = 150,
-Min = 50,
-Max = 400,
-Decimals = 5,
-Suffix = "px",
-Callback = function(Value)
-Aim.FOV = Value
-end
-})
-UIRegistry.AimDistance = AimSection:Slider({
-Name = "Дистанция аима",
-Flag = "AimDistance",
-Default = 500,
-Min = 50,
+Callback = function(v) CH.Alpha =

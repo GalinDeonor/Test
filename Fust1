@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v16)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.41 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.40 LiquidGlass...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.41 LiquidGlass...")
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -643,4 +643,8 @@ end
 print("[FUST-J] " .. stamp .. msg)
 if type(appendfile) == "function" then
 pcall(function()
-appendfile(JOURNA
+appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
+end)
+end
+end
+journal("=== ЗАПУСК 0.41 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроко

@@ -1,3 +1,28 @@
+ v end
+})
+UIRegistry.CHRecoilFollow = AimSection:Toggle({
+Name = "Прицел: следует за отдачей (CS recoil)",
+Flag = "CHRecoilFollow",
+Default = false,
+Callback = function(state) CH.RecoilFollow = state end
+})
+UIRegistry.AimFOV = AimSection:Slider({
+Name = "FOV радиус",
+Flag = "AimFOV",
+Default = 150,
+Min = 50,
+Max = 400,
+Decimals = 5,
+Suffix = "px",
+Callback = function(Value)
+Aim.FOV = Value
+end
+})
+UIRegistry.AimDistance = AimSection:Slider({
+Name = "Дистанция аима",
+Flag = "AimDistance",
+Default = 500,
+Min = 50,
 Max = 1500,
 Decimals = 10,
 Suffix = "m",
@@ -1892,18 +1917,4 @@ FC_MOD.savedHum = nil
 FC_MOD.savedWalkSpeed = nil
 FC_MOD.savedJumpPower = nil
 FC_MOD.savedJumpHeight = nil
-FC_MOD.savedUseJumpPower = nil
-FC_MOD.savedAutoRotate = nil
-pcall(function()
-local c = LocalPlayer.Character
-local hrp = c and c:FindFirstChild("HumanoidRootPart")
-local hum = c and c:FindFirstChildOfClass("Humanoid")
-if hrp then
-FC_MOD.savedHRP = hrp
-FC_MOD.savedAnchor = hrp.Anchored
-hrp.Anchored = true
-end
-if hum then
-FC_MOD.savedHum = hum
-FC_MOD.savedWalkSpeed = hum.WalkSpeed
-F
+FC_MOD.saved

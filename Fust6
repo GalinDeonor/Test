@@ -1,4 +1,17 @@
-oolSize = bulletPoolSize + 1
+:SetAttribute("PetuhKind", "ribbon")
+return part
+end)
+if okP then
+return p
+end
+return nil
+end
+function bulletPoolRelease(p, kind)
+if p then
+pcall(function()
+p.Parent = nil
+end)
+bulletPoolSize = bulletPoolSize + 1
 bulletPool[bulletPoolSize] = {
 Part = p,
 Kind = kind or p:GetAttribute("PetuhKind") or "ribbon",
@@ -1729,7 +1742,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.39 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.41 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

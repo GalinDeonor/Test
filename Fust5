@@ -1,4 +1,18 @@
-C_MOD.savedJumpPower = hum.JumpPower
+UseJumpPower = nil
+FC_MOD.savedAutoRotate = nil
+pcall(function()
+local c = LocalPlayer.Character
+local hrp = c and c:FindFirstChild("HumanoidRootPart")
+local hum = c and c:FindFirstChildOfClass("Humanoid")
+if hrp then
+FC_MOD.savedHRP = hrp
+FC_MOD.savedAnchor = hrp.Anchored
+hrp.Anchored = true
+end
+if hum then
+FC_MOD.savedHum = hum
+FC_MOD.savedWalkSpeed = hum.WalkSpeed
+FC_MOD.savedJumpPower = hum.JumpPower
 -- 0.39v8 FIX: сохраняем JumpHeight и UseJumpPower для восстановления
 FC_MOD.savedJumpHeight = hum.JumpHeight
 FC_MOD.savedUseJumpPower = hum.UseJumpPower
@@ -1825,17 +1839,4 @@ b.TextureLength = 2
 b.TextureSpeed = 2
 b.Enabled = false
 b.Parent = part
-part:SetAttribute("PetuhKind", "ribbon")
-return part
-end)
-if okP then
-return p
-end
-return nil
-end
-function bulletPoolRelease(p, kind)
-if p then
-pcall(function()
-p.Parent = nil
-end)
-bulletP
+part
