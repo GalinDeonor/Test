@@ -1,4 +1,10 @@
-k.wait() -- 0.39v15: yield перед блоком конфигов
+ true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(adminScanTick)
+end
+end)
+task.wait() -- 0.39v15: yield перед блоком конфигов
 HttpService = game:GetService("HttpService")
 CONFIG_FILE = "FUST_config.json"
 function colorToTable(c)

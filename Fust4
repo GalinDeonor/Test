@@ -1,4 +1,25 @@
-Gui = pcall(function()
+s) do
+pcall(function()
+c:Disconnect()
+end)
+end
+hudConns = {}
+if hudGui then
+pcall(function()
+hudGui:Destroy()
+end)
+end
+hudGui = nil
+hudFrame = nil
+hudStroke = nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudDragging = false
+end
+function hudEnsure()
+if hudFrame then
+return
+end
+local okGui = pcall(function()
 local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
 hudGui = Instance.new("ScreenGui")
 hudGui.Name = "PetuhHUD"
@@ -2442,7 +2463,4 @@ Outline = true, -- обводка (чёрная за цветом)
 Color = Color3.fromRGB(255, 30, 30),
 -- 0.39v2: расширенные настройки CS2
 TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
-DotSize = 1,       -- размер точки (1-5)
-OutlineThickness = 1, -- толщина обводки (1-3)
-Alpha = 1,         -- прозрачность 0..1
-RecoilFollow = false, -- прицел следует за отдачей (как
+DotSize = 1,       --

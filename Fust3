@@ -1,8 +1,20 @@
-ags[Slider.Flag] = function(Value)
+ch then
+if Slider.Sliding then
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+Slider:Set(Value)
+end
+end
+end)
+if Slider.Default then
+Slider:Set(Slider.Default)
+end
+Library.SetFlags[Slider.Flag] = function(Value)
 Slider:Set(Value)
 end
 return Slider
 end
+task.wait() -- 0.39v15: yield перед Dropdown (416 строк)
 Library.Sections.Dropdown = function(self, Data)
 Data = Data or { }
 local Dropdown = {
@@ -660,6 +672,7 @@ end
 return Textbox
 end
 end
+task.wait() -- 0.39v15: yield перед CreateSettingsPage
 Library.CreateSettingsPage = function(self, Window, Watermark)
 local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
 do
@@ -2130,25 +2143,4 @@ hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
 end
 end
 function hudDestroy()
-for _, c in ipairs(hudConns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-hudConns = {}
-if hudGui then
-pcall(function()
-hudGui:Destroy()
-end)
-end
-hudGui = nil
-hudFrame = nil
-hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
-hudDragging = false
-end
-function hudEnsure()
-if hudFrame then
-return
-end
-local ok
+for _, c in ipairs(hudConn

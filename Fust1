@@ -1144,6 +1144,7 @@ end
 return Library:Connect(self.Instance.MouseLeave, Function)
 end
 end
+task.wait() -- 0.39v15: yield после Instances/CustomFont/Holder
 local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
 -- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
@@ -1260,4 +1261,6 @@ Item = Item,
 Properties = Properties,
 }
 for Property, Value in ThemeData.Properties do
-if type(Value) == "strin
+if type(Value) == "string" then
+if not self.Theme[Value] then
+Item[

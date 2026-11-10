@@ -1144,6 +1144,7 @@ end
 return Library:Connect(self.Instance.MouseLeave, Function)
 end
 end
+task.wait() -- 0.39v15: yield после Instances/CustomFont/Holder
 local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
 -- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
@@ -1388,6 +1389,7 @@ local Top = Object.AbsolutePosition
 local Bottom = Top + Object.AbsoluteSize
 return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
 end
+task.wait() -- 0.39v15: yield перед CreateColorpicker (367 строк)
 Library.CreateColorpicker = function(self, Data)
 local Colorpicker = {
 Flag = Data.Flag,
@@ -1755,6 +1757,7 @@ Colorpicker:Set(Value)
 end
 return Colorpicker, Items
 end
+task.wait() -- 0.39v15: yield перед CreateKeybind (357 строк)
 Library.CreateKeybind = function(self, Data)
 local Keybind = {
 Flag = Data.Flag,
@@ -2111,6 +2114,7 @@ Keybind:Set(Value)
 end
 return Keybind, Items
 end
+task.wait() -- 0.39v15: yield перед Watermark/Window (478 строк)
 do
 Library.Watermark = function(self, Name, Logo)
 local Watermark = { }
@@ -2182,6 +2186,7 @@ Watermark:SetText(Name)
 Watermark:SetCenter()
 return Watermark
 end
+task.wait() -- 0.39v15: yield перед Library.Window (478 строк)
 Library.Window = function(self, Data)
 Data = Data or { }
 -- 0.39v15 FIX: гарантия что Library.Theme не nil перед созданием UI
@@ -2228,6 +2233,7 @@ BackgroundColor3 = Library.Theme["Background"]
 }):AddToTheme({BackgroundColor3 = 'Background'})
 Items["MainFrame"]:MakeDraggable()
 Items["MainFrame"]:MakeResizeable(Vector2New(320, 240), Vector2New(9999, 9999))
+task.wait() -- 0.39v15: yield после MainFrame создания
 Instances:Create("UICorner", {
 Parent = Items["MainFrame"].Instance,
 Name = "\0",
@@ -2409,6 +2415,7 @@ PaddingBottom = UDimNew(0, 8),
 PaddingRight = UDimNew(0, 8),
 PaddingLeft = UDimNew(0, 8)
 })
+task.wait() -- 0.39v15: yield после Pages layout
 Items["Content"] = Instances:Create("Frame", {
 Parent = Items["MainFrame"].Instance,
 Name = "\0",
@@ -2557,6 +2564,7 @@ Position = UDim2New(0.5, 0, 0.5, 0),
 Size = UDim2New(0, 15, 0, 15),
 BorderSizePixel = 0
 }):AddToTheme({ImageColor3 = 'Text'})
+task.wait() -- 0.39v15: yield перед FullBtn/CloseBtn
 Items["FullBtn"] = Instances:Create("TextButton", {
 Parent = Items["TopBar"].Instance,
 Name = "\0",
@@ -3571,6 +3579,7 @@ Slider:Set(Value)
 end
 return Slider
 end
+task.wait() -- 0.39v15: yield перед Dropdown (416 строк)
 Library.Sections.Dropdown = function(self, Data)
 Data = Data or { }
 local Dropdown = {
@@ -4228,6 +4237,7 @@ end
 return Textbox
 end
 end
+task.wait() -- 0.39v15: yield перед CreateSettingsPage
 Library.CreateSettingsPage = function(self, Window, Watermark)
 local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
 do
