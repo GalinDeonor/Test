@@ -1,2067 +1,4 @@
-nect(UserInputService.InputChanged, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-if Slider.Sliding then
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
-Slider:Set(Value)
-end
-end
-end)
-if Slider.Default then
-Slider:Set(Slider.Default)
-end
-Library.SetFlags[Slider.Flag] = function(Value)
-Slider:Set(Value)
-end
-return Slider
-end
--- 0.39v16: yield убран (вешает Delta)
-Library.Sections.Dropdown = function(self, Data)
-Data = Data or { }
-local Dropdown = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Dropdown",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Items = Data.Items or Data.items or { "One", "Two", "Three" },
-Default = Data.Default or Data.default or nil,
-Callback = Data.Callback or Data.callback or function() end,
-Multi = Data.Multi or Data.multi or false,
-Value = { },
-Options = { },
-IsOpen = false
-}
-local Items = { } do
-Items["Dropdown"] = Instances:Create("Frame", {
-Parent = Dropdown.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 26),
-BorderSizePixel = 0
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FillDirection = Enum.FillDirection.Horizontal,
-VerticalAlignment = Enum.VerticalAlignment.Center,
-Padding = UDimNew(0, 8),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Dropdown.Name,
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-BorderSizePixel = 0,
-LayoutOrder = 1,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 14
-}):AddToTheme({TextColor3 = 'Text'})
-Items["RealDropdown"] = Instances:Create("TextButton", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(0, 0, 0, 26),
-BorderSizePixel = 0,
-TextSize = 14,
-LayoutOrder = 2,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-local DropdownFlex = Instance.new("UIFlexItem")
-DropdownFlex.FlexMode = Enum.UIFlexMode.Fill
-DropdownFlex.Parent = Items["RealDropdown"].Instance
-Instances:Create("UICorner", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 8)
-})
-Instances:Create("UIStroke", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Value"] = Instances:Create("TextLabel", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-TextTransparency = 0.15,
-Text = "--",
-Size = UDim2New(0, 0, 0, 15),
-AnchorPoint = Vector2New(0, 0.5),
-BorderSizePixel = 0,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 8, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 13
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Icon"] = Instances:Create("ImageLabel", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-AnchorPoint = Vector2New(1, 0.5),
-Image = "rbxassetid://72690112230014",
-BackgroundTransparency = 1,
-Position = UDim2New(1, -8, 0.5, 0),
-Size = UDim2New(0, 16, 0, 16),
-BorderSizePixel = 0
-}):AddToTheme({ImageColor3 = 'Text'})
-Instances:Create("Frame", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-AnchorPoint = Vector2New(1, 0),
-Position = UDim2New(1, -32, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0, 1, 1, 0),
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Outline"]
-}):AddToTheme({BackgroundColor3 = 'Outline'})
-Items["OptionHolder"] = Instances:Create("TextButton", {
-Parent = Library.UnusedHolder.Instance,
-Name = "\0",
-Visible = false,
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(0, 200, 0, 0),
-Position = UDim2New(0, 54, 0, 236),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.Y,
-TextSize = 14,
-BackgroundColor3 = Library.Theme["Inline"]
-}):AddToTheme({BackgroundColor3 = 'Inline'})
-Instances:Create("UICorner", {
-Parent = Items["OptionHolder"].Instance,
-Name = "\0"
-})
-Instances:Create("UIListLayout", {
-Parent = Items["OptionHolder"].Instance,
-Name = "\0",
-Padding = UDimNew(0, 6),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Instances:Create("UIPadding", {
-Parent = Items["OptionHolder"].Instance,
-Name = "\0",
-PaddingTop = UDimNew(0, 10),
-PaddingBottom = UDimNew(0, 10),
-PaddingRight = UDimNew(0, 10),
-PaddingLeft = UDimNew(0, 10)
-})
-end
-table.insert(Library.SearchRows, {Frame = Items["Dropdown"].Instance, Text = StringLower(Dropdown.Name), Page = Dropdown.Page})
-function Dropdown:Get()
-return Dropdown.Value
-end
-function Dropdown:SetVisibility(Bool)
-Items["Dropdown"].Instance.Visible = Bool
-end
-local Debounce = false
-local RenderStepped
-function Dropdown:SetOpen(Bool)
-if Debounce then
-return
-end
-Dropdown.IsOpen = Bool
-Debounce = true
-if Dropdown.IsOpen then
-Items["OptionHolder"].Instance.Visible = true
-Items["OptionHolder"].Instance.Parent = Library.Holder.Instance
-RenderStepped = RunService.RenderStepped:Connect(function()
-Items["OptionHolder"].Instance.Position = UDim2New(0, Items["RealDropdown"].Instance.AbsolutePosition.X, 0, Items["RealDropdown"].Instance.AbsolutePosition.Y - 25)
-Items["OptionHolder"].Instance.Size = UDim2New(0, Items["RealDropdown"].Instance.AbsoluteSize.X, 0, 0)
-end)
-for Index, Value in Library.OpenFrames do
-if Value ~= Dropdown and not Dropdown.Section.IsSettings then
-Value:SetOpen(false)
-end
-end
-Library.OpenFrames[Dropdown] = Dropdown
-else
-if Library.OpenFrames[Dropdown] then
-Library.OpenFrames[Dropdown] = nil
-end
-if RenderStepped then
-RenderStepped:Disconnect()
-RenderStepped = nil
-end
-end
-local Descendants = Items["OptionHolder"].Instance:GetDescendants()
-TableInsert(Descendants, Items["OptionHolder"].Instance)
-local NewTween
-for Index, Value in Descendants do
-local TransparencyProperty = Tween:GetProperty(Value)
-if not TransparencyProperty then
-continue
-end
-if not Value.ClassName:find("UI") then
-Value.ZIndex = Dropdown.IsOpen and 3 or 1
-end
-if type(TransparencyProperty) == "table" then
-for _, Property in TransparencyProperty do
-NewTween = Tween:FadeItem(Value, Property, Bool, Library.FadeSpeed)
-end
-else
-NewTween = Tween:FadeItem(Value, TransparencyProperty, Bool, Library.FadeSpeed)
-end
-end
-NewTween.Tween.Completed:Connect(function()
-Debounce = false
-Items["OptionHolder"].Instance.Visible = Dropdown.IsOpen
-task.wait(0.2)
-Items["OptionHolder"].Instance.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
-end)
-end
-function Dropdown:Set(Option)
-if Dropdown.Multi then
-if type(Option) ~= "table" then
-return
-end
-Dropdown.Value = Option
-Library.Flags[Dropdown.Flag] = Option
-for Index, Value in Option do
-local OptionData = Dropdown.Options[Value]
-if not OptionData then
-continue
-end
-OptionData.Selected = true
-OptionData:Toggle("Active")
-end
-Items["Value"].Instance.Text = TableConcat(Option, ", ")
-else
-if not Dropdown.Options[Option] then
-return
-end
-local OptionData = Dropdown.Options[Option]
-Dropdown.Value = Option
-Library.Flags[Dropdown.Flag] = Option
-for Index, Value in Dropdown.Options do
-if Value ~= OptionData then
-Value.Selected = false
-Value:Toggle("Inactive")
-else
-Value.Selected = true
-Value:Toggle("Active")
-end
-end
-Items["Value"].Instance.Text = Option
-end
-if Dropdown.Callback then
-Library:SafeCall(Dropdown.Callback, Dropdown.Value)
-end
-end
-function Dropdown:Add(Option)
-local OptionButton = Instances:Create("TextButton", {
-Parent = Items["OptionHolder"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-BackgroundTransparency = 1,
-Size = UDim2New(1, 0, 0, 20),
-BorderSizePixel = 0,
-TextSize = 14
-})
-local OptionLiner = Instances:Create("Frame", {
-Parent = OptionButton.Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-Size = UDim2New(0, 3, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Accent"]
-}):AddToTheme({BackgroundColor3 = 'Accent'})
-local OptionGlow = Instances:Create("ImageLabel", {
-Parent = OptionLiner.Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-}):AddToTheme({ImageColor3 = 'Accent'})
-Instances:Create("UICorner", {
-Parent = OptionLiner.Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-local OptionText = Instances:Create("TextLabel", {
-Parent = OptionButton.Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-TextTransparency = 0.5,
-Text = Option,
-Size = UDim2New(0, 0, 0, 15),
-AnchorPoint = Vector2New(0, 0.5),
-BorderSizePixel = 0,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 0, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 16
-}):AddToTheme({TextColor3 = 'Text'})
-local OptionData = {
-Button = OptionButton,
-Name = Option,
-Liner = OptionLiner,
-Glow = OptionGlow,
-Text = OptionText,
-Selected = false
-}
-function OptionData:Toggle(Value)
-if Value == "Active" then
-OptionData.Liner:Tween(nil, {BackgroundTransparency = 0, Size = UDim2New(0, 3, 1, 0)})
-OptionData.Glow:Tween(nil, {ImageTransparency = 0.7})
-OptionData.Text:Tween(nil, {Position = UDim2New(0, 12, 0.5 ,0), TextTransparency = 0})
-else
-OptionData.Liner:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 3, 0, 0)})
-OptionData.Glow:Tween(nil, {ImageTransparency = 1})
-OptionData.Text:Tween(nil, {Position = UDim2New(0, 0, 0.5 ,0), TextTransparency = 0.5})
-end
-end
-function OptionData:Set()
-OptionData.Selected = not OptionData.Selected
-if Dropdown.Multi then
-local Index = TableFind(Dropdown.Value, OptionData.Name)
-if Index then
-TableRemove(Dropdown.Value, Index)
-else
-TableInsert(Dropdown.Value, OptionData.Name)
-end
-OptionData:Toggle(Index and "Inactive" or "Active")
-Library.Flags[Dropdown.Flag] = Dropdown.Value
-local TextFormat = #Dropdown.Value > 0 and TableConcat(Dropdown.Value, ", ") or "..."
-Items["Value"].Instance.Text = TextFormat
-else
-if OptionData.Selected then
-Dropdown.Value = OptionData.Name
-Library.Flags[Dropdown.Flag] = OptionData.Name
-OptionData.Selected = true
-OptionData:Toggle("Active")
-for Index, Value in Dropdown.Options do
-if Value ~= OptionData then
-Value.Selected = false
-Value:Toggle("Inactive")
-end
-end
-Items["Value"].Instance.Text = OptionData.Name
-else
-Dropdown.Value = nil
-Library.Flags[Dropdown.Flag] = nil
-OptionData.Selected = false
-OptionData:Toggle("Inactive")
-Items["Value"].Instance.Text = "..."
-end
-end
-if Dropdown.Callback then
-Library:SafeCall(Dropdown.Callback, Dropdown.Value)
-end
-end
-OptionData.Button:Connect("MouseButton1Down", function()
-OptionData:Set()
-end)
-Dropdown.Options[OptionData.Name] = OptionData
-return OptionData
-end
-function Dropdown:Remove(Option)
-if Dropdown.Options[Option] then
-Dropdown.Options[Option].Button:Clean()
-Dropdown.Options[Option] = nil
-end
-end
-function Dropdown:Refresh(List)
-for Index, Value in Dropdown.Options do
-Dropdown:Remove(Value.Name)
-end
-for Index, Value in List do
-Dropdown:Add(Value)
-end
-end
-Items["RealDropdown"]:Connect("MouseButton1Down", function()
-Dropdown:SetOpen(not Dropdown.IsOpen)
-end)
-Library:Connect(UserInputService.InputBegan, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if Dropdown.IsOpen then
-if Library:IsMouseOverFrame(Items["OptionHolder"]) then
-return
-end
-Dropdown:SetOpen(false)
-end
-end
-end)
-Items["RealDropdown"]:Connect("Changed", function(Property)
-if Property == "AbsolutePosition" and Dropdown.IsOpen then
-Dropdown.IsOpen = not Library:IsClipped(Items["OptionHolder"].Instance, Dropdown.Section.Items["Section"].Instance.Parent)
-Items["OptionHolder"].Instance.Visible = Dropdown.IsOpen
-end
-end)
-for Index, Value in Dropdown.Items do
-Dropdown:Add(Value)
-end
-if Dropdown.Default then
-Dropdown:Set(Dropdown.Default)
-end
-Library.SetFlags[Dropdown.Flag] = function(Value)
-Dropdown:Set(Value)
-end
-return Dropdown
-end
-Library.Sections.Label = function(self, NameOrData)
-local InData = type(NameOrData) == "table" and NameOrData or { Name = NameOrData }
-local Label = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = InData.Name or InData.name or "Label",
-Color = InData.Color or InData.color
-}
-local Items = { } do
-Items["Label"] = Instances:Create("Frame", {
-Parent = Label.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 20),
-BorderSizePixel = 0
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Label"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Label.Name,
-AnchorPoint = Vector2New(0, 0.5),
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-Position = UDim2New(0, 0, 0.5, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 14
-}):AddToTheme({TextColor3 = 'Text'})
-if Label.Color then
-Items["Text"].Instance.TextColor3 = Label.Color
-end
-Items["SubElements"] = Instances:Create("Frame", {
-Parent = Items["Label"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-AnchorPoint = Vector2New(1, 0),
-BackgroundTransparency = 1,
-Position = UDim2New(1, 0, 0, 0),
-Size = UDim2New(0, 0, 1, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X
-})
-Instances:Create("UIListLayout", {
-Parent = Items["SubElements"].Instance,
-Name = "\0",
-VerticalAlignment = Enum.VerticalAlignment.Center,
-FillDirection = Enum.FillDirection.Horizontal,
-HorizontalAlignment = Enum.HorizontalAlignment.Right,
-Padding = UDimNew(0, 6),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-end
-function Label:SetText(Text)
-Text = tostring(Text)
-Items["Text"].Instance.Text = Text
-end
-function Label:SetVisibility(Bool)
-Items["Label"].Instance.Visible = Bool
-end
-function Label:Colorpicker(Data)
-Data = Data or { }
-local Colorpicker = {
-Window = Label.Window,
-Page = Label.Page,
-Section = Label.Section,
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Default = Data.Default or Data.default or Color3.fromRGB(255, 255, 255),
-Callback = Data.Callback or Data.callback or function() end,
-Alpha = Data.Alpha or Data.alpha or false
-}
-local NewColorpicker, ColorpickerItems = Library:CreateColorpicker({
-Parent = Items["SubElements"],
-Page = Colorpicker.Page,
-Section = Colorpicker.Section,
-Flag = Colorpicker.Flag,
-Default = Colorpicker.Default,
-Callback = Colorpicker.Callback,
-Alpha = Colorpicker.Alpha
-})
-return NewColorpicker
-end
-function Label:Keybind(Data)
-Data = Data or { }
-local Keybind = {
-Window = Label.Window,
-Page = Label.Page,
-Section = Label.Section,
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Default = Data.Default or Data.default,
-Callback = Data.Callback or Data.callback or function() end,
-Mode = Data.Mode or Data.mode or "Toggle"
-}
-local NewKeybind, KeybindItems = Library:CreateKeybind({
-Parent = Items["SubElements"],
-Page = Keybind.Page,
-Section = Keybind.Section,
-Flag = Keybind.Flag,
-Default = Keybind.Default,
-Mode = Keybind.Mode,
-Callback = Keybind.Callback
-})
-return NewKeybind
-end
-Label.Items = Items
-return Label
-end
-Library.Sections.Textbox = function(self, Data)
-Data = Data or { }
-local Textbox = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Textbox",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Default = Data.Default or Data.default or "",
-Callback = Data.Callback or Data.callback or function() end,
-Placeholder = Data.Placeholder or Data.placeholder or "Placeholder",
-Numeric = Data.Numeric or Data.numeric or false,
-Finished = Data.Finished or Data.finished or false,
-Value = ""
-}
-local Items = { } do
-Items["Textbox"] = Instances:Create("Frame", {
-Parent = Textbox.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 30),
-BorderSizePixel = 0
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Textbox"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Textbox.Name,
-AnchorPoint = Vector2New(0, 0.5),
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-Position = UDim2New(0, 0, 0.5, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 16
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Background"] = Instances:Create("Frame", {
-Parent = Items["Textbox"].Instance,
-Name = "\0",
-Active = true,
-BorderColor3 = FromRGB(0, 0, 0),
-AnchorPoint = Vector2New(1, 1),
-Size = UDim2New(0, 0, 0, 30),
-Position = UDim2New(1, 0, 1, 0),
-Selectable = true,
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-Instances:Create("UICorner", {
-Parent = Items["Background"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Instances:Create("UIStroke", {
-Parent = Items["Background"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Instances:Create("UIPadding", {
-Parent = Items["Background"].Instance,
-Name = "\0",
-PaddingRight = UDimNew(0, 8),
-PaddingLeft = UDimNew(0, 8)
-})
-Items["Input"] = Instances:Create("TextBox", {
-Parent = Items["Background"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-Active = false,
-TextTransparency = 0,
-AnchorPoint = Vector2New(0, 0.5),
-PlaceholderColor3 = FromRGB(133, 139, 143),
-PlaceholderText = Textbox.Placeholder,
-TextSize = 16,
-Size = UDim2New(0, 0, 0, 15),
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-Selectable = false,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 0, 0.5, 0),
-CursorPosition = -1,
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X
-}):AddToTheme({TextColor3 = 'Text'})
-end
-function Textbox:Get()
-return Textbox.Value
-end
-function Textbox:SetVisibility(Bool)
-Items["Textbox"].Instance.Visible = Bool
-end
-function Textbox:Set(Value)
-if Textbox.Numeric then
-if (not tonumber(Value)) and StringLen(tostring(Value)) > 0 then
-Value = Textbox.Value
-end
-end
-Textbox.Value = Value
-Items["Input"].Instance.Text = Value
-Library.Flags[Textbox.Flag] = Value
-if Textbox.Callback then
-Library:SafeCall(Textbox.Callback, Value)
-end
-end
-if Textbox.Finished then
-Items["Input"]:Connect("FocusLost", function(PressedEnterQuestionMark)
-if PressedEnterQuestionMark then
-Textbox:Set(Items["Input"].Instance.Text)
-end
-end)
-else
-Library:Connect(Items["Input"].Instance:GetPropertyChangedSignal("Text"), function()
-Textbox:Set(Items["Input"].Instance.Text)
-end)
-end
-if Textbox.Default then
-Textbox:Set(Textbox.Default)
-end
-Library.SetFlags[Textbox.Flag] = function(Value)
-Textbox:Set(Value)
-end
-return Textbox
-end
-end
--- 0.39v16: yield убран (вешает Delta)
-Library.CreateSettingsPage = function(self, Window, Watermark)
-local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
-do
--- 0.39: секция управления кнопкой/хоткеем меню
-local MenuSection = SettingsPage:Section({Name = "Кнопка меню", Tab = "Меню", Icon = "rbxassetid://73803440257131"})
-if MenuSection and MenuSection.Toggle then
-MenuSection:Toggle({
-Name = "Скрыть кнопку-петух (только хоткей)",
-Flag = "PetuhBtnHidden",
-Default = false,
-Callback = function(state)
-petuhSetBtnHidden(state)
-end
-})
-MenuSection:Label("Клавиша меню (назначить)"):Keybind({
-Name = "Клавиша открытия/закрытия меню",
-Flag = "PetuhMenuKey",
-Default = Enum.KeyCode.RightControl,
-Mode = "Toggle",
-Callback = function(state)
--- 0.39v3 FIX: правильно извлекаем имя клавиши
-pcall(function()
-local f = Library.Flags and Library.Flags["PetuhMenuKey"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-PETUH_MENU_KEY = kc
-journal("МЕНЮ: клавиша = " .. keyName)
-end
-end
-end)
-end
-})
--- 0.39v9: экран загрузки убран полностью — вызывал чёрный экран на телефоне.
--- Удаляем маркерный файл если он остался от старой версии.
-pcall(function()
-if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
-end)
-MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
-end
-local ThemingSection = SettingsPage:Section({Name = "Theming", Tab = "Оформление", Icon = "rbxassetid://73803440257131"})
-do
-for Index, Value in Library.Theme do
-ThemingSection:Label(Index):Colorpicker({
-Flag = Index.."_ThemingThing",
-Default = Value,
-Alpha = 0,
-Callback = function(Value)
-Library.Theme[Index] = Value
-Library:ChangeTheme(Index, Value)
-end
-})
-end
-end
-local ConfigsSection = SettingsPage:Section({Name = "Configs", Tab = "Конфиги", Icon = "rbxassetid://74885853379841"}) do
-local ConfigName
-local ConfigSelected
-local ConfigsDropdown = ConfigsSection:Dropdown({
-Name = "Configs",
-Flag = "Configs",
-Items = { },
-Multi = false,
-MaxSize = 120,
-Callback = function(Value)
-ConfigSelected = Value
-end
-})
-ConfigsSection:Textbox({
-Name = "Config name",
-Placeholder = "Config name",
-Flag = "ConfigName",
-Callback = function(Value)
-ConfigName = Value
-end
-})
-ConfigsSection:Button({
-Name = "Create",
-Callback = function()
-if ConfigName and ConfigName ~= "" then
-if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
-writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
-Library:RefreshConfigsList(ConfigsDropdown)
-end
-end
-end
-})
-ConfigsSection:Button({
-Name = "Load",
-Callback = function()
-if ConfigSelected and ConfigSelected ~= "" then
-Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json"))
-end
-end
-})
-ConfigsSection:Button({
-Name = "Save",
-Callback = function()
-if ConfigSelected and ConfigSelected ~= "" then
-writefile(Library.Folders.Configs .. "/" .. ConfigSelected..".json", Library:GetConfig())
-end
-end
-})
-ConfigsSection:Button({
-Name = "Delete",
-Callback = function()
-if ConfigSelected and ConfigSelected ~= "" then
-delfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json")
-Library:RefreshConfigsList(ConfigsDropdown)
-end
-end
-})
-ConfigsSection:Button({
-Name = "Refresh",
-Callback = function()
-Library:RefreshConfigsList(ConfigsDropdown)
-end
-})
-Library:RefreshConfigsList(ConfigsDropdown)
-end
-end
-return SettingsPage
-end
-end
-Library.LucideIconsUrl = "https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua"
-Library.IconPacks = Library.IconPacks or {}
-Library.ActiveIconPack = "lucide"
-function Library:LoadIconPack(Url, PackName)
-PackName = PackName or "lucide"
-if self.IconPacks[PackName] then
-return self.IconPacks[PackName]
-end
-local Success, Result = pcall(function()
-local Source = game:HttpGet(Url)
-local Chunk = loadstring(Source)
-if not Chunk then
-return {}
-end
-local Icons = Chunk()
-if type(Icons) ~= "table" then
-return {}
-end
-return Icons
-end)
-self.IconPacks[PackName] = Success and Result or {}
-return self.IconPacks[PackName]
-end
-function Library:SetIconPack(PackName)
-self.ActiveIconPack = PackName or "lucide"
-end
-function Library:GetIconPack(PackName)
-PackName = PackName or self.ActiveIconPack or "lucide"
-if not self.IconPacks[PackName] then
-if PackName == "lucide" then
-self:LoadIconPack(self.LucideIconsUrl, "lucide")
-else
-self.IconPacks[PackName] = {}
-end
-end
-return self.IconPacks[PackName] or {}
-end
-function Library:ResolveIcon(Icon, PackName)
-if not Icon or Icon == "" then
-return Icon
-end
-if typeof(Icon) ~= "string" then
-return Icon
-end
-if Icon:match("^rbxassetid://") or Icon:match("^https?://") then
-return Icon
-end
-local Icons = self:GetIconPack(PackName)
-return Icons[string.lower(Icon)] or Icon
-end
-OriginalWindowFunction = Library.Window
-Library.Window = function(self, Data)
-Data = Data or {}
-Data.Logo = self:ResolveIcon(Data.Logo)
-Data.logo = self:ResolveIcon(Data.logo)
-if Data.WatermarkLogo then
-Data.WatermarkLogo = self:ResolveIcon(Data.WatermarkLogo)
-end
-return OriginalWindowFunction(self, Data)
-end
-OriginalSectionFunction = Library.Pages.Section
-Library.Pages.Section = function(self, Data)
-Data = Data or {}
-Data.Icon = Library:ResolveIcon(Data.Icon or Data.icon)
-Data.icon = Data.Icon
-return OriginalSectionFunction(self, Data)
-end
-Library.CreateWindow = function(self, Data)
-Data = Data or {}
-local Window = self:Window(Data)
-local Watermark
-if Data.WatermarkEnabled then
-Watermark = self:Watermark(
-Data.WatermarkText or Data.Name or "Window",
-self:ResolveIcon(Data.WatermarkLogo or Data.Logo)
-)
-Window.Watermark = Watermark
-end
-Window._AutoSettingsEnabled = Data.SettingsTabEnabled and true or false
-Window._AutoSettingsWatermark = Watermark
-local OriginalPage = Window.Page
-local CreatingSettings = false
-local function ReorderTabs()
-local Order = 1
-for _, Value in Window.Pages do
-if Value ~= Window.SettingsPage and Value.Items and Value.Items["Inactive"] then
-Value.Items["Inactive"].Instance.LayoutOrder = Order
-Order = Order + 1
-end
-end
-if Window.SettingsPage and Window.SettingsPage.Items and Window.SettingsPage.Items["Inactive"] then
-Window.SettingsPage.Items["Inactive"].Instance.LayoutOrder = 999999
-end
-end
-local function EnsureSettings()
-if not Window._AutoSettingsEnabled or Window.SettingsPage or CreatingSettings then
-ReorderTabs()
-return
-end
-CreatingSettings = true
-Window.SettingsPage = Library:CreateSettingsPage(Window, Window._AutoSettingsWatermark)
-CreatingSettings = false
-ReorderTabs()
-end
-local function WrappedPage(_, TabData)
-TabData = TabData or {}
-TabData.Icon = Library:ResolveIcon(TabData.Icon or TabData.icon)
-TabData.icon = TabData.Icon
-local Page = OriginalPage(Window, TabData)
-EnsureSettings()
-ReorderTabs()
-return Page
-end
-Window.Page = WrappedPage
-Window.CreateTab = WrappedPage
-Window.CreatePage = WrappedPage
-return Window
-end
-Library.CreateTab = Library.Page
-Library.Pages.CreateSection = Library.Pages.Section
-Library.Sections.CreateButton = Library.Sections.Button
-Library.Sections.CreateToggle = Library.Sections.Toggle
-Library.Sections.CreateSlider = Library.Sections.Slider
-Library.Sections.CreateDropdown = Library.Sections.Dropdown
-Library.Sections.CreateTextbox = Library.Sections.Textbox
-Library.Sections.CreateLabel = Library.Sections.Label
-function NormalizeNamedData(NameOrData, Icon)
-if type(NameOrData) == "table" then
-local Data = table.clone(NameOrData)
-if Data.Title and not (Data.Name or Data.name) then
-Data.Name = Data.Title
-end
-if Data.title and not (Data.Name or Data.name) then
-Data.Name = Data.title
-end
-if Icon and not (Data.Icon or Data.icon) then
-Data.Icon = Icon
-end
-return Data
-end
-local Data = {
-Name = NameOrData
-}
-if Icon ~= nil then
-Data.Icon = Icon
-end
-return Data
-end
-function Library:AddTab(NameOrData, Icon)
-local Data = NormalizeNamedData(NameOrData, Icon)
-Data.Icon = self:ResolveIcon(Data.Icon or Data.icon)
-Data.icon = Data.Icon
-if self.CreateTab then
-return self:CreateTab(Data)
-end
-return self:Page(Data)
-end
-function Library.Pages:AddSection(NameOrData, Icon)
-local Data = NormalizeNamedData(NameOrData, Icon)
-Data.Icon = Library:ResolveIcon(Data.Icon or Data.icon)
-Data.icon = Data.Icon
-if self.CreateSection then
-return self:CreateSection(Data)
-end
-return self:Section(Data)
-end
-function Library.Sections:AddButton(NameOrData, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateButton(Data)
-end
-return self:CreateButton({
-Name = NameOrData,
-Callback = Callback
-})
-end
-function Library.Sections:AddToggle(NameOrData, FlagOrCallback, Default, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateToggle(Data)
-end
-local RealCallback = type(FlagOrCallback) == "function" and FlagOrCallback or Callback
-return self:CreateToggle({
-Name = NameOrData,
-Flag = type(FlagOrCallback) == "string" and FlagOrCallback or nil,
-Default = Default,
-Callback = RealCallback
-})
-end
-function Library.Sections:AddSlider(NameOrData, Min, Max, Default, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateSlider(Data)
-end
-return self:CreateSlider({
-Name = NameOrData,
-Min = Min,
-Max = Max,
-Default = Default,
-Callback = Callback
-})
-end
-function Library.Sections:AddDropdown(NameOrData, Items, Default, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateDropdown(Data)
-end
-return self:CreateDropdown({
-Name = NameOrData,
-Items = Items,
-Default = Default,
-Callback = Callback
-})
-end
-function Library.Sections:AddTextbox(NameOrData, Placeholder, Callback)
-if type(NameOrData) == "table" then
-local Data = NormalizeNamedData(NameOrData)
-return self:CreateTextbox(Data)
-end
-return self:CreateTextbox({
-Name = NameOrData,
-Placeholder = Placeholder,
-Callback = Callback
-})
-end
-function Library.Sections:AddLabel(TextOrData)
-if type(TextOrData) == "table" then
-local Data = NormalizeNamedData(TextOrData)
-return self:CreateLabel(Data.Name or Data.Text or Data.text or "Label")
-end
-return self:CreateLabel(TextOrData)
-end
-getgenv().Library = Library
-return Library
-end)()
-pcall(function()
-local function reparent(gui)
-if not gui or not gui.Instance then
-return
-end
-local coreGui = game:GetService("CoreGui")
-gui.Instance.Parent = coreGui
-if gui.Instance.Parent ~= coreGui then
-local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-if pg then
-gui.Instance.Parent = pg
-gui.Instance.DisplayOrder = 999999
-end
-else
-gui.Instance.DisplayOrder = 999999
-end
-end
-reparent(Library.Holder)
-reparent(Library.UnusedHolder)
-end)
-print("[FUST] 2/4: библиотека готова, создаю окно...")
--- 0.39v6: ИКОНКА ПЕТУХА — используем Roblox asset ID напрямую.
--- getcustomasset убран — он детектится анти-читом ("Exploit detected;
--- getcustomasset"). rbxassetid работает везде и не палится.
-PETUH_ICON_ASSET = "rbxassetid://134242818164054"
-print("[FUST] Иконка петуха: rbxassetid (безопасно)")
-
-Window = Library:Window({
-Name = "Пьяный Петух",
-SubName = "FUST Survival · на основе VOMAGLA",
-Logo = PETUH_ICON_ASSET
-})
-pcall(function()
-Library.Theme.Accent = Color3.fromRGB(240, 130, 30)
-Library:ChangeTheme("Accent", Library.Theme.Accent)
-end)
-MainFrame = Window.Items["MainFrame"].Instance
-WINDOW_MARGIN = 8
--- 0.39v12 FIX: задаём ГЛОБАЛ UserInputService ДО вызова windowedSize.
--- v11 пытался обойти это локальной переменной UIS_EARLY, но она была неиспользуема
--- и не влияла на глобальную область видимости — windowedSize всё равно падала
--- с nil error в первом pcall (строка ~4648). Решение: инициализировать глобал здесь.
-UserInputService = game:GetService("UserInputService")
--- 0.39v10 FIX: принудительный resize при старте — на телефоне окно 900×600
--- растянуто на весь экран. Уменьшаем сразу.
-task.defer(function()
-pcall(function()
-local vp = getViewSize()
-local wsW, wsH = windowedSize(vp)
-MainFrame.Size = UDim2.fromOffset(wsW, wsH)
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-local x = math.max(WINDOW_MARGIN, math.floor((vp.X - wsW) / 2))
-local y = math.max(WINDOW_MARGIN, math.floor((vp.Y - wsH) / 2))
-MainFrame.Position = UDim2.fromOffset(x, y)
-end)
-end)
-function getViewSize()
-local cam = Workspace.CurrentCamera
-local vp = (cam and cam.ViewportSize and cam.ViewportSize.X > 100)
-and cam.ViewportSize or Vector2.new(1280, 800)
-pcall(function()
-local inset = game:GetService("GuiService"):GetGuiInset()
-vp = Vector2.new(vp.X, vp.Y - inset.Y)
-end)
-return vp
-end
-function windowedSize(vp)
--- 0.39v11 FIX: UserInputService получаем напрямую — глобальная может быть не определена
-local UIS = UserInputService
-if not UIS or type(UIS) ~= "userdata" then
-pcall(function() UIS = game:GetService("UserInputService") end)
-end
-local isPhone = UIS and (not UIS.KeyboardEnabled) or false
-local maxW, maxH
-if isPhone then
--- телефон: окно 85% ширины, 70% высоты
-maxW = math.floor(vp.X * 0.85)
-maxH = math.floor(vp.Y * 0.70)
-else
--- ПК: до 900×600
-maxW = 900
-maxH = 600
-end
--- не меньше минимума
-maxW = math.max(maxW, 280)
-maxH = math.max(maxH, 220)
--- не больше экрана минус маргины
-maxW = math.min(maxW, vp.X - WINDOW_MARGIN * 2)
-maxH = math.min(maxH, vp.Y - WINDOW_MARGIN * 2)
-local w = math.clamp(maxW, 280, maxW)
-local h = math.clamp(maxH, 220, maxH)
-return math.floor(w), math.floor(h)
-end
-function clampWindowOnScreen()
-pcall(function()
-local vp = getViewSize()
--- 0.39v10 FIX: используем windowedSize для адаптивного размера (телефон/ПК)
-local wsW, wsH = windowedSize(vp)
-local maxW = math.max(200, vp.X - WINDOW_MARGIN * 2)
-local maxH = math.max(150, vp.Y - WINDOW_MARGIN * 2)
--- берём меньшее: текущий размер, windowedSize, или экран-маргины
-local w = math.min(MainFrame.Size.X.Offset, wsW, maxW)
-local h = math.min(MainFrame.Size.Y.Offset, wsH, maxH)
--- гарантированно не больше экрана
-w = math.max(200, math.min(w, maxW))
-h = math.max(150, math.min(h, maxH))
-MainFrame.Size = UDim2.fromOffset(w, h)
--- AnchorPoint (0,0) для корректного позиционирования
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-local pos = MainFrame.AbsolutePosition
-local x = math.clamp(pos.X, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.X - w - WINDOW_MARGIN))
-local y = math.clamp(pos.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.Y - h - WINDOW_MARGIN))
--- если позиция невалидна — центрируем
-if x >= vp.X - w - WINDOW_MARGIN or y >= vp.Y - h - WINDOW_MARGIN then
-x = math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2))
-y = math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
-end
-MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
-end)
-end
--- 0.39v16: yield убран — в v13 без него работало
-WindowFullscreen = false
-SavedWindowed = nil
-FullBtn = Window.Items["FullBtn"]
-FullBtnFill = Window.Items["FullBtnFill"]
-if FullBtn then
-FullBtn:Connect("MouseButton1Click", function()
-local vp = getViewSize()
-WindowFullscreen = not WindowFullscreen
-local fill = FullBtnFill and FullBtnFill.Instance
-if WindowFullscreen then
-local pos = MainFrame.AbsolutePosition
-SavedWindowed = {
-w = MainFrame.Size.X.Offset,
-h = MainFrame.Size.Y.Offset,
-x = pos.X,
-y = pos.Y,
-}
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Size = UDim2.fromOffset(
-math.max(200, vp.X - WINDOW_MARGIN * 2),
-math.max(150, vp.Y - WINDOW_MARGIN * 2)
-)
-MainFrame.Position = UDim2.fromOffset(WINDOW_MARGIN, WINDOW_MARGIN)
-if fill then
-fill.BackgroundTransparency = 0
-end
-journal("МЕНЮ: ФУЛЛСКРИН")
-else
-local w, h = windowedSize(vp)
-local x = math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2))
-local y = math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
-local s = SavedWindowed
-if s and s.w and s.h then
-w = math.min(s.w, math.max(200, vp.X - WINDOW_MARGIN * 2))
-h = math.min(s.h, math.max(150, vp.Y - WINDOW_MARGIN * 2))
-end
-if s and s.x and s.y then
-x = math.clamp(s.x, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.X - w - WINDOW_MARGIN))
-y = math.clamp(s.y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.Y - h - WINDOW_MARGIN))
-end
-MainFrame.Size = UDim2.fromOffset(w, h)
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
-if fill then
-fill.BackgroundTransparency = 1
-end
-journal("МЕНЮ: ОКОННЫЙ РЕЖИМ")
-end
-end)
-end
-pcall(function()
-local vp = getViewSize()
-local w, h = windowedSize(vp)
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Size = UDim2.fromOffset(w, h)
-MainFrame.Position = UDim2.fromOffset(
-math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2)),
-math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
-)
-journal("МЕНЮ: оконный вид " .. w .. "x" .. h)
-end)
-pcall(function()
-local cam = Workspace.CurrentCamera
-if cam then
-Library:Connect(cam:GetPropertyChangedSignal("ViewportSize"), function()
-task.delay(0.1, function()
-pcall(function()
-if WindowFullscreen then
-local vp = getViewSize()
-MainFrame.Size = UDim2.fromOffset(
-math.max(200, vp.X - WINDOW_MARGIN * 2),
-math.max(150, vp.Y - WINDOW_MARGIN * 2)
-)
-MainFrame.Position = UDim2.fromOffset(WINDOW_MARGIN, WINDOW_MARGIN)
-else
-clampWindowOnScreen()
-end
-end)
-end)
-end)
-end
-end)
-baseSetOpen = Window.SetOpen
-Window.SetOpen = function(self, b)
-if b then
-clampWindowOnScreen()
-end
-return baseSetOpen(self, b)
-end
--- UserInputService уже задан выше (строка ~4520) — v12 fix
--- 0.39: КНОПКА-ПЕТУХ — меньше (32×32), иконка-эмблема, настраиваемый хоткей, скрытие
-PETUH_BTN_HIDDEN = false
-PETUH_MENU_KEY = Enum.KeyCode.RightControl
-local btn = Instance.new("ImageButton")
-btn.Name = "PetuhMenuToggle"
-btn.Image = PETUH_ICON_ASSET
-btn.ScaleType = Enum.ScaleType.Fit
-btn.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
-btn.BackgroundTransparency = 0.25
-btn.BorderSizePixel = 0
-btn.Size = UDim2.fromOffset(34, 34) -- было 52×52 — стало 34×34
-btn.Position = UDim2.new(1, -44, 0.5, -17)
-btn.Active = true
-btn.Selectable = false
-btn.AutoButtonColor = false
-btn.Parent = Library.Holder.Instance
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = btn
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(240, 130, 30)
-stroke.Thickness = 1.5
-stroke.Transparency = 0.3
-stroke.Parent = btn
-local dragging = false
-local dragStart, startPos
-local moved = false
-btn.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-dragging = true
-moved = false
-dragStart = input.Position
-startPos = btn.Position
-end
-end)
-UserInputService.InputChanged:Connect(function(input)
-if dragging
-and (input.UserInputType == Enum.UserInputType.MouseMovement
-or input.UserInputType == Enum.UserInputType.Touch) then
-local delta = input.Position - dragStart
-if delta.Magnitude > 8 then
-moved = true
-end
-btn.Position = UDim2.new(
-startPos.X.Scale, startPos.X.Offset + delta.X,
-startPos.Y.Scale, startPos.Y.Offset + delta.Y
-)
-end
-end)
-UserInputService.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-if dragging and not moved then
-pcall(function()
-Window:SetOpen(not Window.IsOpen)
-end)
-end
-dragging = false
-end
-end)
--- 0.39: настраиваемый хоткей меню + скрытие иконки
-getgenv().FUST_MenuKeyConn = UserInputService.InputBegan:Connect(function(input, gp)
-if gp then return end
-if input.KeyCode == PETUH_MENU_KEY then
-pcall(function()
-Window:SetOpen(not Window.IsOpen)
-end)
-end
-end)
-function petuhSetBtnHidden(state)
-PETUH_BTN_HIDDEN = state
-btn.Visible = not state
-journal("КНОПКА-ПЕТУХ " .. (state and "СКРЫТА (только хоткей)" or "ВИДНА"))
-end
--- экспортируем btn для UI toggle
-getgenv().FUST_PetuhBtn = btn
-pcall(function()
-Library:CreateSettingsPage(Window, nil)
-end)
-UI_ERRORS = {}
-function uiStep(stepName, fn)
-local ok, err = pcall(fn)
-if ok then
-print("[FUST][UI] блок собран: " .. stepName)
-else
-warn("[FUST][UI] ОШИБКА БЛОКА '" .. stepName .. "': " .. tostring(err))
-pcall(function()
-journal("ОШИБКА UI '" .. stepName .. "': " .. tostring(err))
-end)
-table.insert(UI_ERRORS, stepName .. ": " .. tostring(err))
-end
-end
-ICON_SETTINGS = "rbxassetid://80758916183665"
-ICON_COMBAT = "rbxassetid://87563802520297"
-ICON_VISUALS = "rbxassetid://100033680381365"
-UIRegistry = {}
-Window:Group("Главное")
-MainPage = Window:Page({ Name = "Main", Icon = ICON_SETTINGS })
-MiscSection = MainPage:Section({ Name = "Вайтлист", Tab = "Функции", Side = 1 })
-ConfigSection = MainPage:Section({ Name = "Конфиги", Tab = "Функции", Side = 2 })
-FreeCam = { Enabled = false, Speed = 30, AutoFly = false }
-freecamEnable = function() end
-freecamDisable = function() end
-FreeCamSection = MainPage:Section({ Name = "Свободная камера (FreeCam)", Tab = "Функции", Side = 2 })
-UIRegistry.FreeCamEnabled = FreeCamSection:Toggle({
-Name = "Фрикам (камера отдельно от тела)",
-Flag = "FreeCamEnabled",
-Default = false,
-Callback = function(state)
-if state then
-freecamEnable()
-else
-freecamDisable()
-end
-end
-})
-UIRegistry.FreeCamSpeed = FreeCamSection:Slider({
-Name = "Скорость полёта",
-Flag = "FreeCamSpeed",
-Default = 30,
-Min = 5,
-Max = 300,
-Decimals = 5,
-Suffix = " st/s",
-Callback = function(Value)
-FreeCam.Speed = Value
-end
-})
-UIRegistry.FreeCamAutoFly = FreeCamSection:Toggle({
-Name = "Авто-полёт вперёд (для телефона)",
-Flag = "FreeCamAutoFly",
-Default = false,
-Callback = function(state)
-FreeCam.AutoFly = state
-journal("ФРИКАМ: авто-полёт " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
--- 0.39: настраиваемые клавиши фрикама
-FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
-local FC_KEY_OBJ = nil
-UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
-Name = "Клавиша: вкл/выкл фрикам",
-Flag = "FreeCamKeyToggle",
-Default = Enum.KeyCode.K,
-Mode = "Toggle",
-Callback = function(state)
--- 0.39v3 FIX: правильно извлекаем имя клавиши из строки "Enum.KeyCode.K"
-pcall(function()
-local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-FreeCamKeys.Toggle = kc
-FC_KEY_TOGGLE = kc
-journal("ФРИКАМ: клавиша toggle = " .. keyName)
-end
-end
-end)
-end
-})
-local FC_KEY_SLOW_OBJ = nil
-UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
-Name = "Клавиша: скорость МЕНЬШЕ",
-Flag = "FreeCamKeySlow",
-Default = Enum.KeyCode.Z,
-Mode = "Toggle",
-Callback = function(state)
-pcall(function()
-local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-FreeCamKeys.Slow = kc
-FC_KEY_SLOW = kc
-journal("ФРИКАМ: клавиша slow = " .. keyName)
-end
-end
-end)
-end
-})
-local FC_KEY_FAST_OBJ = nil
-UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
-Name = "Клавиша: скорость БОЛЬШЕ",
-Flag = "FreeCamKeyFast",
-Default = Enum.KeyCode.X,
-Mode = "Toggle",
-Callback = function(state)
-pcall(function()
-local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-FreeCamKeys.Fast = kc
-FC_KEY_FAST = kc
-journal("ФРИКАМ: клавиша fast = " .. keyName)
-end
-end
-end)
-end
-})
-uiStep("Вкладка Аимбот", function()
-Window:Group("Бой")
-AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
-AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
-HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
-TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
-end)
-uiStep("Вкладки ESP/Визуалы/Лут", function()
-Window:Group("Визуал")
-EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
-EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
-VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
-WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
-TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
-LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
-end)
--- 0.39v16: yield убран — в v13 без него работало
-print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
-S = {
-ESP = {
-Enabled = false,
-Box = false,
-Chams = false,
-ChamsTransparency = 0.5,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-MaxDistance = 1500,
-DistanceScale = true, 
-TeamCheck = false, 
-VisCheck = false, 
-VisHitbox = false, 
-},
-ESPColors = {
-Box = Color3.fromRGB(0, 255, 255),
-},
-Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
-FullBright = false,
-NoDecoration = false,
-NoGrass = false,
-NoFog = false,
-Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
-NPC = {
-ESP = false,
-CatGuards = true, 
-CatPeaceful = false, 
-CatAnimals = false, 
-CatSleepers = false, 
-DebugLog = false, 
-Box = false,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-Chams = false,
-ChamsTransparency = 0.5,
-MaxDistance = 3000,
-HitboxEnabled = false,
-HitboxSize = 5,
-HitboxTransparency = 0.7,
-HitboxAnimals = false, 
-HitboxSleepers = false, 
-},
-HUD = {
-Enabled = true,
-Size = 11, 
-BgTransparency = 0.35, 
-TextTransparency = 0, 
-Corner = "Лево-низ", 
-ShowTPS = true, 
-ShowBg = true, 
--- 0.39: новые поля
-ColorBg = Color3.fromRGB(12, 12, 16),
-ColorText = Color3.fromRGB(235, 235, 240),
-ColorStroke = Color3.fromRGB(255, 170, 40),
-ShowAdmin = true, 
-Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
-},
-Loot = {
-Enabled = false,
-Owner = true, 
-Slots = true, 
-Distance = true,
-Box = true,
-Chams = true, 
-MaxDistance = 1500,
-DebugLog = false, 
-},
-LootC = {
-Enabled = false,
-Name = true, 
-Distance = true,
-Box = true,
-MaxDistance = 800,
-Chams = false, 
-},
-}
-LOOT_COLOR = Color3.fromRGB(255, 70, 255)
-LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
-CollectionService = game:GetService("CollectionService")
-NPC_COLOR = Color3.fromRGB(255, 145, 0) 
-NPC_CAT_COLORS = {
-Guard = Color3.fromRGB(255, 145, 0), 
-Peaceful = Color3.fromRGB(80, 255, 140), 
-Animal = Color3.fromRGB(255, 80, 95), 
-Sleeper = Color3.fromRGB(80, 190, 255), 
-}
-NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
-NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
-SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
-SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
-ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
-GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
-SLEEPER_PATTERNS = { "sleeper", "пящ" }
-WEAPON_PATTERNS = {
-"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
-"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
-"меч", "сабл", "катан",
-"rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
-}
-npcCategoryCache = {} 
-npcHorizontalSince = {} 
-NPC_CAT_TTL = 0.75 
-function npcNameMatches(model, patterns)
-local okN, name = pcall(function()
-return string.lower(tostring(model.Name))
-end)
-if not okN then
-return false
-end
-for _, pat in ipairs(patterns) do
-if string.find(name, pat, 1, true) then
-return true
-end
-end
-return false
-end
-function npcHasAnyTag(model, tags)
-for _, tag in ipairs(tags) do
-local okT, has = pcall(CollectionService.HasTag, CollectionService, model, tag)
-if okT and has then
-return true
-end
-end
-return false
-end
-function npcInsideFolder(model, names)
-local p = model.Parent
-local depth = 0
-while p and p ~= Workspace and depth < 8 do
-for _, n in ipairs(names) do
-if p.Name == n then
-return true
-end
-end
-p = p.Parent
-depth = depth + 1
-end
-return false
-end
-function npcHasWeaponInHands(model)
-local okT, tool = pcall(function()
-return model:FindFirstChildOfClass("Tool")
-end)
-if okT and tool then
-local okN, tname = pcall(function()
-return string.lower(tostring(tool.Name))
-end)
-if okN and tname then
-for _, pat in ipairs(WEAPON_PATTERNS) do
-if string.find(tname, pat, 1, true) then
-return true
-end
-end
-end
-end
-return false
-end
-function npcSleeperMarked(model, hum, root)
-if npcHasAnyTag(model, SLEEPER_TAGS) then
-return true
-end
-if npcInsideFolder(model, { "Sleepers", "Sleeper", "Bodies", "SleepingPlayers", "Спящие" }) then
-return true
-end
-for _, inst in ipairs({ model, hum, root }) do
-if inst then
-for _, attr in ipairs(SLEEPER_ATTRS) do
-local okA, v = pcall(inst.GetAttribute, inst, attr)
-if okA and v == true then
-return true
-end
-end
-end
-end
-local okC, children = pcall(model.GetChildren, model)
-if okC and children then
-for _, child in ipairs(children) do
-if child:IsA("BoolValue") then
-local cn = string.lower(tostring(child.Name))
-if (string.find(cn, "sleep", 1, true) or string.find(cn, "пящ", 1, true))
-and child.Value == true then
-return true
-end
-end
-end
-end
-if npcNameMatches(model, SLEEPER_PATTERNS) then
-return true
-end
-return false
-end
-function npcGetCategory(model, hum, root)
-local now = os.clock()
-local cached = npcCategoryCache[model]
-if cached and cached.Cat and cached.Expire > now then
-local on = (
-(cached.Cat == "Guard" and S.NPC.CatGuards)
-or (cached.Cat == "Peaceful" and S.NPC.CatPeaceful)
-or (cached.Cat == "Animal" and S.NPC.CatAnimals)
-or (cached.Cat == "Sleeper" and S.NPC.CatSleepers)
-) and true or false
-return cached.Cat, on, NPC_CAT_COLORS[cached.Cat] or NPC_COLOR
-end
-local cat
-local inNpcFolder = npcInsideFolder(model, { "Npcs", "NPCs", "NPC" })
-or npcHasAnyTag(model, NPC_NPC_TAGS)
-local inAnimalFolder = npcInsideFolder(model, { "Animals", "Animal" })
-or npcHasAnyTag(model, NPC_ANIMAL_TAGS)
-if inAnimalFolder or npcNameMatches(model, ANIMAL_PATTERNS) then
-cat = "Animal"
-elseif inNpcFolder then
-if npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model) then
-cat = "Guard"
-else
-cat = "Peaceful"
-end
-else
-if npcSleeperMarked(model, hum, root) then
-cat = "Sleeper"
-else
-local okU, upDot = pcall(function()
-return root and root.CFrame.UpVector:Dot(Vector3.new(0, 1, 0)) or 1
-end)
-if okU and upDot and upDot < 0.45 then
-if not npcHorizontalSince[model] then
-npcHorizontalSince[model] = now
-end
-if now - npcHorizontalSince[model] >= 4 then
-cat = "Sleeper"
-end
-else
-npcHorizontalSince[model] = nil
-end
-if not cat and (npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model)) then
-cat = "Guard"
-end
-if not cat then
-cat = "Peaceful"
-end
-end
-end
-npcCategoryCache[model] = { Cat = cat, Expire = now + NPC_CAT_TTL }
-local on = (
-(cat == "Guard" and S.NPC.CatGuards)
-or (cat == "Peaceful" and S.NPC.CatPeaceful)
-or (cat == "Animal" and S.NPC.CatAnimals)
-or (cat == "Sleeper" and S.NPC.CatSleepers)
-) and true or false
-return cat, on, NPC_CAT_COLORS[cat] or NPC_COLOR
-end
-Whitelist = {} 
-FUST_BulletsSet = nil 
-HitboxAnnouncePending = false 
-NpcHitboxAnnouncePending = false 
-NpcHitboxAppliedCount = 0 
-AntiRecoil = {
-Enabled = false, 
-Rollback = true, 
-Offset = true, 
-Drift = true, 
-DriftStrength = 1, 
-Threshold = 1.2, 
-}
-AR_SnapCF = nil 
-AR_LastStateJournal = 0 
-AR_LastPitch = nil 
-AR_DriftFrames = 0 
-AR_AimBusyUntil = 0 
-AR_Anchor = nil 
-AR_LastDriftAt = 0 
-FUST_FireUntil = 0 
-FUST_FireTool = nil 
-FUST_FireConns = nil 
-AntiShake = {
-Enabled = false, 
-Roll = true, 
-Position = true, 
-Oscillation = true, 
-}
-AS_SmoothPos = nil 
-AS_LastRawPitch = nil 
-AS_LastLX, AS_LastLZ = nil, nil 
-AS_LastDp, AS_LastDy = nil, nil 
-AS_PitchFlips, AS_YawFlips = 0, 0 
-AS_AnchorLook = nil 
-AS_LastShakeAt = 0 
-COLOR_WHITELIST = Color3.fromRGB(0, 255, 0)
-COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)
-UIRegistry.ESPEnabled = EspSection:Toggle({
-Name = "ESP Enabled",
-Flag = "ESPEnabled",
-Default = false,
-Callback = function(state)
-S.ESP.Enabled = state
-journal("ESP " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.ESPBox = EspSection:Toggle({
-Name = "ESP Box",
-Flag = "ESPBox",
-Default = false,
-Callback = function(state)
-S.ESP.Box = state
-end
-})
-UIRegistry.ESPBoxColor = UIRegistry.ESPBox:Colorpicker({
-Flag = "ESPBoxColor",
-Default = S.ESPColors.Box,
-Callback = function(color)
-S.ESPColors.Box = color
-end
-})
-UIRegistry.ESPChams = EspSection:Toggle({
-Name = "ESP Chams",
-Flag = "ESPChams",
-Default = false,
-Callback = function(state)
-S.ESP.Chams = state
-journal("ЧАМСЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.ESPChamsTransparency = EspSection:Slider({
-Name = "Прозрачность чамсов",
-Flag = "ESPChamsTransparency",
-Default = 0.5,
-Min = 0,
-Max = 1,
-Decimals = 0.05,
-Suffix = "",
-Callback = function(Value)
-S.ESP.ChamsTransparency = Value
-end
-})
-UIRegistry.ESPName = EspSection:Toggle({
-Name = "ESP Name",
-Flag = "ESPName",
-Default = false,
-Callback = function(state)
-S.ESP.Name = state
-end
-})
-UIRegistry.ESPDistance = EspSection:Toggle({
-Name = "ESP Distance",
-Flag = "ESPDistance",
-Default = false,
-Callback = function(state)
-S.ESP.Distance = state
-end
-})
-UIRegistry.ESPItem = EspSection:Toggle({
-Name = "ESP Предмет (что в руках)",
-Flag = "ESPItem",
-Default = false,
-Callback = function(state)
-S.ESP.Item = state
-journal("ПРЕДМЕТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
--- 0.39: цвет предмета в руках
-ESPItemColor = Color3.fromRGB(255, 215, 90)
-UIRegistry.ESPItemColor = EspSection:Label("Цвет предмета в руках"):Colorpicker({
-Name = "Цвет предмета в руках",
-Flag = "ESPItemColor",
-Default = ESPItemColor,
-Callback = function(c)
-ESPItemColor = c
-end
-})
--- 0.39: перевод названий предметов на русский (вкл/выкл)
--- 0.39v6: расширено под Rust (FUST Survival — раст-подобная игра)
-ItemRuTranslate = false
-ITEM_RU_DICT = {
--- оружие дальнобойное
-["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["ak-74"] = "АК-74",
-["m4a1"] = "М4А1", ["m4a4"] = "М4А4", ["m4"] = "М4", ["m16"] = "М16",
-["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90", ["mac-10"] = "МАК-10",
-["thompson"] = "Томпсон", ["custom smg"] = "Кастомный ПП", ["vector"] = "Вектор",
-["awp"] = "АВП", ["awm"] = "АВМ", ["mosin"] = "Мосина", ["kar98"] = "Кар98",
-["bolt rifle"] = "Винтовка с продольным затвором", ["l96"] = "Л96",
-["semi-auto rifle"] = "Полуавтоматическая винтовка", ["sar"] = "САВ",
-["shotgun"] = "Дробовик", ["pump shotgun"] = "Помповый дробовик",
-["auto shotgun"] = "Авто-дробовик", ["double barrel"] = "Двустволка",
-["spas-12"] = "СПАС-12", ["m870"] = "М870", ["sawn off"] = "Обрез",
-["pistol"] = "Пистолет", ["glock"] = "Глок", ["deagle"] = "Дезерт Игл",
-["revolver"] = "Револьвер", ["sniper"] = "Снайперка", ["rifle"] = "Винтовка",
-["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт",
-["m249"] = "М249", ["rp"] = "РП", ["bolt action"] = "Болтовка",
-["crossbow"] = "Арбалет", ["bow"] = "Лук", ["compound bow"] = "Блочный лук",
--- патроны
-["9mm"] = "9мм патроны", ["45acp"] = ".45 патроны", ["556"] = "5.56 патроны",
-["5.56"] = "5.56 патроны", ["762"] = "7.62 патроны", ["7.62"] = "7.62 патроны",
-["12gauge"] = "12 калибр", ["12 gauge"] = "12 калибр", ["shells"] = "Патроны",
-["ammo"] = "Патроны", ["magazine"] = "Магазин",
-["12.7mm"] = "12.7мм патроны", ["308"] = ".308 патроны",
-["arrow"] = "Стрела", ["bolts"] = "Болты",
--- еда/вода (Rust)
-["water"] = "Вода", ["water bottle"] = "Бутылка воды", ["cola"] = "Кола",
-["bottled water"] = "Бутылка воды", ["water jug"] = "Канистра воды",
-["water barrel"] = "Бочка воды", ["salt water"] = "Солёная вода",
-["bread"] = "Хлеб", ["can"] = "Консерва", ["canned food"] = "Консерва",
-["meat"] = "Мясо", ["cooked meat"] = "Жареное мясо", ["raw meat"] = "Сырое мясо",
-["bear meat"] = "Медвежатина", ["wolf meat"] = "Волчатина", ["chicken meat"] = "Курица",
-["deer meat"] = "Оленина", ["boar meat"] = "Кабанина",
-["apple"] = "Яблоко", ["banana"] = "Банан", ["chocolate"] = "Шоколад",
-["energy bar"] = "Энергетический батончик", ["granola bar"] = "Гранола",
-["corn"] = "Кукуруза", ["potato"] = "Картофель", ["pumpkin"] = "Тыква",
-["mushroom"] = "Гриб", ["berries"] = "Ягоды",
-["cooked corn"] = "Варёная кукуруза", ["cooked potato"] = "Варёная картошка",
-["fish"] = "Рыба", ["cooked fish"] = "Жареная рыба",
-["small water bottle"] = "Малая бутылка воды", ["large water bottle"] = "Большая бутылка воды",
--- броня (Rust)
-["helmet"] = "Шлем", ["kevlar"] = "Кевлар", ["vest"] = "Жилет",
-["armor"] = "Броня", ["bulletproof vest"] = "Бронежилет",
-["metal helmet"] = "Металлический шлем", ["metal vest"] = "Металлический жилет",
-["road sign helmet"] = "Шлем из дорожного знака", ["road sign vest"] = "Жилет из дорожного знака",
-["coconut helmet"] = "Кокосовый шлем", ["wood helmet"] = "Деревянный шлем",
-["bone helmet"] = "Костяной шлем", ["bone vest"] = "Костяной жилет",
-["coffee can helmet"] = "Шлем из кофейной банки",
--- лут/ресурсы (Rust)
-["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
-["metal fragments"] = "Металлические фрагменты", ["metal ore"] = "Руда металла",
-["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
-["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
-["blood bag"] = "Пакет крови", ["syringe"] = "Шприц",
-["wood planks"] = "Доски", ["wooden planks"] = "Доски",
-["stone ore"] = "Каменная руда", ["sulfur ore"] = "Серная руда",
-["sulfur"] = "Сера", ["charcoal"] = "Древесный уголь",
-["gunpowder"] = "Порох", ["explosives"] = "Взрывчатка",
-["low grade fuel"] = "Низкосортное топливо", ["fuel"] = "Топливо",
-["crude oil"] = "Сырая нефть", ["oil"] = "Нефть",
-["hemp"] = "Конопля", ["hemp fiber"] = "Конопляное волокно",
-["scrap"] = "Хлам", ["metal pipe"] = "Металлическая труба",
-["sewing kit"] = "Швейный набор",
-["gears"] = "Шестерёнки", ["springs"] = "Пружины",
-["rifle body"] = "Корпус винтовки", ["smg body"] = "Корпус ПП",
-["semi auto body"] = "Корпус полуавтомата",
--- инструменты (Rust)
-["pickaxe"] = "Кирка", ["hatchet"] = "Топорик", ["hammer"] = "Молоток",
-["screwdriver"] = "Отвёртка", ["wrench"] = "Гаечный ключ",
-["lockpick"] = "Отмычка", ["flashlight"] = "Фонарик",
-["map"] = "Карта", ["compass"] = "Компас", ["radio"] = "Радио",
-["binoculars"] = "Бинокль", ["scope"] = "Прицел",
-["chainsaw"] = "Бензопила", ["jackhammer"] = "Отбойный молоток",
-["bone club"] = "Костяная дубина", ["stone pickaxe"] = "Каменная кирка",
-["stone hatchet"] = "Каменный топор", ["metal pickaxe"] = "Металлическая кирка",
-["metal hatchet"] = "Металлический топор",
-["salvaged hammer"] = "Восстановленный молоток", ["salvaged axe"] = "Восстановленный топор",
-["salvaged cleaver"] = "Восстановленный тесак", ["salvaged sword"] = "Восстановленный меч",
--- холодное оружие
-["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
-["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
-["bone knife"] = "Костяной нож", ["stone spear"] = "Каменное копьё",
-["wooden spear"] = "Деревянное копьё", ["metal spear"] = "Металлическое копьё",
-["longsword"] = "Длинный меч", ["mace"] = "Булава",
--- расходники
-["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
-["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
-["large backpack"] = "Большой рюкзак",
-["small bag"] = "Маленькая сумка", ["leather bag"] = "Кожаная сумка",
--- медицина (Rust)
-["large bandage"] = "Большой бинт",
-["medical syringe"] = "Медицинский шприц", ["anti-rad pills"] = "Анти-рад таблетки",
-["antirad pills"] = "Анти-рад таблетки", ["radiation pills"] = "Противорадиационные таблетки",
--- расходники для базы (Rust)
-["wood wall"] = "Деревянная стена", ["stone wall"] = "Каменная стена",
-["metal wall"] = "Металлическая стена", ["armored wall"] = "Бронированная стена",
-["wood door"] = "Деревянная дверь", ["metal door"] = "Металлическая дверь",
-["key lock"] = "Замок с ключом", ["code lock"] = "Кодовый замок",
-["wood ladder"] = "Деревянная лестница", ["wood stairs"] = "Деревянные ступени",
-["toolbox"] = "Ящик с инструментами", ["wood box"] = "Деревянный ящик",
-["large wood box"] = "Большой деревянный ящик", ["storage box"] = "Ящик для хранения",
-["vending machine"] = "Торговый автомат",
--- гранаты/взрывчатка (Rust)
-["grenade"] = "Граната", ["frag grenade"] = "Осколочная граната",
-["flashbang"] = "Светошумовая", ["smoke"] = "Дымовая",
-["molotov"] = "Коктейль Молотова", ["incendiary grenade"] = "Зажигательная граната",
-["c4"] = "С4", ["satchel charge"] = "Разрывной заряд",
-["timed explosive"] = "Тайм-взрывчатка", ["rocket"] = "Ракета",
-["rockets"] = "Ракеты", ["rocket launcher"] = "Ракетница",
-}
-function translateItemName(name)
-if not ItemRuTranslate or type(name) ~= "string" then
-return name
-end
-local nl = string.lower(name)
--- точное совпадение
-if ITEM_RU_DICT[nl] then
-return ITEM_RU_DICT[nl]
-end
--- частичное совпадение по подстроке
-for eng, rus in pairs(ITEM_RU_DICT) do
-if string.find(nl, eng, 1, true) then
-return rus
-end
-end
-return name
-end
-UIRegistry.ItemRuTranslate = EspSection:Toggle({
-Name = "Перевод названий на русский",
-Flag = "ItemRuTranslate",
-Default = false,
-Callback = function(state)
-ItemRuTranslate = state
-journal("ПЕРЕВОД ПРЕДМЕТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.BulletsEnabled = TracerSection:Toggle({
-Name = "Трассеры пуль (стиль VOMAGLA)",
-Flag = "BulletsEnabled",
-Default = false,
-Callback = function(state)
-S.Bullets.Enabled = state
-if FUST_BulletsSet then
-pcall(FUST_BulletsSet, state)
-end
-journal("ТРАССЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
-print("[FUST] Трассеры пуль " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.BulletsStyle = TracerSection:Dropdown({
-Name = "Трассеры: стиль луча",
-Items = { "Луч", "Квадратный", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
-Flag = "BulletsStyle",
-Default = "Луч",
-Callback = function(Value)
-S.Bullets.Style = Value
-journal("ТРАССЕРЫ-СТИЛЬ " .. tostring(Value))
-end
-})
-UIRegistry.BulletsWidth = TracerSection:Slider({
-Name = "Трассеры: толщина",
-Flag = "BulletsWidth",
-Default = 1.5,
-Min = 0.5,
-Max = 5,
-Decimals = 0.5,
-Suffix = "ст",
-Callback = function(Value)
-S.Bullets.Width = Value
-end
-})
-UIRegistry.BulletsTransparency = TracerSection:Slider({
-Name = "Трассеры: прозрачность",
-Flag = "BulletsTransparency",
-Default = 0,
-Min = 0,
-Max = 0.9,
-Decimals = 0.05,
-Callback = function(Value)
-S.Bullets.Transparency = Value
-end
-})
-UIRegistry.BulletsFade = TracerSection:Slider({
-Name = "Трассеры: затухание",
-Flag = "BulletsFade",
-Default = 1,
-Min = 0.5,
-Max = 5,
-Decimals = 0.1,
-Suffix = "с",
-Callback = function(Value)
-S.Bullets.Fade = Value
-end
-})
-UIRegistry.ESPHealthBar = EspSection:Toggle({
-Name = "ESP HealthBar",
-Flag = "ESPHealthBar",
-Default = false,
-Callback = function(state)
-S.ESP.HealthBar = state
-end
-})
-UIRegistry.ESPMaxDistance = EspSection:Slider({
-Name = "Max Distance",
-Flag = "ESPMaxDistance",
-Default = 3000,
-Min = 100,
-Max = 5000,
-Decimals = 50,
-Suffix = "m",
-Callback = function(Value)
-S.ESP.MaxDistance = Value
-end
-})
-UIRegistry.ESPDistanceScale = EspSection:Toggle({
-Name = "Сжатие ESP по дистанции (дальше = мельче)",
-Flag = "ESPDistanceScale",
-Default = true,
-Callback = function(state)
-S.ESP.DistanceScale = state
-journal("ESP СЖАТИЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
+nal("ESP СЖАТИЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 espVisCacheClear = function() end
@@ -2140,4 +77,1789 @@ if hudLineTPS then
 hudLineTPS.Visible = S.HUD.ShowTPS and true or false
 end
 if hudLineAdmin then
-hudLineAd
+hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
+end
+end
+function hudDestroy()
+for _, c in ipairs(hudConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+hudConns = {}
+if hudGui then
+pcall(function()
+hudGui:Destroy()
+end)
+end
+hudGui = nil
+hudFrame = nil
+hudStroke = nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudDragging = false
+end
+function hudEnsure()
+if hudFrame then
+return
+end
+local okGui = pcall(function()
+local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
+hudGui = Instance.new("ScreenGui")
+hudGui.Name = "PetuhHUD"
+hudGui.ResetOnSpawn = false
+hudGui.IgnoreGuiInset = true
+hudGui.DisplayOrder = 9999
+hudGui.Parent = parentGui
+hudFrame = Instance.new("Frame")
+hudFrame.Name = "Panel"
+hudFrame.Active = true
+hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+hudFrame.BorderSizePixel = 0
+hudFrame.AutomaticSize = Enum.AutomaticSize.XY
+hudFrame.Size = UDim2.new(0, 0, 0, 0)
+hudFrame.Parent = hudGui
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = hudFrame
+hudStroke = Instance.new("UIStroke")
+hudStroke.Color = Color3.fromRGB(255, 170, 40)
+hudStroke.Transparency = 0.6
+hudStroke.Parent = hudFrame
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.Padding = UDim.new(0, 2)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = hudFrame
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 6)
+pad.PaddingBottom = UDim.new(0, 6)
+pad.PaddingLeft = UDim.new(0, 9)
+pad.PaddingRight = UDim.new(0, 9)
+pad.Parent = hudFrame
+local order = 0
+local function makeLine(text)
+order = order + 1
+local label = Instance.new("TextLabel")
+label.Name = "L" .. order
+label.BackgroundTransparency = 1
+label.Font = Enum.Font.Code
+label.Text = text
+label.TextColor3 = Color3.fromRGB(235, 235, 240)
+label.TextXAlignment = Enum.TextXAlignment.Left
+label.AutomaticSize = Enum.AutomaticSize.XY
+label.Size = UDim2.new(0, 0, 0, 0)
+label.LayoutOrder = order
+label.Parent = hudFrame
+return label
+end
+hudLineFPS = makeLine("FPS —")
+hudLinePing = makeLine("Пинг —")
+hudLineTPS = makeLine("ТПС —")
+hudLinePlayers = makeLine("Игроки —")
+hudLineAdmin = makeLine("АДМИН —")
+end)
+if not okGui or not hudFrame then
+warn("[FUST] HUD не создался в этом экзекуторе")
+hudDestroy()
+return
+end
+-- 0.39: восстановление сохранённой позиции drag, иначе угол
+pcall(function()
+if S.HUD.Position and type(S.HUD.Position) == "table" then
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
+else
+hudSnap(S.HUD.Corner)
+end
+end)
+hudApplyStyle()
+hudFrame.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = true
+hudDragStart = input.Position
+local topLeft = hudFrame.AbsolutePosition
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
+hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
+input.Changed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End
+or input.UserInputState == Enum.UserInputState.Cancel then
+hudDragging = false
+end
+end)
+end
+end)
+hudFrame.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = false
+end
+end)
+table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
+if not hudDragging then
+return
+end
+if input.UserInputType == Enum.UserInputType.MouseMovement
+or input.UserInputType == Enum.UserInputType.Touch then
+if hudDragStart and hudFrameStart and hudFrame then
+local cam = Workspace.CurrentCamera
+local view = cam and cam.ViewportSize or Vector2.new(1280, 720)
+local w = hudFrame.AbsoluteSize.X
+local h = hudFrame.AbsoluteSize.Y
+local nx = math.clamp(hudFrameStart.X + (input.Position.X - hudDragStart.X), 0, math.max(view.X - w, 0))
+local ny = math.clamp(hudFrameStart.Y + (input.Position.Y - hudDragStart.Y), 0, math.max(view.Y - h, 0))
+hudFrame.Position = UDim2.fromOffset(nx, ny)
+-- 0.39: сохраняем относительную позицию для восстановления после рестарта
+if view.X > 0 and view.Y > 0 then
+S.HUD.Position = { X = nx / view.X, Y = ny / view.Y }
+end
+end
+end
+end))
+local frames = 0
+local fpsAccum = 0
+local fpsValue = 0
+local lastServerT = nil
+local lastRealT = nil
+local tpsEMA = nil
+local uiAccum = 0
+table.insert(hudConns, RunService.RenderStepped:Connect(function(dt)
+frames = frames + 1
+fpsAccum = fpsAccum + dt
+if fpsAccum >= 1 then
+fpsValue = math.floor(frames / fpsAccum + 0.5)
+frames = 0
+fpsAccum = 0
+end
+local okT, serverT = pcall(function()
+return Workspace:GetServerTimeNow()
+end)
+if okT and type(serverT) == "number" then
+if lastServerT and lastRealT then
+local dReal = os.clock() - lastRealT
+if dReal >= 1 then
+local dServer = serverT - lastServerT
+local tps = dServer / dReal
+if tps >= 0 and tps <= 61 then
+tpsEMA = tpsEMA and (tpsEMA * 0.6 + tps * 0.4) or tps
+end
+lastServerT = serverT
+lastRealT = os.clock()
+end
+else
+lastServerT = serverT
+lastRealT = os.clock()
+end
+end
+uiAccum = uiAccum + dt
+if uiAccum >= 0.35 then
+uiAccum = 0
+if hudLineFPS then
+hudLineFPS.Text = "FPS " .. tostring(fpsValue)
+end
+if hudLinePing then
+local okP, ping = pcall(function()
+return LocalPlayer:GetNetworkPing()
+end)
+if okP and type(ping) == "number" then
+hudLinePing.Text = "Пинг " .. tostring(math.floor(ping * 1000 + 0.5)) .. "мс"
+else
+hudLinePing.Text = "Пинг —"
+end
+end
+if hudLineTPS then
+hudLineTPS.Text = tpsEMA and ("ТПС " .. string.format("%.1f", tpsEMA)) or "ТПС —"
+end
+if hudLinePlayers then
+local n = #Players:GetPlayers()
+local maxP = 0
+pcall(function()
+maxP = Players.MaxPlayers or 0
+end)
+if maxP and maxP > 0 then
+hudLinePlayers.Text = "Игроки " .. tostring(n) .. "/" .. tostring(maxP)
+else
+hudLinePlayers.Text = "Игроки " .. tostring(n)
+end
+end
+-- 0.39: админ/VIP чек — обновление строки
+if hudLineAdmin and S.HUD.ShowAdmin then
+local adminCount = AdminScan_Count or 0
+local adminNames = AdminScan_Names
+if adminCount > 0 then
+hudLineAdmin.Text = "АДМИН: " .. tostring(adminCount) .. " — " .. (adminNames or "?")
+hudLineAdmin.TextColor3 = Color3.fromRGB(255, 80, 80)
+else
+hudLineAdmin.Text = "АДМИН: нет"
+hudLineAdmin.TextColor3 = Color3.fromRGB(120, 200, 120)
+end
+end
+end
+end))
+end
+UIRegistry.HUDEnabled = HudSection:Toggle({
+Name = "Микро-HUD (FPS, пинг, ТПС, игроки)",
+Flag = "HUDEnabled",
+Default = true,
+Callback = function(state)
+S.HUD.Enabled = state
+if state then
+hudEnsure()
+journal("HUD ВКЛ")
+else
+hudDestroy()
+journal("HUD ВЫКЛ")
+end
+end
+})
+UIRegistry.HUDSize = HudSection:Slider({
+Name = "Размер текста HUD",
+Flag = "HUDSize",
+Default = 11,
+Min = 8,
+Max = 16,
+Decimals = 1,
+Callback = function(Value)
+S.HUD.Size = Value
+hudApplyStyle()
+end
+})
+UIRegistry.HUDBgTransparency = HudSection:Slider({
+Name = "Прозрачность фона HUD",
+Flag = "HUDBgTransparency",
+Default = 0.35,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Callback = function(Value)
+S.HUD.BgTransparency = Value
+hudApplyStyle()
+end
+})
+UIRegistry.HUDTextTransparency = HudSection:Slider({
+Name = "Прозрачность текста HUD",
+Flag = "HUDTextTransparency",
+Default = 0,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(Value)
+S.HUD.TextTransparency = Value
+hudApplyStyle()
+end
+})
+-- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
+UIRegistry.HUDBgColor = HudSection:Label("Цвет фона HUD"):Colorpicker({
+Name = "Цвет фона HUD",
+Flag = "HUDBgColor",
+Default = Color3.fromRGB(12, 12, 16),
+Callback = function(c)
+S.HUD.ColorBg = c
+hudApplyStyle()
+end
+})
+UIRegistry.HUDTextColor = HudSection:Label("Цвет текста HUD"):Colorpicker({
+Name = "Цвет текста HUD",
+Flag = "HUDTextColor",
+Default = Color3.fromRGB(235, 235, 240),
+Callback = function(c)
+S.HUD.ColorText = c
+hudApplyStyle()
+end
+})
+UIRegistry.HUDStrokeColor = HudSection:Label("Цвет обводки HUD"):Colorpicker({
+Name = "Цвет обводки HUD",
+Flag = "HUDStrokeColor",
+Default = Color3.fromRGB(255, 170, 40),
+Callback = function(c)
+S.HUD.ColorStroke = c
+hudApplyStyle()
+end
+})
+UIRegistry.HUDShowAdmin = HudSection:Toggle({
+Name = "Показывать админ/VIP чек",
+Flag = "HUDShowAdmin",
+Default = true,
+Callback = function(state)
+S.HUD.ShowAdmin = state
+hudApplyStyle()
+end
+})
+UIRegistry.HUDResetPos = HudSection:Button({
+Name = "Сбросить позицию HUD",
+Callback = function()
+S.HUD.Position = nil
+if hudFrame then
+hudSnap(S.HUD.Corner or "Лево-низ")
+end
+journal("HUD: позиция сброшена")
+end
+})
+UIRegistry.HUDShowTPS = HudSection:Toggle({
+Name = "Показывать ТПС сервера",
+Flag = "HUDShowTPS",
+Default = true,
+Callback = function(state)
+S.HUD.ShowTPS = state
+hudApplyStyle()
+end
+})
+UIRegistry.HUDShowBg = HudSection:Toggle({
+Name = "Фон панельки",
+Flag = "HUDShowBg",
+Default = true,
+Callback = function(state)
+S.HUD.ShowBg = state
+hudApplyStyle()
+end
+})
+if S.HUD.Enabled then
+task.defer(function()
+pcall(hudEnsure)
+end)
+end
+getgenv().FUST_HUDCleanup = hudDestroy
+UIRegistry.LootEnabled = LootSection:Toggle({
+Name = "ESP мешков с добычей (рюкзаки игроков)",
+Flag = "LootEnabled",
+Default = false,
+Callback = function(state)
+S.Loot.Enabled = state
+journal("ESP МЕШКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootColor = UIRegistry.LootEnabled:Colorpicker({
+Flag = "LootColor",
+Default = LOOT_COLOR,
+Callback = function(color)
+LOOT_COLOR = color
+end
+})
+UIRegistry.LootOwner = LootSection:Toggle({
+Name = "Чей лут (из подписи игры)",
+Flag = "LootOwner",
+Default = true,
+Callback = function(state)
+S.Loot.Owner = state
+end
+})
+UIRegistry.LootSlots = LootSection:Toggle({
+Name = "Сколько слотов забито",
+Flag = "LootSlots",
+Default = true,
+Callback = function(state)
+S.Loot.Slots = state
+end
+})
+UIRegistry.LootDistance = LootSection:Toggle({
+Name = "Дистанция",
+Flag = "LootDistance",
+Default = true,
+Callback = function(state)
+S.Loot.Distance = state
+end
+})
+UIRegistry.LootBox = LootSection:Toggle({
+Name = "Рамка вокруг рюкзака",
+Flag = "LootBox",
+Default = true,
+Callback = function(state)
+S.Loot.Box = state
+end
+})
+UIRegistry.LootChams = LootSection:Toggle({
+Name = "Чамсы рюкзаков (видно сквозь траву и стены)",
+Flag = "LootChams",
+Default = true,
+Callback = function(state)
+S.Loot.Chams = state
+journal("ЧАМСЫ РЮКЗАКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootMaxDistance = LootSection:Slider({
+Name = "Рюкзаки: Max Distance",
+Flag = "LootMaxDistance",
+Default = 1500,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.Loot.MaxDistance = Value
+end
+})
+UIRegistry.LootDebugLog = LootSection:Toggle({
+Name = "Диагностика: лог рюкзаков в консоль (раз в 10 сек)",
+Flag = "LootDebugLog",
+Default = false,
+Callback = function(state)
+S.Loot.DebugLog = state
+if state then
+print("[FUST] Диагностика рюкзаков: имена, атрибуты, подписи и содержимое пойдут в консоль")
+journal("ДИАГНОСТИКА РЮКЗАКОВ ВКЛ")
+end
+end
+})
+LootCSection = EspPage:Section({ Name = "Лут (бочки и ящики)", Tab = "Лут", Side = 2 })
+UIRegistry.LootCEnabled = LootCSection:Toggle({
+Name = "ESP лута (бочки/ящики/элитные/военные)",
+Flag = "LootCEnabled",
+Default = false,
+Callback = function(state)
+S.LootC.Enabled = state
+journal("ESP ЛУТА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootCColor = UIRegistry.LootCEnabled:Colorpicker({
+Flag = "LootCColor",
+Default = LOOTC_COLOR,
+Callback = function(color)
+LOOTC_COLOR = color
+end
+})
+UIRegistry.LootCName = LootCSection:Toggle({
+Name = "Название контейнера",
+Flag = "LootCName",
+Default = true,
+Callback = function(state)
+S.LootC.Name = state
+end
+})
+UIRegistry.LootCDistance = LootCSection:Toggle({
+Name = "Дистанция",
+Flag = "LootCDistance",
+Default = true,
+Callback = function(state)
+S.LootC.Distance = state
+end
+})
+UIRegistry.LootCBox = LootCSection:Toggle({
+Name = "Рамка вокруг контейнера",
+Flag = "LootCBox",
+Default = true,
+Callback = function(state)
+S.LootC.Box = state
+end
+})
+UIRegistry.LootCMaxDistance = LootCSection:Slider({
+Name = "Лут: Max Distance",
+Flag = "LootCMaxDistance",
+Default = 800,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.LootC.MaxDistance = Value
+end
+})
+UIRegistry.LootCChams = LootCSection:Toggle({
+Name = "Чамсы контейнеров (по модельке, пул 12)",
+Flag = "LootCChams",
+Default = false,
+Callback = function(state)
+S.LootC.Chams = state
+journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
+-- 0.39v16: yield убран — в v13 без него работало
+uiStep("Вкладка Боты и НПС", function()
+BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
+BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
+BotHitSection = BotPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты", Side = 2 })
+end)
+UIRegistry.NPCEsp = BotEspSection:Toggle({
+Name = "ESP ботов и НПС (мастер)",
+Flag = "NPCEsp",
+Default = false,
+Callback = function(state)
+S.NPC.ESP = state
+journal("ESP БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCGuards = BotEspSection:Toggle({
+Name = "Охранники (враждебные НПС)",
+Flag = "NPCGuards",
+Default = true,
+Callback = function(state)
+S.NPC.CatGuards = state
+end
+})
+UIRegistry.NPCColorGuard = UIRegistry.NPCGuards:Colorpicker({
+Flag = "NPCColorGuard",
+Default = NPC_CAT_COLORS.Guard,
+Callback = function(color)
+NPC_CAT_COLORS.Guard = color
+end
+})
+UIRegistry.NPCPeaceful = BotEspSection:Toggle({
+Name = "Мирные НПС (зелёные)",
+Flag = "NPCPeaceful",
+Default = false,
+Callback = function(state)
+S.NPC.CatPeaceful = state
+end
+})
+UIRegistry.NPCColorPeaceful = UIRegistry.NPCPeaceful:Colorpicker({
+Flag = "NPCColorPeaceful",
+Default = NPC_CAT_COLORS.Peaceful,
+Callback = function(color)
+NPC_CAT_COLORS.Peaceful = color
+end
+})
+UIRegistry.NPCAnimals = BotEspSection:Toggle({
+Name = "Животные: медведь, волк, олень, кабан",
+Flag = "NPCAnimals",
+Default = false,
+Callback = function(state)
+S.NPC.CatAnimals = state
+end
+})
+UIRegistry.NPCColorAnimal = UIRegistry.NPCAnimals:Colorpicker({
+Flag = "NPCColorAnimal",
+Default = NPC_CAT_COLORS.Animal,
+Callback = function(color)
+NPC_CAT_COLORS.Animal = color
+end
+})
+UIRegistry.NPCSleepers = BotEspSection:Toggle({
+Name = "Слиперы (спящие игроки)",
+Flag = "NPCSleepers",
+Default = false,
+Callback = function(state)
+S.NPC.CatSleepers = state
+end
+})
+UIRegistry.NPCColorSleeper = UIRegistry.NPCSleepers:Colorpicker({
+Flag = "NPCColorSleeper",
+Default = NPC_CAT_COLORS.Sleeper,
+Callback = function(color)
+NPC_CAT_COLORS.Sleeper = color
+end
+})
+UIRegistry.NPCBox = BotEspSection:Toggle({
+Name = "Боты: бокс",
+Flag = "NPCBox",
+Default = false,
+Callback = function(state)
+S.NPC.Box = state
+end
+})
+UIRegistry.NPCName = BotEspSection:Toggle({
+Name = "Боты: ник модели",
+Flag = "NPCName",
+Default = false,
+Callback = function(state)
+S.NPC.Name = state
+end
+})
+UIRegistry.NPCItem = BotEspSection:Toggle({
+Name = "Боты: предмет в руках",
+Flag = "NPCItem",
+Default = false,
+Callback = function(state)
+S.NPC.Item = state
+end
+})
+UIRegistry.NPCDistance = BotEspSection:Toggle({
+Name = "Боты: дистанция",
+Flag = "NPCDistance",
+Default = false,
+Callback = function(state)
+S.NPC.Distance = state
+end
+})
+UIRegistry.NPCHealthBar = BotEspSection:Toggle({
+Name = "Боты: хелсбар",
+Flag = "NPCHealthBar",
+Default = false,
+Callback = function(state)
+S.NPC.HealthBar = state
+end
+})
+UIRegistry.NPCMaxDistance = BotEspSection:Slider({
+Name = "Боты: Max Distance",
+Flag = "NPCMaxDistance",
+Default = 3000,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.NPC.MaxDistance = Value
+end
+})
+UIRegistry.NPCChams = BotEspSection:Toggle({
+Name = "Чамсы ботов (цвет категории, до потолка)",
+Flag = "NPCChams",
+Default = false,
+Callback = function(state)
+S.NPC.Chams = state
+journal("ЧАМСЫ БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCChamsTransparency = BotEspSection:Slider({
+Name = "Чамсы ботов: прозрачность",
+Flag = "NPCChamsTransparency",
+Default = 0.5,
+Min = 0,
+Max = 1,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.NPC.ChamsTransparency = Value
+end
+})
+UIRegistry.NPCDebugLog = BotEspSection:Toggle({
+Name = "Диагностика: лог НПС в консоль (раз в 10 сек)",
+Flag = "NPCDebugLog",
+Default = false,
+Callback = function(state)
+S.NPC.DebugLog = state
+if state then
+print("[FUST] Диагностика НПС: имена, папки, теги и категории пойдут в консоль")
+journal("ДИАГНОСТИКА НПС ВКЛ")
+end
+end
+})
+UIRegistry.NPCHitboxEnabled = BotHitSection:Toggle({
+Name = "Хитбоксы НПС и ботов",
+Flag = "NPCHitboxEnabled",
+Default = false,
+Callback = function(state)
+S.NPC.HitboxEnabled = state
+if state then
+NpcHitboxAnnouncePending = true
+end
+print("[FUST] Хитбоксы НПС " .. (state and ("ВКЛ, размер " .. tostring(S.NPC.HitboxSize)) or "ВЫКЛ"))
+journal("ХИТБОКС НПС " .. (state and ("ВКЛ (размер " .. tostring(S.NPC.HitboxSize) .. ")") or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCHitboxSize = BotHitSection:Slider({
+Name = "Размер хитбокса НПС",
+Flag = "NPCHitboxSize",
+Default = 5,
+Min = 2,
+Max = 6,
+Decimals = 0.5,
+Suffix = "",
+Callback = function(Value)
+S.NPC.HitboxSize = Value
+end
+})
+UIRegistry.NPCHitboxTransparency = BotHitSection:Slider({
+Name = "Прозрачность хитбокса НПС",
+Flag = "NPCHitboxTransparency",
+Default = 0.7,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.NPC.HitboxTransparency = Value
+end
+})
+UIRegistry.NPCHitboxAnimals = BotHitSection:Toggle({
+Name = "Хитбокс: животные (по умолчанию выкл)",
+Flag = "NPCHitboxAnimals",
+Default = false,
+Callback = function(state)
+S.NPC.HitboxAnimals = state
+journal("ХИТБОКС ЖИВОТНЫЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCHitboxSleepers = BotHitSection:Toggle({
+Name = "Хитбокс: слиперы (по умолчанию выкл)",
+Flag = "NPCHitboxSleepers",
+Default = false,
+Callback = function(state)
+S.NPC.HitboxSleepers = state
+journal("ХИТБОКС СЛИПЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.HitboxEnabled = HitboxSection:Toggle({
+Name = "Hitbox Expander",
+Flag = "HitboxEnabled",
+Default = false,
+Callback = function(state)
+S.Hitbox.Enabled = state
+if state then
+HitboxAnnouncePending = true
+end
+print("[FUST] Хитбокс " .. (state and ("ВКЛ, размер " .. tostring(S.Hitbox.Size)) or "ВЫКЛ"))
+journal("ХИТБОКС " .. (state and ("ВКЛ (размер " .. tostring(S.Hitbox.Size) .. ")") or "ВЫКЛ"))
+end
+})
+UIRegistry.HitboxSize = HitboxSection:Slider({
+Name = "Hitbox Size",
+Flag = "HitboxSize",
+Default = 5,
+Min = 2,
+Max = 6,
+Decimals = 0.5,
+Suffix = "",
+Callback = function(Value)
+S.Hitbox.Size = Value
+end
+})
+UIRegistry.HitboxTransparency = HitboxSection:Slider({
+Name = "Hitbox Transparency",
+Flag = "HitboxTransparency",
+Default = 0.7,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.Hitbox.Transparency = Value
+end
+})
+FullBrightBackup = nil
+UIRegistry.ESPTeamCheck = VisFilterSection:Toggle({
+Name = "Team Check (не показывать тимейтов)",
+Flag = "ESPTeamCheck",
+Default = false,
+Callback = function(state)
+S.ESP.TeamCheck = state
+journal("TEAM CHECK (ESP) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FullBright = WorldSection:Toggle({
+Name = "FullBright",
+Flag = "FullBright",
+Default = false,
+Callback = function(state)
+S.FullBright = state
+journal("FULLBRIGHT " .. (state and "ВКЛ" or "ВЫКЛ"))
+if state then
+FullBrightBackup = {
+Brightness = Lighting.Brightness,
+ClockTime = Lighting.ClockTime,
+FogEnd = Lighting.FogEnd,
+GlobalShadows = Lighting.GlobalShadows,
+}
+elseif FullBrightBackup then
+Lighting.Brightness = FullBrightBackup.Brightness
+Lighting.ClockTime = FullBrightBackup.ClockTime
+Lighting.FogEnd = FullBrightBackup.FogEnd
+Lighting.GlobalShadows = FullBrightBackup.GlobalShadows
+FullBrightBackup = nil
+end
+end
+})
+UIRegistry.NoDecoration = WorldSection:Toggle({
+Name = "Убрать декорации (NoDecoration)",
+Flag = "NoDecoration",
+Default = false,
+Callback = function(state)
+S.NoDecoration = state
+journal("НОДЕКОРАЦИИ " .. (state and "ВКЛ" or "ВЫКЛ"))
+pcall(function()
+local decor = Workspace:FindFirstChild("Decorations") or Workspace:FindFirstChild("TerrainDecorations")
+if decor then
+if state then
+decor.Parent = nil
+getgenv().FUST_DecorBackup = decor
+else
+decor.Parent = Workspace
+getgenv().FUST_DecorBackup = nil
+end
+end
+end)
+end
+})
+UIRegistry.NoGrass = WorldSection:Toggle({
+Name = "Убрать траву (No Grass)",
+Flag = "NoGrass",
+Default = false,
+Callback = function(state)
+S.NoGrass = state
+journal("НОТРАВА " .. (state and "ВКЛ" or "ВЫКЛ"))
+coroutine.wrap(pcall)(function()
+local terrain = Workspace:FindFirstChildOfClass("Terrain")
+if not terrain then
+repeat
+task.wait()
+until Workspace:FindFirstChildOfClass("Terrain")
+terrain = Workspace:FindFirstChildOfClass("Terrain")
+end
+if sethiddenproperty then
+sethiddenproperty(terrain, "Decoration", not state)
+else
+warn("Your exploit does not support sethiddenproperty.")
+end
+end)
+end
+})
+NoFogBackup = nil
+UIRegistry.NoFog = WorldSection:Toggle({
+Name = "Убрать туман (No Fog)",
+Flag = "NoFog",
+Default = false,
+Callback = function(state)
+S.NoFog = state
+journal("НОФОГ " .. (state and "ВКЛ" or "ВЫКЛ"))
+pcall(function()
+if state then
+if not NoFogBackup then
+NoFogBackup = { FogEnd = Lighting.FogEnd, FogStart = Lighting.FogStart }
+end
+Lighting.FogEnd = 100000
+Lighting.FogStart = 100000
+elseif NoFogBackup then
+Lighting.FogEnd = NoFogBackup.FogEnd
+Lighting.FogStart = NoFogBackup.FogStart
+NoFogBackup = nil
+end
+end)
+end
+})
+-- 0.39: УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS
+TextureBackup = nil
+function applyTextureDegradation(state)
+pcall(function()
+if state then
+if not TextureBackup then
+TextureBackup = {
+MaterialService2022 = nil,
+LightingTech = Lighting.Technology,
+}
+pcall(function()
+local ms = game:GetService("MaterialService")
+TextureBackup.MaterialService2022 = ms.Use2022Materials
+ms.Use2022Materials = false
+end)
+end
+-- всем BasePart в Workspace — Material = Plastic (если ещё не)
+pcall(function()
+for _, d in ipairs(Workspace:GetDescendants()) do
+if d:IsA("BasePart") and d.Material ~= Enum.Material.Plastic then
+pcall(function()
+d.Material = Enum.Material.Plastic
+end)
+elseif d:IsA("MeshPart") then
+pcall(function()
+d.TextureID = ""
+end)
+elseif d:IsA("Decal") or d:IsA("Texture") then
+pcall(function()
+d.Texture = ""
+d.Transparency = 1
+end)
+end
+end
+end)
+pcall(function()
+Lighting.Technology = Enum.Technology.Compatibility
+end)
+journal("ТЕКСТУРЫ ВЫКЛ (FPS режим)")
+else
+if TextureBackup then
+pcall(function()
+if TextureBackup.MaterialService2022 ~= nil then
+local ms = game:GetService("MaterialService")
+ms.Use2022Materials = TextureBackup.MaterialService2022
+end
+end)
+pcall(function()
+Lighting.Technology = TextureBackup.LightingTech
+end)
+TextureBackup = nil
+end
+journal("ТЕКСТУРЫ ВКЛ (восстановлено)")
+end
+end)
+end
+UIRegistry.TextureDegradation = WorldSection:Toggle({
+Name = "Ухудшение текстур (макс FPS)",
+Flag = "TextureDegradation",
+Default = false,
+Callback = function(state)
+S.TextureDegradation = state
+applyTextureDegradation(state)
+end
+})
+-- 0.39: дальность видимости (StreamingTargetRadius)
+UIRegistry.StreamBoost = WorldSection:Toggle({
+Name = "Увеличить дальность прогрузки",
+Flag = "StreamBoost",
+Default = false,
+Callback = function(state)
+S.StreamBoost = state
+pcall(function()
+if state then
+pcall(function()
+Workspace.StreamingTargetRadius = 4096
+Workspace.StreamingMinRadius = 1024
+end)
+journal("ПРОГРУЗКА: дальность увеличена")
+else
+pcall(function()
+Workspace.StreamingTargetRadius = 1024
+Workspace.StreamingMinRadius = 256
+end)
+journal("ПРОГРУЗКА: дальность по умолчанию")
+end
+end)
+end
+})
+-- 0.39v2: ULTRA ОПТИМИЗАЦИЯ — максимальный FPS ценой визуала
+UltraOpt = false
+function applyUltraOpt(state)
+UltraOpt = state
+pcall(function()
+if state then
+-- 1. Текстуры выкл
+applyTextureDegradation(true)
+UIRegistry.TextureDegradation:Set(true) if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(true) end) end
+-- 2. FullBright (больше света — меньше теней)
+if not S.FullBright then
+UIRegistry.FullBright:Set(true) if UIRegistry.FullBright and UIRegistry.FullBright.Set then pcall(function() UIRegistry.FullBright:Set(true) end) end
+end
+-- 3. NoFog
+if not S.NoFog then
+if UIRegistry.NoFog and UIRegistry.NoFog.Set then pcall(function() UIRegistry.NoFog:Set(true) end) end
+end
+-- 4. NoGrass
+if not S.NoGrass then
+if UIRegistry.NoGrass and UIRegistry.NoGrass.Set then pcall(function() UIRegistry.NoGrass:Set(true) end) end
+end
+-- 5. NoDecoration
+if not S.NoDecoration then
+if UIRegistry.NoDecoration and UIRegistry.NoDecoration.Set then pcall(function() UIRegistry.NoDecoration:Set(true) end) end
+end
+-- 6. Уменьшить дальность ESP (меньше raycast)
+if S.ESP.MaxDistance > 800 then
+S.ESP.MaxDistance = 800
+if UIRegistry.ESPMaxDistance and UIRegistry.ESPMaxDistance.Set then pcall(function() UIRegistry.ESPMaxDistance:Set(800) end) end
+end
+-- 7. Уменьшить дальность лута
+if S.Loot.MaxDistance > 400 then
+S.Loot.MaxDistance = 400
+if UIRegistry.LootMaxDistance and UIRegistry.LootMaxDistance.Set then pcall(function() UIRegistry.LootMaxDistance:Set(400) end) end
+end
+-- 8. Уменьшить дальность НПС
+if S.NPC.MaxDistance > 1500 then
+S.NPC.MaxDistance = 1500
+if UIRegistry.NPCMaxDistance and UIRegistry.NPCMaxDistance.Set then pcall(function() UIRegistry.NPCMaxDistance:Set(1500) end) end
+end
+-- 9. Отключить трассеры (большой overhead)
+if S.Bullets.Enabled then
+if UIRegistry.BulletsEnabled and UIRegistry.BulletsEnabled.Set then pcall(function() UIRegistry.BulletsEnabled:Set(false) end) end
+end
+-- 10. Отключить чамсы лута (Highlight pool)
+if S.Loot.Chams then
+if UIRegistry.LootChams and UIRegistry.LootChams.Set then pcall(function() UIRegistry.LootChams:Set(false) end) end
+end
+if S.LootC.Chams then
+if UIRegistry.LootCChams and UIRegistry.LootCChams.Set then pcall(function() UIRegistry.LootCChams:Set(false) end) end
+end
+-- 11. Увеличить интервалы сканеров
+LOOT_POOL_INTERVAL = 2.5
+-- 12. GraphicsQuality минимум
+pcall(function()
+settings().Studio.GraphicsQuality = 1
+end)
+pcall(function()
+LocalPlayer.DeviceCameraMode = nil
+end)
+journal("ULTRA ОПТИМИЗАЦИЯ ВКЛ — максимальный FPS, визуал урезан")
+else
+-- Возврат к норме
+LOOT_POOL_INTERVAL = 1.2
+applyTextureDegradation(false)
+if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(false) end) end
+journal("ULTRA ОПТИМИЗАЦИЯ ВЫКЛ — визуал восстановлен")
+end
+end)
+end
+UIRegistry.UltraOpt = WorldSection:Toggle({
+Name = "ULTRA ОПТИМИЗАЦИЯ (макс FPS)",
+Flag = "UltraOpt",
+Default = false,
+Callback = function(state)
+S.UltraOpt = state
+applyUltraOpt(state)
+end
+})
+-- 0.39v6: X-RAY — прозрачность стен/пола/потолка
+XRayState = { Enabled = false, Transparency = 0.8, Originals = {} }
+function applyXRay(state)
+pcall(function()
+if state then
+-- делаем все BasePart в Workspace прозрачными (кроме Terrain, Characters, Tools)
+XRayState.Originals = {}
+local count = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+if d:IsA("BasePart") and not d:IsA("Terrain") then
+-- пропускаем персонажей и их части
+local isChar = false
+local p = d
+for _ = 1, 5 do
+if not p then break end
+if p:IsA("Model") and Players:GetPlayerFromCharacter(p) then
+isChar = true break
+end
+p = p.Parent
+end
+if not isChar and not d:IsDescendantOf(LocalPlayer.Character or Instance.new("Folder")) then
+XRayState.Originals[d] = d.Transparency
+d.Transparency = XRayState.Transparency
+count = count + 1
+if count > 2000 then break end -- лимит для FPS
+end
+end
+end
+journal("X-RAY ВКЛ — прозрачно " .. count .. " объектов")
+else
+-- восстанавливаем
+for part, orig in pairs(XRayState.Originals) do
+pcall(function() part.Transparency = orig end)
+end
+XRayState.Originals = {}
+journal("X-RAY ВЫКЛ")
+end
+end)
+end
+UIRegistry.XRay = WorldSection:Toggle({
+Name = "X-Ray (прозрачность стен/пола)",
+Flag = "XRay",
+Default = false,
+Callback = function(state)
+XRayState.Enabled = state
+applyXRay(state)
+end
+})
+UIRegistry.XRayTransparency = WorldSection:Slider({
+Name = "X-Ray: прозрачность",
+Flag = "XRayTransparency",
+Default = 0.8,
+Min = 0.3,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+XRayState.Transparency = v
+if XRayState.Enabled then
+-- обновить на лету
+applyXRay(false)
+applyXRay(true)
+end
+end
+})
+
+-- 0.39v6: ЧАМСЫ НА МЕБЕЛЬ (шкафы, ящики, локеры, гардеробы)
+FurnitureChams = { Enabled = false, Color = Color3.fromRGB(100, 200, 255), Transparency = 0.4 }
+FURNITURE_PATTERNS = {
+"шкаф", "кухонный шкаф", "навесной шкаф", "напольный шкаф", "стеллаж",
+"ящик", "большой ящик", "маленький ящик", "сундук", "контейнер",
+"локер", "локеры", "locker", "lockers",
+"металлический шкаф", "metal cabinet", "металл шкаф",
+"шкаф для базы", "base cabinet", "базовый шкаф",
+"гардероб", "wardrobe", "closet",
+"полка", "shelf", "стеллаж",
+"комод", "chest", "тумба",
+"стол", "table", "стул", "chair",
+"кровать", "bed", "диван", "couch",
+"дверь", "door", "ворота", "gate",
+}
+FURNITURE_TAGS = { "FustFurniture", "FustContainer", "FustStorage", "Furniture", "Container" }
+furnitureChamsPool = {}
+furnitureChamsAt = 0
+function furnitureScan()
+local now = os.clock()
+if now - furnitureChamsAt < 1.5 then return end -- 0.39v8: реже (1.5с) — меньше нагрузки
+furnitureChamsAt = now
+local found = {}
+pcall(function()
+-- 1. по тегам CollectionService (везде в Workspace)
+for _, tag in ipairs(FURNITURE_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst.Parent and (inst:IsA("Model") or inst:IsA("BasePart")) then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. по имени через GetDescendants (глубокий поиск, с лимитом)
+local scanned = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+scanned = scanned + 1
+if scanned > 5000 then break end -- лимит для FPS
+if d:IsA("Model") or d:IsA("BasePart") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN and name and #name > 0 then
+for _, pat in ipairs(FURNITURE_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, f in ipairs(found) do
+if not seen[f] then seen[f] = true table.insert(unique, f) end
+end
+-- обновляем пул Highlight
+local POOL_MAX = 20
+for i = 1, math.min(#unique, POOL_MAX) do
+local inst = unique[i]
+local h = furnitureChamsPool[i]
+if not h then
+local okH, created = pcall(function()
+local nh = Instance.new("Highlight")
+nh.Name = "PETUH_FurnitureChams"
+nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+nh.FillTransparency = FurnitureChams.Transparency
+nh.OutlineTransparency = 0
+nh.Parent = Workspace
+return nh
+end)
+if okH and created then
+h = created
+furnitureChamsPool[i] = created
+end
+end
+if h then
+pcall(function()
+h.Adornee = inst
+h.FillColor = FurnitureChams.Color
+h.OutlineColor = FurnitureChams.Color
+h.Enabled = true
+end)
+end
+end
+-- скрыть неиспользуемые
+for i = math.min(#unique, POOL_MAX) + 1, #furnitureChamsPool do
+pcall(function()
+furnitureChamsPool[i].Enabled = false
+furnitureChamsPool[i].Adornee = nil
+end)
+end
+if #unique == 0 then
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i].Enabled = false end)
+end
+end
+end
+function furnitureChamsCleanup()
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i]:Destroy() end)
+furnitureChamsPool[i] = nil
+end
+end
+UIRegistry.FurnitureChams = WorldSection:Toggle({
+Name = "Чамсы мебели (шкафы/ящики/локеры)",
+Flag = "FurnitureChams",
+Default = false,
+Callback = function(state)
+FurnitureChams.Enabled = state
+if not state then
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i].Enabled = false end)
+end
+end
+journal("ЧАМСЫ МЕБЕЛИ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FurnitureChamsColor = WorldSection:Label("Цвет чамсов мебели"):Colorpicker({
+Name = "Цвет чамсов мебели",
+Flag = "FurnitureChamsColor",
+Default = Color3.fromRGB(100, 200, 255),
+Callback = function(c) FurnitureChams.Color = c end
+})
+UIRegistry.FurnitureChamsTransparency = WorldSection:Slider({
+Name = "Прозрачность чамсов мебели",
+Flag = "FurnitureChamsTransparency",
+Default = 0.4,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(v) FurnitureChams.Transparency = v end
+})
+-- фоновый сканер мебели
+task.spawn(function()
+while true do
+task.wait(1)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+if FurnitureChams.Enabled then
+pcall(furnitureScan)
+end
+end
+end)
+function normalizeName(raw)
+if type(raw) ~= "string" then
+return ""
+end
+local name = raw:gsub("^%s+", ""):gsub("%s+$", "")
+name = name:gsub("^@", "")
+return name
+end
+function resolveName(raw)
+local name = normalizeName(raw)
+if name == "" then
+return nil
+end
+local lower = string.lower(name)
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.Name) == lower then
+return plr.Name
+end
+end
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.DisplayName) == lower then
+return plr.Name
+end
+end
+return name
+end
+WL_BG = Color3.fromRGB(17, 18, 22)
+WL_ROW = Color3.fromRGB(28, 39, 45)
+WL_ACCENT = Color3.fromRGB(157, 53, 12)
+WL_BRIGHT = Color3.fromRGB(225, 66, 6)
+WL_TEXT = Color3.fromRGB(199, 199, 212)
+WL_GRAY = Color3.fromRGB(117, 117, 131)
+wlHost = MiscSection.Items["Content"].Instance
+wlPanel = Instance.new("Frame")
+wlPanel.Name = "FustWhitelistPanel"
+wlPanel.BackgroundColor3 = WL_BG
+wlPanel.BorderSizePixel = 0
+wlPanel.Size = UDim2.new(1, 0, 0, 0)
+wlPanel.AutomaticSize = Enum.AutomaticSize.Y
+wlPanel.LayoutOrder = 100
+wlPanel.Parent = wlHost
+function wlCorner(parent, radius)
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, radius or 6)
+c.Parent = parent
+return c
+end
+do
+wlCorner(wlPanel)
+local stroke = Instance.new("UIStroke")
+stroke.Color = WL_ACCENT
+stroke.Transparency = 0.55
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = wlPanel
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 8)
+pad.PaddingBottom = UDim.new(0, 8)
+pad.PaddingLeft = UDim.new(0, 8)
+pad.PaddingRight = UDim.new(0, 8)
+pad.Parent = wlPanel
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlPanel
+end
+function wlLabel(text, order, color, bold)
+local l = Instance.new("TextLabel")
+l.BackgroundTransparency = 1
+l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+l.TextSize = 13
+l.TextColor3 = color or WL_TEXT
+l.Text = text
+l.TextXAlignment = Enum.TextXAlignment.Left
+l.Size = UDim2.new(1, 0, 0, 16)
+l.LayoutOrder = order
+l.Parent = wlPanel
+return l
+end
+wlLabel("Вайтлист (не бьём по этим)", 1, WL_BRIGHT, true)
+wlLabel("Тап по нику в списке — вкл/выкл.", 2, WL_GRAY)
+wlScroll = Instance.new("ScrollingFrame")
+wlScroll.Name = "FustWhitelistScroll"
+wlScroll.Size = UDim2.new(1, 0, 0, 150)
+wlScroll.BackgroundColor3 = WL_BG
+wlScroll.BorderSizePixel = 0
+wlScroll.ScrollBarThickness = 4
+wlScroll.ScrollBarImageColor3 = WL_ACCENT
+wlScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+wlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+wlScroll.LayoutOrder = 3
+wlScroll.Parent = wlPanel
+do
+wlCorner(wlScroll)
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 5)
+pad.PaddingBottom = UDim.new(0, 5)
+pad.PaddingLeft = UDim.new(0, 5)
+pad.PaddingRight = UDim.new(0, 6)
+pad.Parent = wlScroll
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlScroll
+end
+wlRows = {}
+function clearPlayerRows()
+for _, r in ipairs(wlRows) do
+r:Destroy()
+end
+table.clear(wlRows)
+end
+function applyRowStyle(row, isOn)
+local base = row:GetAttribute("WLText") or ""
+if isOn then
+row.BackgroundColor3 = WL_ACCENT
+row.TextColor3 = Color3.fromRGB(255, 255, 255)
+row.Text = "✓ " .. base
+else
+row.BackgroundColor3 = WL_ROW
+row.TextColor3 = WL_GRAY
+row.Text = base
+end
+end
+function rebuildPlayerList()
+clearPlayerRows()
+local rows = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+table.insert(rows, plr)
+end
+end
+table.sort(rows, function(a, b)
+return a.Name < b.Name
+end)
+if #rows == 0 then
+local empty = Instance.new("TextLabel")
+empty.BackgroundTransparency = 1
+empty.Font = Enum.Font.Gotham
+empty.TextSize = 12
+empty.TextColor3 = WL_GRAY
+empty.Text = "На сервере пока нет других игроков"
+empty.Size = UDim2.new(1, 0, 0, 26)
+empty.LayoutOrder = 1
+empty.Parent = wlScroll
+table.insert(wlRows, empty)
+return
+end
+for order, plr in ipairs(rows) do
+local row = Instance.new("TextButton")
+row.Name = "WL_" .. plr.Name
+row.AutoButtonColor = false
+row.Font = Enum.Font.Gotham
+row.TextSize = 13
+row.TextXAlignment = Enum.TextXAlignment.Left
+row.BackgroundColor3 = WL_ROW
+row.BorderSizePixel = 0
+row.Size = UDim2.new(1, 0, 0, 30)
+row.LayoutOrder = order
+row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
+row.Parent = wlScroll
+table.insert(wlRows, row)
+wlCorner(row, 5)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = row
+applyRowStyle(row, Whitelist[plr.Name] == true)
+row.Activated:Connect(function()
+if Whitelist[plr.Name] then
+Whitelist[plr.Name] = nil
+applyRowStyle(row, false)
+else
+Whitelist[plr.Name] = true
+applyRowStyle(row, true)
+end
+end)
+end
+end
+wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
+wlInput = Instance.new("TextBox")
+wlInput.Name = "FustWhitelistInput"
+wlInput.Font = Enum.Font.Gotham
+wlInput.TextSize = 13
+wlInput.PlaceholderText = "Ник или DisplayName друга..."
+wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
+wlInput.Text = ""
+wlInput.TextColor3 = WL_TEXT
+wlInput.TextXAlignment = Enum.TextXAlignment.Left
+wlInput.ClearTextOnFocus = false
+wlInput.BackgroundColor3 = WL_BG
+wlInput.BorderSizePixel = 0
+wlInput.Size = UDim2.new(1, 0, 0, 32)
+wlInput.LayoutOrder = 5
+wlInput.Active = true
+wlInput.Selectable = true
+wlInput.Parent = wlPanel
+do
+wlCorner(wlInput)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = wlInput
+end
+wlButtonRow = Instance.new("Frame")
+wlButtonRow.Name = "FustWhitelistButtons"
+wlButtonRow.BackgroundTransparency = 1
+wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
+wlButtonRow.LayoutOrder = 6
+wlButtonRow.Parent = wlPanel
+do
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlButtonRow
+end
+function wlMakeButton(text, order, bg, fg)
+local b = Instance.new("TextButton")
+b.Font = Enum.Font.GothamBold
+b.TextSize = 13
+b.Text = text
+b.TextColor3 = fg
+b.BackgroundColor3 = bg
+b.BorderSizePixel = 0
+b.Size = UDim2.new(0.5, -3, 1, 0)
+b.LayoutOrder = order
+b.Parent = wlButtonRow
+wlCorner(b, 5)
+return b
+end
+wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
+wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
+wlAdd.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = true
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+wlRemove.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = nil
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+Players.PlayerAdded:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+Players.PlayerRemoving:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+rebuildPlayerList()
+Aim = {
+Enabled = false,
+ShowFOV = false,
+FOV = 150, 
+Distance = 500, 
+Smooth = 4, 
+Prediction = 0.5, 
+Part = "Head", 
+Priority = "Прицел", 
+WallCheck = true,
+TeamCheck = false,
+Crosshair = false,
+TargetsPlayers = true, 
+TargetsNPC = false, 
+TargetsAnimals = false, 
+TargetsSleepers = false, 
+TargetsHelis = false, -- 0.39v2: вертолёты
+AutoPredict = false, 
+AutoPredictK = 1, 
+}
+Evil = {
+Enabled = false, 
+AutoPred = true, 
+Snipe = false, 
+K = 1, 
+}
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFire = {
+Enabled = false,
+Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
+OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
+WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
+PCKey = nil,        -- не используется (всегда автомат)
+}
+AF_LastShot = 0
+AF_LastTargetPart = nil
+AA_EnemyNear = false 
+AA_NearestDist = nil 
+AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
+AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+-- 0.39v2: паттерны вертолётов для поиска в Workspace
+HELI_PATTERNS = {
+"вертолет", "вертолёт", "верталёт", "helicopter", "heli", "chopper",
+"боевой вертолет", "combat heli", "attack heli", "military heli",
+"transport heli", "грузовой вертолет", "mi-8", "mi-24", "ka-50", "ka-52",
+"uh-60", "ah-64", "ah-1", "bell", "robinson", "apache", "hind",
+}
+HELI_TAGS = { "FustHeli", "FustVehicle", "FustHelicopter", "Vehicle", "Heli" }
+HELI_FOLDER_NAMES = { "Helicopters", "Vehicles", "Heli", "Helis", "Авиация", "Транспорт" }
+trackedHelis = {} -- кэш найденных вертолётов
+heliScanAt = 0
+function heliScanWorkspace()
+local now = os.clock()
+if now - heliScanAt < 2.0 then return end -- раз в 2с
+heliScanAt = now
+local found = {}
+pcall(function()
+-- 1. По тегам CollectionService
+for _, tag in ipairs(HELI_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst:IsA("Model") and inst.Parent then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. Поиск по папкам
+for _, folder in ipairs(HELI_FOLDER_NAMES) do
+local okF, f = pcall(function()
+return Workspace:FindFirstChild(folder, true)
+end)
+if okF and f then
+for _, d in ipairs(f:GetDescendants()) do
+if d:IsA("Model") then
+table.insert(found, d)
+end
+end
+end
+end
+-- 3. Поиск по имени в верхнем уровне Workspace
+for _, d in ipairs(Workspace:GetChildren()) do
+if d:IsA("Model") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN then
+for _, pat in ipairs(HELI_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, h in ipairs(found) do
+if not seen[h] then
+seen[h] = true
+table.insert(unique, h)
+end
+end
+trackedHelis = unique
+end
+function heliFindAimPart(heli)
+-- ищем BodyPart / Seat / Main rotor для прицеливания
+local bestPart = nil
+local bestScore = -math.huge
+pcall(function()
+-- приоритет: PilotSeat, DriverSeat, Main, Body, HeliBody
+local priority = { "PilotSeat", "DriverSeat", "Main", "Body", "HeliBody", "Cabin", "Tail", "Rotor", "MainRotor" }
+for _, p in ipairs(heli:GetDescendants()) do
+if p:IsA("BasePart") then
+local name = string.lower(tostring(p.Name))
+local score = 0
+for i, pn in ipairs(priority) do
+if string.find(name, string.lower(pn), 1, true) then
+score = 100 - i
+break
+end
+end
+if score == 0 then score = 10 end -- любой BasePart подходит
+if score > bestScore then
+bestScore = score
+bestPart = p
+end
+end
+end
+end)
+return bestPart
+end
+AimHotkeyObj = nil 
+AimHotkeyBusy = false 
+UIRegistry.AimEnabled = AimSection:Toggle({
+Name = "Аимбот (камера-лок)",
+Flag = "AimEnabled",
+Default = false,
+Callback = function(state)
+Aim.Enabled = state
+if AimHotkeyObj then
+AimHotkeyObj.Toggled = state
+end
+journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+hasKeyboard = false
+pcall(function()
+hasKeyboard = (UserInputService.KeyboardEnabled == true)
+end)
+if hasKeyboard then
+AimHotkeyBusy = true
+AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
+Flag = "AimHotkey",
+Default = Enum.KeyCode.RightAlt,
+Mode = "Toggle",
+Callback = function(state)
+if AimHotkeyBusy then return end
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+UIRegistry.AimEnabled:Set(state)
+end
+end
+})
+AimHotkeyBusy = false
+UIRegistry.AimHotkey = AimHotkeyObj
+end
+UIRegistry.AimShowFOV = AimSection:Toggle({
+Name = "FOV круг (зеленеет при захвате)",
+Flag = "AimShowFOV",
+Default = false,
+Callback = function(state)
+Aim.ShowFOV = state
+end
+})
+UIRegistry.AimWallCheck = AimSection:Toggle({
+Name = "Проверка стен",
+Flag = "AimWallCheck",
+Default = true,
+Callback = function(state)
+Aim.WallCheck = state
+end
+})
+UIRegistry.AimTeamCheck = AimSection:Toggle({
+Name = "Не целить тимейтов (одна команда)",
+Flag = "AimTeamCheck",
+Default = false,
+Callback = function(state)
+Aim.TeamCheck = state
+end
+})
+UIRegistry.AimCrosshair = AimSection:Toggle({
+Name = "Прицел по центру (CS2-стиль)",
+Flag = "AimCrosshair",
+Default = false,
+Callback = function(state)
+Aim.Crosshair = state
+end
+})
+-- 0.39: настройки прицела CS2
+UIRegistry.CHLength = AimSection:Slider({
+Name = "Прицел: длина лучей",
+Flag = "CHLength",
+Default = 7,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(v) CH.Length = v end
+})
+UIRegistry.CHThickness = AimSection:Slider({
+Name = "Прицел: толщина",
+Flag = "CHThickness",
+Default = 2,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.Thickness = v end
+})
+UIRegistry.CHGap = AimSection:Slider({
+Name = "Прицел: зазор от центра",
+Flag = "CHGap",
+Default = 5,
+Min = 0,
+Max = 15,
+Decimals = 0.5,
+Callback = function(v) CH.Gap = v end
+})
+UIRegistry.CHDot = AimSection:Toggle({
+Name = "Прицел: точка в центре",
+Flag = "CHDot",
+Default = false,
+Callback = function(state) CH.Dot = state end
+})
+UIRegistry.CHOutline = AimSection:Toggle({
+Name = "Прицел: обводка (чёрная)",
+Flag = "CHOutline",
+Default = true,
+Callback = function(state) CH.Outline = state end
+})
+UIRegistry.CHColor = AimSection:Label("Прицел: цвет"):Colorpicker({
+Name = "Прицел: цвет",
+Flag = "CHColor",
+Default = Color3.fromRGB(255, 30, 30),
+Callback = function(c) CH.Color = c end
+})
+-- 0.39v2: расширенные настройки CS2
+UIRegistry.CHTStyle = AimSection:Toggle({
+Name = "Прицел: T-стиль (без верха, как AWP)",
+Flag = "CHTStyle",
+Default = false,
+Callback = function(state) CH.TStyle = state end
+})
+UIRegistry.CHDotSize = AimSection:Slider({
+Name = "Прицел: размер точки",
+Flag = "CHDotSize",
+Default = 1,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.DotSize = v end
+})
+UIRegistry.CHOutlineThickness = AimSection:Slider({
+Name = "Прицел: толщина обводки",
+Flag = "CHOutlineThickness",
+Default = 1,
+Min = 1,
+Max = 3,
+Decimals = 0.5,
+Callback = function(v) CH.OutlineThickness = v end
+})
+UIRegistry.CHAlpha = AimSection:Slider({
+Name = "Прицел: прозрачность (0-1)",
+Flag = "CHAlpha",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v) CH.Alpha = v end
+})
+UIRegistry.CHRecoilFollow = AimSection:Toggle({
+Name = "Прицел: следует за отдачей (CS recoil)",
+Flag = "CHRecoilFollow",
+Default = false,
+Callback = function(state) CH.RecoilFollow = state end
+})
+UIRegistry.AimFOV = AimSection:Slider({
+Name = "FOV радиус",
+Flag = "AimFOV",
+Default = 150,
+Min = 50,
+Max = 400,
+Decimals = 5,
+Suffix = "px",
+Callback = function(Value)
+Aim.FOV = Value
+end
+})
+UIRegistry.AimDistance = AimSection:Slider({
+Name = "Дистанция аима",
+Flag = "AimDistance",
+Default = 500,
+Min = 50,

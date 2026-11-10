@@ -1,1789 +1,3 @@
-min.Visible = S.HUD.ShowAdmin and true or false
-end
-end
-function hudDestroy()
-for _, c in ipairs(hudConns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-hudConns = {}
-if hudGui then
-pcall(function()
-hudGui:Destroy()
-end)
-end
-hudGui = nil
-hudFrame = nil
-hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
-hudDragging = false
-end
-function hudEnsure()
-if hudFrame then
-return
-end
-local okGui = pcall(function()
-local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
-hudGui = Instance.new("ScreenGui")
-hudGui.Name = "PetuhHUD"
-hudGui.ResetOnSpawn = false
-hudGui.IgnoreGuiInset = true
-hudGui.DisplayOrder = 9999
-hudGui.Parent = parentGui
-hudFrame = Instance.new("Frame")
-hudFrame.Name = "Panel"
-hudFrame.Active = true
-hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-hudFrame.BorderSizePixel = 0
-hudFrame.AutomaticSize = Enum.AutomaticSize.XY
-hudFrame.Size = UDim2.new(0, 0, 0, 0)
-hudFrame.Parent = hudGui
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = hudFrame
-hudStroke = Instance.new("UIStroke")
-hudStroke.Color = Color3.fromRGB(255, 170, 40)
-hudStroke.Transparency = 0.6
-hudStroke.Parent = hudFrame
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.Padding = UDim.new(0, 2)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = hudFrame
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 6)
-pad.PaddingBottom = UDim.new(0, 6)
-pad.PaddingLeft = UDim.new(0, 9)
-pad.PaddingRight = UDim.new(0, 9)
-pad.Parent = hudFrame
-local order = 0
-local function makeLine(text)
-order = order + 1
-local label = Instance.new("TextLabel")
-label.Name = "L" .. order
-label.BackgroundTransparency = 1
-label.Font = Enum.Font.Code
-label.Text = text
-label.TextColor3 = Color3.fromRGB(235, 235, 240)
-label.TextXAlignment = Enum.TextXAlignment.Left
-label.AutomaticSize = Enum.AutomaticSize.XY
-label.Size = UDim2.new(0, 0, 0, 0)
-label.LayoutOrder = order
-label.Parent = hudFrame
-return label
-end
-hudLineFPS = makeLine("FPS —")
-hudLinePing = makeLine("Пинг —")
-hudLineTPS = makeLine("ТПС —")
-hudLinePlayers = makeLine("Игроки —")
-hudLineAdmin = makeLine("АДМИН —")
-end)
-if not okGui or not hudFrame then
-warn("[FUST] HUD не создался в этом экзекуторе")
-hudDestroy()
-return
-end
--- 0.39: восстановление сохранённой позиции drag, иначе угол
-pcall(function()
-if S.HUD.Position and type(S.HUD.Position) == "table" then
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
-else
-hudSnap(S.HUD.Corner)
-end
-end)
-hudApplyStyle()
-hudFrame.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-hudDragging = true
-hudDragStart = input.Position
-local topLeft = hudFrame.AbsolutePosition
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
-hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
-input.Changed:Connect(function()
-if input.UserInputState == Enum.UserInputState.End
-or input.UserInputState == Enum.UserInputState.Cancel then
-hudDragging = false
-end
-end)
-end
-end)
-hudFrame.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-hudDragging = false
-end
-end)
-table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
-if not hudDragging then
-return
-end
-if input.UserInputType == Enum.UserInputType.MouseMovement
-or input.UserInputType == Enum.UserInputType.Touch then
-if hudDragStart and hudFrameStart and hudFrame then
-local cam = Workspace.CurrentCamera
-local view = cam and cam.ViewportSize or Vector2.new(1280, 720)
-local w = hudFrame.AbsoluteSize.X
-local h = hudFrame.AbsoluteSize.Y
-local nx = math.clamp(hudFrameStart.X + (input.Position.X - hudDragStart.X), 0, math.max(view.X - w, 0))
-local ny = math.clamp(hudFrameStart.Y + (input.Position.Y - hudDragStart.Y), 0, math.max(view.Y - h, 0))
-hudFrame.Position = UDim2.fromOffset(nx, ny)
--- 0.39: сохраняем относительную позицию для восстановления после рестарта
-if view.X > 0 and view.Y > 0 then
-S.HUD.Position = { X = nx / view.X, Y = ny / view.Y }
-end
-end
-end
-end))
-local frames = 0
-local fpsAccum = 0
-local fpsValue = 0
-local lastServerT = nil
-local lastRealT = nil
-local tpsEMA = nil
-local uiAccum = 0
-table.insert(hudConns, RunService.RenderStepped:Connect(function(dt)
-frames = frames + 1
-fpsAccum = fpsAccum + dt
-if fpsAccum >= 1 then
-fpsValue = math.floor(frames / fpsAccum + 0.5)
-frames = 0
-fpsAccum = 0
-end
-local okT, serverT = pcall(function()
-return Workspace:GetServerTimeNow()
-end)
-if okT and type(serverT) == "number" then
-if lastServerT and lastRealT then
-local dReal = os.clock() - lastRealT
-if dReal >= 1 then
-local dServer = serverT - lastServerT
-local tps = dServer / dReal
-if tps >= 0 and tps <= 61 then
-tpsEMA = tpsEMA and (tpsEMA * 0.6 + tps * 0.4) or tps
-end
-lastServerT = serverT
-lastRealT = os.clock()
-end
-else
-lastServerT = serverT
-lastRealT = os.clock()
-end
-end
-uiAccum = uiAccum + dt
-if uiAccum >= 0.35 then
-uiAccum = 0
-if hudLineFPS then
-hudLineFPS.Text = "FPS " .. tostring(fpsValue)
-end
-if hudLinePing then
-local okP, ping = pcall(function()
-return LocalPlayer:GetNetworkPing()
-end)
-if okP and type(ping) == "number" then
-hudLinePing.Text = "Пинг " .. tostring(math.floor(ping * 1000 + 0.5)) .. "мс"
-else
-hudLinePing.Text = "Пинг —"
-end
-end
-if hudLineTPS then
-hudLineTPS.Text = tpsEMA and ("ТПС " .. string.format("%.1f", tpsEMA)) or "ТПС —"
-end
-if hudLinePlayers then
-local n = #Players:GetPlayers()
-local maxP = 0
-pcall(function()
-maxP = Players.MaxPlayers or 0
-end)
-if maxP and maxP > 0 then
-hudLinePlayers.Text = "Игроки " .. tostring(n) .. "/" .. tostring(maxP)
-else
-hudLinePlayers.Text = "Игроки " .. tostring(n)
-end
-end
--- 0.39: админ/VIP чек — обновление строки
-if hudLineAdmin and S.HUD.ShowAdmin then
-local adminCount = AdminScan_Count or 0
-local adminNames = AdminScan_Names
-if adminCount > 0 then
-hudLineAdmin.Text = "АДМИН: " .. tostring(adminCount) .. " — " .. (adminNames or "?")
-hudLineAdmin.TextColor3 = Color3.fromRGB(255, 80, 80)
-else
-hudLineAdmin.Text = "АДМИН: нет"
-hudLineAdmin.TextColor3 = Color3.fromRGB(120, 200, 120)
-end
-end
-end
-end))
-end
-UIRegistry.HUDEnabled = HudSection:Toggle({
-Name = "Микро-HUD (FPS, пинг, ТПС, игроки)",
-Flag = "HUDEnabled",
-Default = true,
-Callback = function(state)
-S.HUD.Enabled = state
-if state then
-hudEnsure()
-journal("HUD ВКЛ")
-else
-hudDestroy()
-journal("HUD ВЫКЛ")
-end
-end
-})
-UIRegistry.HUDSize = HudSection:Slider({
-Name = "Размер текста HUD",
-Flag = "HUDSize",
-Default = 11,
-Min = 8,
-Max = 16,
-Decimals = 1,
-Callback = function(Value)
-S.HUD.Size = Value
-hudApplyStyle()
-end
-})
-UIRegistry.HUDBgTransparency = HudSection:Slider({
-Name = "Прозрачность фона HUD",
-Flag = "HUDBgTransparency",
-Default = 0.35,
-Min = 0,
-Max = 0.95,
-Decimals = 0.05,
-Callback = function(Value)
-S.HUD.BgTransparency = Value
-hudApplyStyle()
-end
-})
-UIRegistry.HUDTextTransparency = HudSection:Slider({
-Name = "Прозрачность текста HUD",
-Flag = "HUDTextTransparency",
-Default = 0,
-Min = 0,
-Max = 0.9,
-Decimals = 0.05,
-Callback = function(Value)
-S.HUD.TextTransparency = Value
-hudApplyStyle()
-end
-})
--- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
-UIRegistry.HUDBgColor = HudSection:Label("Цвет фона HUD"):Colorpicker({
-Name = "Цвет фона HUD",
-Flag = "HUDBgColor",
-Default = Color3.fromRGB(12, 12, 16),
-Callback = function(c)
-S.HUD.ColorBg = c
-hudApplyStyle()
-end
-})
-UIRegistry.HUDTextColor = HudSection:Label("Цвет текста HUD"):Colorpicker({
-Name = "Цвет текста HUD",
-Flag = "HUDTextColor",
-Default = Color3.fromRGB(235, 235, 240),
-Callback = function(c)
-S.HUD.ColorText = c
-hudApplyStyle()
-end
-})
-UIRegistry.HUDStrokeColor = HudSection:Label("Цвет обводки HUD"):Colorpicker({
-Name = "Цвет обводки HUD",
-Flag = "HUDStrokeColor",
-Default = Color3.fromRGB(255, 170, 40),
-Callback = function(c)
-S.HUD.ColorStroke = c
-hudApplyStyle()
-end
-})
-UIRegistry.HUDShowAdmin = HudSection:Toggle({
-Name = "Показывать админ/VIP чек",
-Flag = "HUDShowAdmin",
-Default = true,
-Callback = function(state)
-S.HUD.ShowAdmin = state
-hudApplyStyle()
-end
-})
-UIRegistry.HUDResetPos = HudSection:Button({
-Name = "Сбросить позицию HUD",
-Callback = function()
-S.HUD.Position = nil
-if hudFrame then
-hudSnap(S.HUD.Corner or "Лево-низ")
-end
-journal("HUD: позиция сброшена")
-end
-})
-UIRegistry.HUDShowTPS = HudSection:Toggle({
-Name = "Показывать ТПС сервера",
-Flag = "HUDShowTPS",
-Default = true,
-Callback = function(state)
-S.HUD.ShowTPS = state
-hudApplyStyle()
-end
-})
-UIRegistry.HUDShowBg = HudSection:Toggle({
-Name = "Фон панельки",
-Flag = "HUDShowBg",
-Default = true,
-Callback = function(state)
-S.HUD.ShowBg = state
-hudApplyStyle()
-end
-})
-if S.HUD.Enabled then
-task.defer(function()
-pcall(hudEnsure)
-end)
-end
-getgenv().FUST_HUDCleanup = hudDestroy
-UIRegistry.LootEnabled = LootSection:Toggle({
-Name = "ESP мешков с добычей (рюкзаки игроков)",
-Flag = "LootEnabled",
-Default = false,
-Callback = function(state)
-S.Loot.Enabled = state
-journal("ESP МЕШКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.LootColor = UIRegistry.LootEnabled:Colorpicker({
-Flag = "LootColor",
-Default = LOOT_COLOR,
-Callback = function(color)
-LOOT_COLOR = color
-end
-})
-UIRegistry.LootOwner = LootSection:Toggle({
-Name = "Чей лут (из подписи игры)",
-Flag = "LootOwner",
-Default = true,
-Callback = function(state)
-S.Loot.Owner = state
-end
-})
-UIRegistry.LootSlots = LootSection:Toggle({
-Name = "Сколько слотов забито",
-Flag = "LootSlots",
-Default = true,
-Callback = function(state)
-S.Loot.Slots = state
-end
-})
-UIRegistry.LootDistance = LootSection:Toggle({
-Name = "Дистанция",
-Flag = "LootDistance",
-Default = true,
-Callback = function(state)
-S.Loot.Distance = state
-end
-})
-UIRegistry.LootBox = LootSection:Toggle({
-Name = "Рамка вокруг рюкзака",
-Flag = "LootBox",
-Default = true,
-Callback = function(state)
-S.Loot.Box = state
-end
-})
-UIRegistry.LootChams = LootSection:Toggle({
-Name = "Чамсы рюкзаков (видно сквозь траву и стены)",
-Flag = "LootChams",
-Default = true,
-Callback = function(state)
-S.Loot.Chams = state
-journal("ЧАМСЫ РЮКЗАКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.LootMaxDistance = LootSection:Slider({
-Name = "Рюкзаки: Max Distance",
-Flag = "LootMaxDistance",
-Default = 1500,
-Min = 100,
-Max = 3000,
-Decimals = 50,
-Suffix = "m",
-Callback = function(Value)
-S.Loot.MaxDistance = Value
-end
-})
-UIRegistry.LootDebugLog = LootSection:Toggle({
-Name = "Диагностика: лог рюкзаков в консоль (раз в 10 сек)",
-Flag = "LootDebugLog",
-Default = false,
-Callback = function(state)
-S.Loot.DebugLog = state
-if state then
-print("[FUST] Диагностика рюкзаков: имена, атрибуты, подписи и содержимое пойдут в консоль")
-journal("ДИАГНОСТИКА РЮКЗАКОВ ВКЛ")
-end
-end
-})
-LootCSection = EspPage:Section({ Name = "Лут (бочки и ящики)", Tab = "Лут", Side = 2 })
-UIRegistry.LootCEnabled = LootCSection:Toggle({
-Name = "ESP лута (бочки/ящики/элитные/военные)",
-Flag = "LootCEnabled",
-Default = false,
-Callback = function(state)
-S.LootC.Enabled = state
-journal("ESP ЛУТА " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.LootCColor = UIRegistry.LootCEnabled:Colorpicker({
-Flag = "LootCColor",
-Default = LOOTC_COLOR,
-Callback = function(color)
-LOOTC_COLOR = color
-end
-})
-UIRegistry.LootCName = LootCSection:Toggle({
-Name = "Название контейнера",
-Flag = "LootCName",
-Default = true,
-Callback = function(state)
-S.LootC.Name = state
-end
-})
-UIRegistry.LootCDistance = LootCSection:Toggle({
-Name = "Дистанция",
-Flag = "LootCDistance",
-Default = true,
-Callback = function(state)
-S.LootC.Distance = state
-end
-})
-UIRegistry.LootCBox = LootCSection:Toggle({
-Name = "Рамка вокруг контейнера",
-Flag = "LootCBox",
-Default = true,
-Callback = function(state)
-S.LootC.Box = state
-end
-})
-UIRegistry.LootCMaxDistance = LootCSection:Slider({
-Name = "Лут: Max Distance",
-Flag = "LootCMaxDistance",
-Default = 800,
-Min = 100,
-Max = 3000,
-Decimals = 50,
-Suffix = "m",
-Callback = function(Value)
-S.LootC.MaxDistance = Value
-end
-})
-UIRegistry.LootCChams = LootCSection:Toggle({
-Name = "Чамсы контейнеров (по модельке, пул 12)",
-Flag = "LootCChams",
-Default = false,
-Callback = function(state)
-S.LootC.Chams = state
-journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
--- 0.39v16: yield убран — в v13 без него работало
-uiStep("Вкладка Боты и НПС", function()
-BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
-BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
-BotHitSection = BotPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты", Side = 2 })
-end)
-UIRegistry.NPCEsp = BotEspSection:Toggle({
-Name = "ESP ботов и НПС (мастер)",
-Flag = "NPCEsp",
-Default = false,
-Callback = function(state)
-S.NPC.ESP = state
-journal("ESP БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.NPCGuards = BotEspSection:Toggle({
-Name = "Охранники (враждебные НПС)",
-Flag = "NPCGuards",
-Default = true,
-Callback = function(state)
-S.NPC.CatGuards = state
-end
-})
-UIRegistry.NPCColorGuard = UIRegistry.NPCGuards:Colorpicker({
-Flag = "NPCColorGuard",
-Default = NPC_CAT_COLORS.Guard,
-Callback = function(color)
-NPC_CAT_COLORS.Guard = color
-end
-})
-UIRegistry.NPCPeaceful = BotEspSection:Toggle({
-Name = "Мирные НПС (зелёные)",
-Flag = "NPCPeaceful",
-Default = false,
-Callback = function(state)
-S.NPC.CatPeaceful = state
-end
-})
-UIRegistry.NPCColorPeaceful = UIRegistry.NPCPeaceful:Colorpicker({
-Flag = "NPCColorPeaceful",
-Default = NPC_CAT_COLORS.Peaceful,
-Callback = function(color)
-NPC_CAT_COLORS.Peaceful = color
-end
-})
-UIRegistry.NPCAnimals = BotEspSection:Toggle({
-Name = "Животные: медведь, волк, олень, кабан",
-Flag = "NPCAnimals",
-Default = false,
-Callback = function(state)
-S.NPC.CatAnimals = state
-end
-})
-UIRegistry.NPCColorAnimal = UIRegistry.NPCAnimals:Colorpicker({
-Flag = "NPCColorAnimal",
-Default = NPC_CAT_COLORS.Animal,
-Callback = function(color)
-NPC_CAT_COLORS.Animal = color
-end
-})
-UIRegistry.NPCSleepers = BotEspSection:Toggle({
-Name = "Слиперы (спящие игроки)",
-Flag = "NPCSleepers",
-Default = false,
-Callback = function(state)
-S.NPC.CatSleepers = state
-end
-})
-UIRegistry.NPCColorSleeper = UIRegistry.NPCSleepers:Colorpicker({
-Flag = "NPCColorSleeper",
-Default = NPC_CAT_COLORS.Sleeper,
-Callback = function(color)
-NPC_CAT_COLORS.Sleeper = color
-end
-})
-UIRegistry.NPCBox = BotEspSection:Toggle({
-Name = "Боты: бокс",
-Flag = "NPCBox",
-Default = false,
-Callback = function(state)
-S.NPC.Box = state
-end
-})
-UIRegistry.NPCName = BotEspSection:Toggle({
-Name = "Боты: ник модели",
-Flag = "NPCName",
-Default = false,
-Callback = function(state)
-S.NPC.Name = state
-end
-})
-UIRegistry.NPCItem = BotEspSection:Toggle({
-Name = "Боты: предмет в руках",
-Flag = "NPCItem",
-Default = false,
-Callback = function(state)
-S.NPC.Item = state
-end
-})
-UIRegistry.NPCDistance = BotEspSection:Toggle({
-Name = "Боты: дистанция",
-Flag = "NPCDistance",
-Default = false,
-Callback = function(state)
-S.NPC.Distance = state
-end
-})
-UIRegistry.NPCHealthBar = BotEspSection:Toggle({
-Name = "Боты: хелсбар",
-Flag = "NPCHealthBar",
-Default = false,
-Callback = function(state)
-S.NPC.HealthBar = state
-end
-})
-UIRegistry.NPCMaxDistance = BotEspSection:Slider({
-Name = "Боты: Max Distance",
-Flag = "NPCMaxDistance",
-Default = 3000,
-Min = 100,
-Max = 3000,
-Decimals = 50,
-Suffix = "m",
-Callback = function(Value)
-S.NPC.MaxDistance = Value
-end
-})
-UIRegistry.NPCChams = BotEspSection:Toggle({
-Name = "Чамсы ботов (цвет категории, до потолка)",
-Flag = "NPCChams",
-Default = false,
-Callback = function(state)
-S.NPC.Chams = state
-journal("ЧАМСЫ БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.NPCChamsTransparency = BotEspSection:Slider({
-Name = "Чамсы ботов: прозрачность",
-Flag = "NPCChamsTransparency",
-Default = 0.5,
-Min = 0,
-Max = 1,
-Decimals = 0.05,
-Suffix = "",
-Callback = function(Value)
-S.NPC.ChamsTransparency = Value
-end
-})
-UIRegistry.NPCDebugLog = BotEspSection:Toggle({
-Name = "Диагностика: лог НПС в консоль (раз в 10 сек)",
-Flag = "NPCDebugLog",
-Default = false,
-Callback = function(state)
-S.NPC.DebugLog = state
-if state then
-print("[FUST] Диагностика НПС: имена, папки, теги и категории пойдут в консоль")
-journal("ДИАГНОСТИКА НПС ВКЛ")
-end
-end
-})
-UIRegistry.NPCHitboxEnabled = BotHitSection:Toggle({
-Name = "Хитбоксы НПС и ботов",
-Flag = "NPCHitboxEnabled",
-Default = false,
-Callback = function(state)
-S.NPC.HitboxEnabled = state
-if state then
-NpcHitboxAnnouncePending = true
-end
-print("[FUST] Хитбоксы НПС " .. (state and ("ВКЛ, размер " .. tostring(S.NPC.HitboxSize)) or "ВЫКЛ"))
-journal("ХИТБОКС НПС " .. (state and ("ВКЛ (размер " .. tostring(S.NPC.HitboxSize) .. ")") or "ВЫКЛ"))
-end
-})
-UIRegistry.NPCHitboxSize = BotHitSection:Slider({
-Name = "Размер хитбокса НПС",
-Flag = "NPCHitboxSize",
-Default = 5,
-Min = 2,
-Max = 6,
-Decimals = 0.5,
-Suffix = "",
-Callback = function(Value)
-S.NPC.HitboxSize = Value
-end
-})
-UIRegistry.NPCHitboxTransparency = BotHitSection:Slider({
-Name = "Прозрачность хитбокса НПС",
-Flag = "NPCHitboxTransparency",
-Default = 0.7,
-Min = 0,
-Max = 0.95,
-Decimals = 0.05,
-Suffix = "",
-Callback = function(Value)
-S.NPC.HitboxTransparency = Value
-end
-})
-UIRegistry.NPCHitboxAnimals = BotHitSection:Toggle({
-Name = "Хитбокс: животные (по умолчанию выкл)",
-Flag = "NPCHitboxAnimals",
-Default = false,
-Callback = function(state)
-S.NPC.HitboxAnimals = state
-journal("ХИТБОКС ЖИВОТНЫЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.NPCHitboxSleepers = BotHitSection:Toggle({
-Name = "Хитбокс: слиперы (по умолчанию выкл)",
-Flag = "NPCHitboxSleepers",
-Default = false,
-Callback = function(state)
-S.NPC.HitboxSleepers = state
-journal("ХИТБОКС СЛИПЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.HitboxEnabled = HitboxSection:Toggle({
-Name = "Hitbox Expander",
-Flag = "HitboxEnabled",
-Default = false,
-Callback = function(state)
-S.Hitbox.Enabled = state
-if state then
-HitboxAnnouncePending = true
-end
-print("[FUST] Хитбокс " .. (state and ("ВКЛ, размер " .. tostring(S.Hitbox.Size)) or "ВЫКЛ"))
-journal("ХИТБОКС " .. (state and ("ВКЛ (размер " .. tostring(S.Hitbox.Size) .. ")") or "ВЫКЛ"))
-end
-})
-UIRegistry.HitboxSize = HitboxSection:Slider({
-Name = "Hitbox Size",
-Flag = "HitboxSize",
-Default = 5,
-Min = 2,
-Max = 6,
-Decimals = 0.5,
-Suffix = "",
-Callback = function(Value)
-S.Hitbox.Size = Value
-end
-})
-UIRegistry.HitboxTransparency = HitboxSection:Slider({
-Name = "Hitbox Transparency",
-Flag = "HitboxTransparency",
-Default = 0.7,
-Min = 0,
-Max = 0.95,
-Decimals = 0.05,
-Suffix = "",
-Callback = function(Value)
-S.Hitbox.Transparency = Value
-end
-})
-FullBrightBackup = nil
-UIRegistry.ESPTeamCheck = VisFilterSection:Toggle({
-Name = "Team Check (не показывать тимейтов)",
-Flag = "ESPTeamCheck",
-Default = false,
-Callback = function(state)
-S.ESP.TeamCheck = state
-journal("TEAM CHECK (ESP) " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.FullBright = WorldSection:Toggle({
-Name = "FullBright",
-Flag = "FullBright",
-Default = false,
-Callback = function(state)
-S.FullBright = state
-journal("FULLBRIGHT " .. (state and "ВКЛ" or "ВЫКЛ"))
-if state then
-FullBrightBackup = {
-Brightness = Lighting.Brightness,
-ClockTime = Lighting.ClockTime,
-FogEnd = Lighting.FogEnd,
-GlobalShadows = Lighting.GlobalShadows,
-}
-elseif FullBrightBackup then
-Lighting.Brightness = FullBrightBackup.Brightness
-Lighting.ClockTime = FullBrightBackup.ClockTime
-Lighting.FogEnd = FullBrightBackup.FogEnd
-Lighting.GlobalShadows = FullBrightBackup.GlobalShadows
-FullBrightBackup = nil
-end
-end
-})
-UIRegistry.NoDecoration = WorldSection:Toggle({
-Name = "Убрать декорации (NoDecoration)",
-Flag = "NoDecoration",
-Default = false,
-Callback = function(state)
-S.NoDecoration = state
-journal("НОДЕКОРАЦИИ " .. (state and "ВКЛ" or "ВЫКЛ"))
-pcall(function()
-local decor = Workspace:FindFirstChild("Decorations") or Workspace:FindFirstChild("TerrainDecorations")
-if decor then
-if state then
-decor.Parent = nil
-getgenv().FUST_DecorBackup = decor
-else
-decor.Parent = Workspace
-getgenv().FUST_DecorBackup = nil
-end
-end
-end)
-end
-})
-UIRegistry.NoGrass = WorldSection:Toggle({
-Name = "Убрать траву (No Grass)",
-Flag = "NoGrass",
-Default = false,
-Callback = function(state)
-S.NoGrass = state
-journal("НОТРАВА " .. (state and "ВКЛ" or "ВЫКЛ"))
-coroutine.wrap(pcall)(function()
-local terrain = Workspace:FindFirstChildOfClass("Terrain")
-if not terrain then
-repeat
-task.wait()
-until Workspace:FindFirstChildOfClass("Terrain")
-terrain = Workspace:FindFirstChildOfClass("Terrain")
-end
-if sethiddenproperty then
-sethiddenproperty(terrain, "Decoration", not state)
-else
-warn("Your exploit does not support sethiddenproperty.")
-end
-end)
-end
-})
-NoFogBackup = nil
-UIRegistry.NoFog = WorldSection:Toggle({
-Name = "Убрать туман (No Fog)",
-Flag = "NoFog",
-Default = false,
-Callback = function(state)
-S.NoFog = state
-journal("НОФОГ " .. (state and "ВКЛ" or "ВЫКЛ"))
-pcall(function()
-if state then
-if not NoFogBackup then
-NoFogBackup = { FogEnd = Lighting.FogEnd, FogStart = Lighting.FogStart }
-end
-Lighting.FogEnd = 100000
-Lighting.FogStart = 100000
-elseif NoFogBackup then
-Lighting.FogEnd = NoFogBackup.FogEnd
-Lighting.FogStart = NoFogBackup.FogStart
-NoFogBackup = nil
-end
-end)
-end
-})
--- 0.39: УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS
-TextureBackup = nil
-function applyTextureDegradation(state)
-pcall(function()
-if state then
-if not TextureBackup then
-TextureBackup = {
-MaterialService2022 = nil,
-LightingTech = Lighting.Technology,
-}
-pcall(function()
-local ms = game:GetService("MaterialService")
-TextureBackup.MaterialService2022 = ms.Use2022Materials
-ms.Use2022Materials = false
-end)
-end
--- всем BasePart в Workspace — Material = Plastic (если ещё не)
-pcall(function()
-for _, d in ipairs(Workspace:GetDescendants()) do
-if d:IsA("BasePart") and d.Material ~= Enum.Material.Plastic then
-pcall(function()
-d.Material = Enum.Material.Plastic
-end)
-elseif d:IsA("MeshPart") then
-pcall(function()
-d.TextureID = ""
-end)
-elseif d:IsA("Decal") or d:IsA("Texture") then
-pcall(function()
-d.Texture = ""
-d.Transparency = 1
-end)
-end
-end
-end)
-pcall(function()
-Lighting.Technology = Enum.Technology.Compatibility
-end)
-journal("ТЕКСТУРЫ ВЫКЛ (FPS режим)")
-else
-if TextureBackup then
-pcall(function()
-if TextureBackup.MaterialService2022 ~= nil then
-local ms = game:GetService("MaterialService")
-ms.Use2022Materials = TextureBackup.MaterialService2022
-end
-end)
-pcall(function()
-Lighting.Technology = TextureBackup.LightingTech
-end)
-TextureBackup = nil
-end
-journal("ТЕКСТУРЫ ВКЛ (восстановлено)")
-end
-end)
-end
-UIRegistry.TextureDegradation = WorldSection:Toggle({
-Name = "Ухудшение текстур (макс FPS)",
-Flag = "TextureDegradation",
-Default = false,
-Callback = function(state)
-S.TextureDegradation = state
-applyTextureDegradation(state)
-end
-})
--- 0.39: дальность видимости (StreamingTargetRadius)
-UIRegistry.StreamBoost = WorldSection:Toggle({
-Name = "Увеличить дальность прогрузки",
-Flag = "StreamBoost",
-Default = false,
-Callback = function(state)
-S.StreamBoost = state
-pcall(function()
-if state then
-pcall(function()
-Workspace.StreamingTargetRadius = 4096
-Workspace.StreamingMinRadius = 1024
-end)
-journal("ПРОГРУЗКА: дальность увеличена")
-else
-pcall(function()
-Workspace.StreamingTargetRadius = 1024
-Workspace.StreamingMinRadius = 256
-end)
-journal("ПРОГРУЗКА: дальность по умолчанию")
-end
-end)
-end
-})
--- 0.39v2: ULTRA ОПТИМИЗАЦИЯ — максимальный FPS ценой визуала
-UltraOpt = false
-function applyUltraOpt(state)
-UltraOpt = state
-pcall(function()
-if state then
--- 1. Текстуры выкл
-applyTextureDegradation(true)
-UIRegistry.TextureDegradation:Set(true) if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(true) end) end
--- 2. FullBright (больше света — меньше теней)
-if not S.FullBright then
-UIRegistry.FullBright:Set(true) if UIRegistry.FullBright and UIRegistry.FullBright.Set then pcall(function() UIRegistry.FullBright:Set(true) end) end
-end
--- 3. NoFog
-if not S.NoFog then
-if UIRegistry.NoFog and UIRegistry.NoFog.Set then pcall(function() UIRegistry.NoFog:Set(true) end) end
-end
--- 4. NoGrass
-if not S.NoGrass then
-if UIRegistry.NoGrass and UIRegistry.NoGrass.Set then pcall(function() UIRegistry.NoGrass:Set(true) end) end
-end
--- 5. NoDecoration
-if not S.NoDecoration then
-if UIRegistry.NoDecoration and UIRegistry.NoDecoration.Set then pcall(function() UIRegistry.NoDecoration:Set(true) end) end
-end
--- 6. Уменьшить дальность ESP (меньше raycast)
-if S.ESP.MaxDistance > 800 then
-S.ESP.MaxDistance = 800
-if UIRegistry.ESPMaxDistance and UIRegistry.ESPMaxDistance.Set then pcall(function() UIRegistry.ESPMaxDistance:Set(800) end) end
-end
--- 7. Уменьшить дальность лута
-if S.Loot.MaxDistance > 400 then
-S.Loot.MaxDistance = 400
-if UIRegistry.LootMaxDistance and UIRegistry.LootMaxDistance.Set then pcall(function() UIRegistry.LootMaxDistance:Set(400) end) end
-end
--- 8. Уменьшить дальность НПС
-if S.NPC.MaxDistance > 1500 then
-S.NPC.MaxDistance = 1500
-if UIRegistry.NPCMaxDistance and UIRegistry.NPCMaxDistance.Set then pcall(function() UIRegistry.NPCMaxDistance:Set(1500) end) end
-end
--- 9. Отключить трассеры (большой overhead)
-if S.Bullets.Enabled then
-if UIRegistry.BulletsEnabled and UIRegistry.BulletsEnabled.Set then pcall(function() UIRegistry.BulletsEnabled:Set(false) end) end
-end
--- 10. Отключить чамсы лута (Highlight pool)
-if S.Loot.Chams then
-if UIRegistry.LootChams and UIRegistry.LootChams.Set then pcall(function() UIRegistry.LootChams:Set(false) end) end
-end
-if S.LootC.Chams then
-if UIRegistry.LootCChams and UIRegistry.LootCChams.Set then pcall(function() UIRegistry.LootCChams:Set(false) end) end
-end
--- 11. Увеличить интервалы сканеров
-LOOT_POOL_INTERVAL = 2.5
--- 12. GraphicsQuality минимум
-pcall(function()
-settings().Studio.GraphicsQuality = 1
-end)
-pcall(function()
-LocalPlayer.DeviceCameraMode = nil
-end)
-journal("ULTRA ОПТИМИЗАЦИЯ ВКЛ — максимальный FPS, визуал урезан")
-else
--- Возврат к норме
-LOOT_POOL_INTERVAL = 1.2
-applyTextureDegradation(false)
-if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(false) end) end
-journal("ULTRA ОПТИМИЗАЦИЯ ВЫКЛ — визуал восстановлен")
-end
-end)
-end
-UIRegistry.UltraOpt = WorldSection:Toggle({
-Name = "ULTRA ОПТИМИЗАЦИЯ (макс FPS)",
-Flag = "UltraOpt",
-Default = false,
-Callback = function(state)
-S.UltraOpt = state
-applyUltraOpt(state)
-end
-})
--- 0.39v6: X-RAY — прозрачность стен/пола/потолка
-XRayState = { Enabled = false, Transparency = 0.8, Originals = {} }
-function applyXRay(state)
-pcall(function()
-if state then
--- делаем все BasePart в Workspace прозрачными (кроме Terrain, Characters, Tools)
-XRayState.Originals = {}
-local count = 0
-for _, d in ipairs(Workspace:GetDescendants()) do
-if d:IsA("BasePart") and not d:IsA("Terrain") then
--- пропускаем персонажей и их части
-local isChar = false
-local p = d
-for _ = 1, 5 do
-if not p then break end
-if p:IsA("Model") and Players:GetPlayerFromCharacter(p) then
-isChar = true break
-end
-p = p.Parent
-end
-if not isChar and not d:IsDescendantOf(LocalPlayer.Character or Instance.new("Folder")) then
-XRayState.Originals[d] = d.Transparency
-d.Transparency = XRayState.Transparency
-count = count + 1
-if count > 2000 then break end -- лимит для FPS
-end
-end
-end
-journal("X-RAY ВКЛ — прозрачно " .. count .. " объектов")
-else
--- восстанавливаем
-for part, orig in pairs(XRayState.Originals) do
-pcall(function() part.Transparency = orig end)
-end
-XRayState.Originals = {}
-journal("X-RAY ВЫКЛ")
-end
-end)
-end
-UIRegistry.XRay = WorldSection:Toggle({
-Name = "X-Ray (прозрачность стен/пола)",
-Flag = "XRay",
-Default = false,
-Callback = function(state)
-XRayState.Enabled = state
-applyXRay(state)
-end
-})
-UIRegistry.XRayTransparency = WorldSection:Slider({
-Name = "X-Ray: прозрачность",
-Flag = "XRayTransparency",
-Default = 0.8,
-Min = 0.3,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-XRayState.Transparency = v
-if XRayState.Enabled then
--- обновить на лету
-applyXRay(false)
-applyXRay(true)
-end
-end
-})
-
--- 0.39v6: ЧАМСЫ НА МЕБЕЛЬ (шкафы, ящики, локеры, гардеробы)
-FurnitureChams = { Enabled = false, Color = Color3.fromRGB(100, 200, 255), Transparency = 0.4 }
-FURNITURE_PATTERNS = {
-"шкаф", "кухонный шкаф", "навесной шкаф", "напольный шкаф", "стеллаж",
-"ящик", "большой ящик", "маленький ящик", "сундук", "контейнер",
-"локер", "локеры", "locker", "lockers",
-"металлический шкаф", "metal cabinet", "металл шкаф",
-"шкаф для базы", "base cabinet", "базовый шкаф",
-"гардероб", "wardrobe", "closet",
-"полка", "shelf", "стеллаж",
-"комод", "chest", "тумба",
-"стол", "table", "стул", "chair",
-"кровать", "bed", "диван", "couch",
-"дверь", "door", "ворота", "gate",
-}
-FURNITURE_TAGS = { "FustFurniture", "FustContainer", "FustStorage", "Furniture", "Container" }
-furnitureChamsPool = {}
-furnitureChamsAt = 0
-function furnitureScan()
-local now = os.clock()
-if now - furnitureChamsAt < 1.5 then return end -- 0.39v8: реже (1.5с) — меньше нагрузки
-furnitureChamsAt = now
-local found = {}
-pcall(function()
--- 1. по тегам CollectionService (везде в Workspace)
-for _, tag in ipairs(FURNITURE_TAGS) do
-local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
-if ok and items then
-for _, inst in ipairs(items) do
-if inst.Parent and (inst:IsA("Model") or inst:IsA("BasePart")) then
-table.insert(found, inst)
-end
-end
-end
-end
--- 2. по имени через GetDescendants (глубокий поиск, с лимитом)
-local scanned = 0
-for _, d in ipairs(Workspace:GetDescendants()) do
-scanned = scanned + 1
-if scanned > 5000 then break end -- лимит для FPS
-if d:IsA("Model") or d:IsA("BasePart") then
-local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
-if okN and name and #name > 0 then
-for _, pat in ipairs(FURNITURE_PATTERNS) do
-if string.find(name, pat, 1, true) then
-table.insert(found, d)
-break
-end
-end
-end
-end
-end
-end)
--- дедуп
-local seen = {}
-local unique = {}
-for _, f in ipairs(found) do
-if not seen[f] then seen[f] = true table.insert(unique, f) end
-end
--- обновляем пул Highlight
-local POOL_MAX = 20
-for i = 1, math.min(#unique, POOL_MAX) do
-local inst = unique[i]
-local h = furnitureChamsPool[i]
-if not h then
-local okH, created = pcall(function()
-local nh = Instance.new("Highlight")
-nh.Name = "PETUH_FurnitureChams"
-nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-nh.FillTransparency = FurnitureChams.Transparency
-nh.OutlineTransparency = 0
-nh.Parent = Workspace
-return nh
-end)
-if okH and created then
-h = created
-furnitureChamsPool[i] = created
-end
-end
-if h then
-pcall(function()
-h.Adornee = inst
-h.FillColor = FurnitureChams.Color
-h.OutlineColor = FurnitureChams.Color
-h.Enabled = true
-end)
-end
-end
--- скрыть неиспользуемые
-for i = math.min(#unique, POOL_MAX) + 1, #furnitureChamsPool do
-pcall(function()
-furnitureChamsPool[i].Enabled = false
-furnitureChamsPool[i].Adornee = nil
-end)
-end
-if #unique == 0 then
-for i = 1, #furnitureChamsPool do
-pcall(function() furnitureChamsPool[i].Enabled = false end)
-end
-end
-end
-function furnitureChamsCleanup()
-for i = 1, #furnitureChamsPool do
-pcall(function() furnitureChamsPool[i]:Destroy() end)
-furnitureChamsPool[i] = nil
-end
-end
-UIRegistry.FurnitureChams = WorldSection:Toggle({
-Name = "Чамсы мебели (шкафы/ящики/локеры)",
-Flag = "FurnitureChams",
-Default = false,
-Callback = function(state)
-FurnitureChams.Enabled = state
-if not state then
-for i = 1, #furnitureChamsPool do
-pcall(function() furnitureChamsPool[i].Enabled = false end)
-end
-end
-journal("ЧАМСЫ МЕБЕЛИ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.FurnitureChamsColor = WorldSection:Label("Цвет чамсов мебели"):Colorpicker({
-Name = "Цвет чамсов мебели",
-Flag = "FurnitureChamsColor",
-Default = Color3.fromRGB(100, 200, 255),
-Callback = function(c) FurnitureChams.Color = c end
-})
-UIRegistry.FurnitureChamsTransparency = WorldSection:Slider({
-Name = "Прозрачность чамсов мебели",
-Flag = "FurnitureChamsTransparency",
-Default = 0.4,
-Min = 0,
-Max = 0.9,
-Decimals = 0.05,
-Callback = function(v) FurnitureChams.Transparency = v end
-})
--- фоновый сканер мебели
-task.spawn(function()
-while true do
-task.wait(1)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-if FurnitureChams.Enabled then
-pcall(furnitureScan)
-end
-end
-end)
-function normalizeName(raw)
-if type(raw) ~= "string" then
-return ""
-end
-local name = raw:gsub("^%s+", ""):gsub("%s+$", "")
-name = name:gsub("^@", "")
-return name
-end
-function resolveName(raw)
-local name = normalizeName(raw)
-if name == "" then
-return nil
-end
-local lower = string.lower(name)
-for _, plr in ipairs(Players:GetPlayers()) do
-if string.lower(plr.Name) == lower then
-return plr.Name
-end
-end
-for _, plr in ipairs(Players:GetPlayers()) do
-if string.lower(plr.DisplayName) == lower then
-return plr.Name
-end
-end
-return name
-end
-WL_BG = Color3.fromRGB(17, 18, 22)
-WL_ROW = Color3.fromRGB(28, 39, 45)
-WL_ACCENT = Color3.fromRGB(157, 53, 12)
-WL_BRIGHT = Color3.fromRGB(225, 66, 6)
-WL_TEXT = Color3.fromRGB(199, 199, 212)
-WL_GRAY = Color3.fromRGB(117, 117, 131)
-wlHost = MiscSection.Items["Content"].Instance
-wlPanel = Instance.new("Frame")
-wlPanel.Name = "FustWhitelistPanel"
-wlPanel.BackgroundColor3 = WL_BG
-wlPanel.BorderSizePixel = 0
-wlPanel.Size = UDim2.new(1, 0, 0, 0)
-wlPanel.AutomaticSize = Enum.AutomaticSize.Y
-wlPanel.LayoutOrder = 100
-wlPanel.Parent = wlHost
-function wlCorner(parent, radius)
-local c = Instance.new("UICorner")
-c.CornerRadius = UDim.new(0, radius or 6)
-c.Parent = parent
-return c
-end
-do
-wlCorner(wlPanel)
-local stroke = Instance.new("UIStroke")
-stroke.Color = WL_ACCENT
-stroke.Transparency = 0.55
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stroke.Parent = wlPanel
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 8)
-pad.PaddingBottom = UDim.new(0, 8)
-pad.PaddingLeft = UDim.new(0, 8)
-pad.PaddingRight = UDim.new(0, 8)
-pad.Parent = wlPanel
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 6)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlPanel
-end
-function wlLabel(text, order, color, bold)
-local l = Instance.new("TextLabel")
-l.BackgroundTransparency = 1
-l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-l.TextSize = 13
-l.TextColor3 = color or WL_TEXT
-l.Text = text
-l.TextXAlignment = Enum.TextXAlignment.Left
-l.Size = UDim2.new(1, 0, 0, 16)
-l.LayoutOrder = order
-l.Parent = wlPanel
-return l
-end
-wlLabel("Вайтлист (не бьём по этим)", 1, WL_BRIGHT, true)
-wlLabel("Тап по нику в списке — вкл/выкл.", 2, WL_GRAY)
-wlScroll = Instance.new("ScrollingFrame")
-wlScroll.Name = "FustWhitelistScroll"
-wlScroll.Size = UDim2.new(1, 0, 0, 150)
-wlScroll.BackgroundColor3 = WL_BG
-wlScroll.BorderSizePixel = 0
-wlScroll.ScrollBarThickness = 4
-wlScroll.ScrollBarImageColor3 = WL_ACCENT
-wlScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-wlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-wlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-wlScroll.LayoutOrder = 3
-wlScroll.Parent = wlPanel
-do
-wlCorner(wlScroll)
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 5)
-pad.PaddingBottom = UDim.new(0, 5)
-pad.PaddingLeft = UDim.new(0, 5)
-pad.PaddingRight = UDim.new(0, 6)
-pad.Parent = wlScroll
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 4)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlScroll
-end
-wlRows = {}
-function clearPlayerRows()
-for _, r in ipairs(wlRows) do
-r:Destroy()
-end
-table.clear(wlRows)
-end
-function applyRowStyle(row, isOn)
-local base = row:GetAttribute("WLText") or ""
-if isOn then
-row.BackgroundColor3 = WL_ACCENT
-row.TextColor3 = Color3.fromRGB(255, 255, 255)
-row.Text = "✓ " .. base
-else
-row.BackgroundColor3 = WL_ROW
-row.TextColor3 = WL_GRAY
-row.Text = base
-end
-end
-function rebuildPlayerList()
-clearPlayerRows()
-local rows = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-table.insert(rows, plr)
-end
-end
-table.sort(rows, function(a, b)
-return a.Name < b.Name
-end)
-if #rows == 0 then
-local empty = Instance.new("TextLabel")
-empty.BackgroundTransparency = 1
-empty.Font = Enum.Font.Gotham
-empty.TextSize = 12
-empty.TextColor3 = WL_GRAY
-empty.Text = "На сервере пока нет других игроков"
-empty.Size = UDim2.new(1, 0, 0, 26)
-empty.LayoutOrder = 1
-empty.Parent = wlScroll
-table.insert(wlRows, empty)
-return
-end
-for order, plr in ipairs(rows) do
-local row = Instance.new("TextButton")
-row.Name = "WL_" .. plr.Name
-row.AutoButtonColor = false
-row.Font = Enum.Font.Gotham
-row.TextSize = 13
-row.TextXAlignment = Enum.TextXAlignment.Left
-row.BackgroundColor3 = WL_ROW
-row.BorderSizePixel = 0
-row.Size = UDim2.new(1, 0, 0, 30)
-row.LayoutOrder = order
-row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
-row.Parent = wlScroll
-table.insert(wlRows, row)
-wlCorner(row, 5)
-local pad = Instance.new("UIPadding")
-pad.PaddingLeft = UDim.new(0, 8)
-pad.Parent = row
-applyRowStyle(row, Whitelist[plr.Name] == true)
-row.Activated:Connect(function()
-if Whitelist[plr.Name] then
-Whitelist[plr.Name] = nil
-applyRowStyle(row, false)
-else
-Whitelist[plr.Name] = true
-applyRowStyle(row, true)
-end
-end)
-end
-end
-wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
-wlInput = Instance.new("TextBox")
-wlInput.Name = "FustWhitelistInput"
-wlInput.Font = Enum.Font.Gotham
-wlInput.TextSize = 13
-wlInput.PlaceholderText = "Ник или DisplayName друга..."
-wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
-wlInput.Text = ""
-wlInput.TextColor3 = WL_TEXT
-wlInput.TextXAlignment = Enum.TextXAlignment.Left
-wlInput.ClearTextOnFocus = false
-wlInput.BackgroundColor3 = WL_BG
-wlInput.BorderSizePixel = 0
-wlInput.Size = UDim2.new(1, 0, 0, 32)
-wlInput.LayoutOrder = 5
-wlInput.Active = true
-wlInput.Selectable = true
-wlInput.Parent = wlPanel
-do
-wlCorner(wlInput)
-local pad = Instance.new("UIPadding")
-pad.PaddingLeft = UDim.new(0, 8)
-pad.Parent = wlInput
-end
-wlButtonRow = Instance.new("Frame")
-wlButtonRow.Name = "FustWhitelistButtons"
-wlButtonRow.BackgroundTransparency = 1
-wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
-wlButtonRow.LayoutOrder = 6
-wlButtonRow.Parent = wlPanel
-do
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Horizontal
-layout.Padding = UDim.new(0, 6)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlButtonRow
-end
-function wlMakeButton(text, order, bg, fg)
-local b = Instance.new("TextButton")
-b.Font = Enum.Font.GothamBold
-b.TextSize = 13
-b.Text = text
-b.TextColor3 = fg
-b.BackgroundColor3 = bg
-b.BorderSizePixel = 0
-b.Size = UDim2.new(0.5, -3, 1, 0)
-b.LayoutOrder = order
-b.Parent = wlButtonRow
-wlCorner(b, 5)
-return b
-end
-wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
-wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
-wlAdd.Activated:Connect(function()
-local name = resolveName(wlInput.Text)
-if name then
-Whitelist[name] = true
-rebuildPlayerList()
-end
-wlInput.Text = ""
-pcall(function()
-wlInput:ReleaseFocus()
-end)
-end)
-wlRemove.Activated:Connect(function()
-local name = resolveName(wlInput.Text)
-if name then
-Whitelist[name] = nil
-rebuildPlayerList()
-end
-wlInput.Text = ""
-pcall(function()
-wlInput:ReleaseFocus()
-end)
-end)
-Players.PlayerAdded:Connect(function()
-task.defer(rebuildPlayerList)
-end)
-Players.PlayerRemoving:Connect(function()
-task.defer(rebuildPlayerList)
-end)
-rebuildPlayerList()
-Aim = {
-Enabled = false,
-ShowFOV = false,
-FOV = 150, 
-Distance = 500, 
-Smooth = 4, 
-Prediction = 0.5, 
-Part = "Head", 
-Priority = "Прицел", 
-WallCheck = true,
-TeamCheck = false,
-Crosshair = false,
-TargetsPlayers = true, 
-TargetsNPC = false, 
-TargetsAnimals = false, 
-TargetsSleepers = false, 
-TargetsHelis = false, -- 0.39v2: вертолёты
-AutoPredict = false, 
-AutoPredictK = 1, 
-}
-Evil = {
-Enabled = false, 
-AutoPred = true, 
-Snipe = false, 
-K = 1, 
-}
-AutoAim = {
-Enabled = false, 
-Radius = 500, 
-}
--- 0.39v2: АВТО-СТРЕЛЬБА
-AutoFire = {
-Enabled = false,
-Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
-OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
-UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
-WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
-PCKey = nil,        -- не используется (всегда автомат)
-}
-AF_LastShot = 0
-AF_LastTargetPart = nil
-AA_EnemyNear = false 
-AA_NearestDist = nil 
-AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
-AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
--- 0.39v2: паттерны вертолётов для поиска в Workspace
-HELI_PATTERNS = {
-"вертолет", "вертолёт", "верталёт", "helicopter", "heli", "chopper",
-"боевой вертолет", "combat heli", "attack heli", "military heli",
-"transport heli", "грузовой вертолет", "mi-8", "mi-24", "ka-50", "ka-52",
-"uh-60", "ah-64", "ah-1", "bell", "robinson", "apache", "hind",
-}
-HELI_TAGS = { "FustHeli", "FustVehicle", "FustHelicopter", "Vehicle", "Heli" }
-HELI_FOLDER_NAMES = { "Helicopters", "Vehicles", "Heli", "Helis", "Авиация", "Транспорт" }
-trackedHelis = {} -- кэш найденных вертолётов
-heliScanAt = 0
-function heliScanWorkspace()
-local now = os.clock()
-if now - heliScanAt < 2.0 then return end -- раз в 2с
-heliScanAt = now
-local found = {}
-pcall(function()
--- 1. По тегам CollectionService
-for _, tag in ipairs(HELI_TAGS) do
-local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
-if ok and items then
-for _, inst in ipairs(items) do
-if inst:IsA("Model") and inst.Parent then
-table.insert(found, inst)
-end
-end
-end
-end
--- 2. Поиск по папкам
-for _, folder in ipairs(HELI_FOLDER_NAMES) do
-local okF, f = pcall(function()
-return Workspace:FindFirstChild(folder, true)
-end)
-if okF and f then
-for _, d in ipairs(f:GetDescendants()) do
-if d:IsA("Model") then
-table.insert(found, d)
-end
-end
-end
-end
--- 3. Поиск по имени в верхнем уровне Workspace
-for _, d in ipairs(Workspace:GetChildren()) do
-if d:IsA("Model") then
-local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
-if okN then
-for _, pat in ipairs(HELI_PATTERNS) do
-if string.find(name, pat, 1, true) then
-table.insert(found, d)
-break
-end
-end
-end
-end
-end
-end)
--- дедуп
-local seen = {}
-local unique = {}
-for _, h in ipairs(found) do
-if not seen[h] then
-seen[h] = true
-table.insert(unique, h)
-end
-end
-trackedHelis = unique
-end
-function heliFindAimPart(heli)
--- ищем BodyPart / Seat / Main rotor для прицеливания
-local bestPart = nil
-local bestScore = -math.huge
-pcall(function()
--- приоритет: PilotSeat, DriverSeat, Main, Body, HeliBody
-local priority = { "PilotSeat", "DriverSeat", "Main", "Body", "HeliBody", "Cabin", "Tail", "Rotor", "MainRotor" }
-for _, p in ipairs(heli:GetDescendants()) do
-if p:IsA("BasePart") then
-local name = string.lower(tostring(p.Name))
-local score = 0
-for i, pn in ipairs(priority) do
-if string.find(name, string.lower(pn), 1, true) then
-score = 100 - i
-break
-end
-end
-if score == 0 then score = 10 end -- любой BasePart подходит
-if score > bestScore then
-bestScore = score
-bestPart = p
-end
-end
-end
-end)
-return bestPart
-end
-AimHotkeyObj = nil 
-AimHotkeyBusy = false 
-UIRegistry.AimEnabled = AimSection:Toggle({
-Name = "Аимбот (камера-лок)",
-Flag = "AimEnabled",
-Default = false,
-Callback = function(state)
-Aim.Enabled = state
-if AimHotkeyObj then
-AimHotkeyObj.Toggled = state
-end
-journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-hasKeyboard = false
-pcall(function()
-hasKeyboard = (UserInputService.KeyboardEnabled == true)
-end)
-if hasKeyboard then
-AimHotkeyBusy = true
-AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
-Flag = "AimHotkey",
-Default = Enum.KeyCode.RightAlt,
-Mode = "Toggle",
-Callback = function(state)
-if AimHotkeyBusy then return end
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-UIRegistry.AimEnabled:Set(state)
-end
-end
-})
-AimHotkeyBusy = false
-UIRegistry.AimHotkey = AimHotkeyObj
-end
-UIRegistry.AimShowFOV = AimSection:Toggle({
-Name = "FOV круг (зеленеет при захвате)",
-Flag = "AimShowFOV",
-Default = false,
-Callback = function(state)
-Aim.ShowFOV = state
-end
-})
-UIRegistry.AimWallCheck = AimSection:Toggle({
-Name = "Проверка стен",
-Flag = "AimWallCheck",
-Default = true,
-Callback = function(state)
-Aim.WallCheck = state
-end
-})
-UIRegistry.AimTeamCheck = AimSection:Toggle({
-Name = "Не целить тимейтов (одна команда)",
-Flag = "AimTeamCheck",
-Default = false,
-Callback = function(state)
-Aim.TeamCheck = state
-end
-})
-UIRegistry.AimCrosshair = AimSection:Toggle({
-Name = "Прицел по центру (CS2-стиль)",
-Flag = "AimCrosshair",
-Default = false,
-Callback = function(state)
-Aim.Crosshair = state
-end
-})
--- 0.39: настройки прицела CS2
-UIRegistry.CHLength = AimSection:Slider({
-Name = "Прицел: длина лучей",
-Flag = "CHLength",
-Default = 7,
-Min = 1,
-Max = 20,
-Decimals = 1,
-Callback = function(v) CH.Length = v end
-})
-UIRegistry.CHThickness = AimSection:Slider({
-Name = "Прицел: толщина",
-Flag = "CHThickness",
-Default = 2,
-Min = 1,
-Max = 5,
-Decimals = 0.5,
-Callback = function(v) CH.Thickness = v end
-})
-UIRegistry.CHGap = AimSection:Slider({
-Name = "Прицел: зазор от центра",
-Flag = "CHGap",
-Default = 5,
-Min = 0,
-Max = 15,
-Decimals = 0.5,
-Callback = function(v) CH.Gap = v end
-})
-UIRegistry.CHDot = AimSection:Toggle({
-Name = "Прицел: точка в центре",
-Flag = "CHDot",
-Default = false,
-Callback = function(state) CH.Dot = state end
-})
-UIRegistry.CHOutline = AimSection:Toggle({
-Name = "Прицел: обводка (чёрная)",
-Flag = "CHOutline",
-Default = true,
-Callback = function(state) CH.Outline = state end
-})
-UIRegistry.CHColor = AimSection:Label("Прицел: цвет"):Colorpicker({
-Name = "Прицел: цвет",
-Flag = "CHColor",
-Default = Color3.fromRGB(255, 30, 30),
-Callback = function(c) CH.Color = c end
-})
--- 0.39v2: расширенные настройки CS2
-UIRegistry.CHTStyle = AimSection:Toggle({
-Name = "Прицел: T-стиль (без верха, как AWP)",
-Flag = "CHTStyle",
-Default = false,
-Callback = function(state) CH.TStyle = state end
-})
-UIRegistry.CHDotSize = AimSection:Slider({
-Name = "Прицел: размер точки",
-Flag = "CHDotSize",
-Default = 1,
-Min = 1,
-Max = 5,
-Decimals = 0.5,
-Callback = function(v) CH.DotSize = v end
-})
-UIRegistry.CHOutlineThickness = AimSection:Slider({
-Name = "Прицел: толщина обводки",
-Flag = "CHOutlineThickness",
-Default = 1,
-Min = 1,
-Max = 3,
-Decimals = 0.5,
-Callback = function(v) CH.OutlineThickness = v end
-})
-UIRegistry.CHAlpha = AimSection:Slider({
-Name = "Прицел: прозрачность (0-1)",
-Flag = "CHAlpha",
-Default = 1,
-Min = 0.1,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v) CH.Alpha = v end
-})
-UIRegistry.CHRecoilFollow = AimSection:Toggle({
-Name = "Прицел: следует за отдачей (CS recoil)",
-Flag = "CHRecoilFollow",
-Default = false,
-Callback = function(state) CH.RecoilFollow = state end
-})
-UIRegistry.AimFOV = AimSection:Slider({
-Name = "FOV радиус",
-Flag = "AimFOV",
-Default = 150,
-Min = 50,
-Max = 400,
-Decimals = 5,
-Suffix = "px",
-Callback = function(Value)
-Aim.FOV = Value
-end
-})
-UIRegistry.AimDistance = AimSection:Slider({
-Name = "Дистанция аима",
-Flag = "AimDistance",
-Default = 500,
-Min = 50,
 Max = 1500,
 Decimals = 10,
 Suffix = "m",
@@ -2466,4 +680,1230 @@ Dot = false,    -- точка в центре
 Outline = true, -- обводка (чёрная за цветом)
 Color = Color3.fromRGB(255, 30, 30),
 -- 0.39v2: расширенные настройки CS2
-TStyle = false,    -- T-стил
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
+}
+CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
+chLines = {}
+for i = 1, 4 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 2
+l.Color = Color3.fromRGB(255, 30, 30)
+l.Visible = false
+chLines[i] = l
+end
+end
+chDot = SafeDrawing("Circle")
+if chDot then
+chDot.Radius = 1
+chDot.Thickness = 1
+chDot.Filled = true
+chDot.Color = Color3.fromRGB(255, 30, 30)
+chDot.Visible = false
+end
+-- обводка: 8 линий вокруг основных (4 направления × 2 смещения)
+chOutline = {}
+for i = 1, 8 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 3
+l.Color = Color3.fromRGB(0, 0, 0)
+l.Visible = false
+chOutline[i] = l
+end
+end
+function updateCrosshair(center, visible)
+local gap = CH.Gap
+local len = CH.Length
+local th = CH.Thickness
+local alpha = CH.Alpha or 1
+-- 0.39v2: T-style — верхняя линия не рисуется (как AWP)
+-- top (skipped if TStyle)
+if chLines[1] and not CH.TStyle then
+chLines[1].From = Vector2.new(center.X, center.Y - gap)
+chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
+chLines[1].Thickness = th
+chLines[1].Color = CH.Color
+chLines[1].Transparency = 1 - alpha
+chLines[1].Visible = visible
+elseif chLines[1] then
+chLines[1].Visible = false
+end
+-- bottom
+if chLines[2] then
+chLines[2].From = Vector2.new(center.X, center.Y + gap)
+chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
+chLines[2].Thickness = th
+chLines[2].Color = CH.Color
+chLines[2].Transparency = 1 - alpha
+chLines[2].Visible = visible
+end
+-- left
+if chLines[3] then
+chLines[3].From = Vector2.new(center.X - gap, center.Y)
+chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
+chLines[3].Thickness = th
+chLines[3].Color = CH.Color
+chLines[3].Transparency = 1 - alpha
+chLines[3].Visible = visible
+end
+-- right
+if chLines[4] then
+chLines[4].From = Vector2.new(center.X + gap, center.Y)
+chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
+chLines[4].Thickness = th
+chLines[4].Color = CH.Color
+chLines[4].Transparency = 1 - alpha
+chLines[4].Visible = visible
+end
+-- точка (размер через DotSize)
+if chDot then
+chDot.Position = center
+chDot.Radius = math.max(1, CH.DotSize or 1)
+chDot.Color = CH.Color
+chDot.Transparency = 1 - alpha
+chDot.Visible = visible and CH.Dot
+end
+-- обводка (8 линий с микро-смещением вокруг основных; толщина через OutlineThickness)
+if CH.Outline and visible then
+local ot = CH.OutlineThickness or 1
+local offs = { {1,0}, {-1,0}, {0,1}, {0,-1} }
+local oi = 1
+for dir = 1, 4 do
+local base = chLines[dir]
+if base and base.Visible then
+for _, off in ipairs(offs) do
+local o = chOutline[oi]
+if o then
+o.From = Vector2.new(base.From.X + off[1] * ot, base.From.Y + off[2] * ot)
+o.To = Vector2.new(base.To.X + off[1] * ot, base.To.Y + off[2] * ot)
+o.Thickness = th + ot * 2
+o.Color = Color3.fromRGB(0, 0, 0)
+o.Transparency = 1 - alpha
+o.Visible = true
+end
+oi = oi + 1
+end
+end
+end
+for i = oi, 8 do
+if chOutline[i] then chOutline[i].Visible = false end
+end
+else
+for i = 1, 8 do
+if chOutline[i] then chOutline[i].Visible = false end
+end
+end
+end
+aimRayParams = RaycastParams.new()
+aimRayParams.FilterType = Enum.RaycastFilterType.Exclude
+aimRayParams.IgnoreWater = true
+function resolveAimPart(character, choice)
+local pick = choice
+if pick == "Random" then
+pick = AIM_PARTS[math.random(1, 3)]
+end
+if pick == "Head" then
+return character:FindFirstChild("Head") or character:FindFirstChild("UpperTorso")
+elseif pick == "Torso" then
+return character:FindFirstChild("UpperTorso")
+or character:FindFirstChild("Torso")
+or character:FindFirstChild("HumanoidRootPart")
+elseif pick == "Legs" then
+return character:FindFirstChild("LeftLeg")
+or character:FindFirstChild("RightLeg")
+or character:FindFirstChild("LeftFoot")
+or character:FindFirstChild("RightFoot")
+end
+return character:FindFirstChild("HumanoidRootPart")
+end
+function wallBetween(fromPos, targetChar, targetPos)
+local filter = {}
+if LocalPlayer.Character then
+table.insert(filter, LocalPlayer.Character)
+end
+table.insert(filter, targetChar)
+aimRayParams.FilterDescendantsInstances = filter
+return Workspace:Raycast(fromPos, targetPos - fromPos, aimRayParams) ~= nil
+end
+evilVisCache = {}
+evilVisCacheCount = 0
+function evilBodyVisible(model, camPos)
+-- КЭШ 0.15с: без него злой аим делал 2 raycast на каждого игрока КАЖДЫЙ кадр — это и есть лаги
+local now = os.clock()
+local hit = evilVisCache[model]
+if hit and now - hit.at < 0.15 then
+return hit.vis
+end
+if evilVisCacheCount > 40 then
+table.clear(evilVisCache)
+evilVisCacheCount = 0
+end
+local headP = model:FindFirstChild("Head") or model:FindFirstChild("UpperTorso")
+local torsoP = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+local vis = false
+if headP and not wallBetween(camPos, model, headP.Position) then
+vis = true
+end
+if not vis and torsoP and not wallBetween(camPos, model, torsoP.Position) then
+vis = true
+end
+evilVisCache[model] = { at = now, vis = vis }
+evilVisCacheCount = evilVisCacheCount + 1
+return vis
+end
+function evilAimPoint(model, root, camPos, dist)
+if not evilBodyVisible(model, camPos) then
+return nil, nil 
+end
+local center = root.Position
+if not Evil.AutoPred then
+return root, center
+end
+local okV, vel = pcall(function()
+return root.AssemblyLinearVelocity
+end)
+if not okV or not vel then
+return root, center
+end
+local hVel = Vector3.new(vel.X, 0, vel.Z)
+if hVel.Magnitude < 1 then
+return root, center 
+end
+local half = math.max(root.Size.X, root.Size.Z) * 0.5
+-- 0.39v2: используем улучшенную autoLead с адаптивной коррекцией
+local lead = autoLead(dist, vel, nil) * math.clamp(Evil.K or 1, 0.1, 5)
+local dir = hVel.Unit
+return root, center + dir * half + vel * lead
+end
+trackedNPCs = {} 
+NPC_LastCount = 0 
+function npcFeaturesActive()
+return (S.NPC.ESP or S.NPC.Chams or S.NPC.HitboxEnabled
+or (Aim.Enabled and (Aim.TargetsNPC or Aim.TargetsAnimals or Aim.TargetsSleepers)))
+and true or false
+end
+function isPlayerCharacter(model)
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr.Character == model then
+return true
+end
+end
+return false
+end
+function tryTrackNPC(model)
+if not model or not model:IsA("Model") or trackedNPCs[model] then
+return
+end
+local okN, hum = pcall(function()
+return model:FindFirstChildOfClass("Humanoid")
+end)
+if not okN or not hum then
+return
+end
+local okR, root = pcall(function()
+return model:FindFirstChild("HumanoidRootPart")
+end)
+if not okR or not root then
+return
+end
+if isPlayerCharacter(model) then
+return
+end
+trackedNPCs[model] = true
+end
+function scanNPCContainer(container, depth)
+local okS, children = pcall(function()
+return container:GetChildren()
+end)
+if not okS or not children then
+return
+end
+for _, inst in ipairs(children) do
+if inst:IsA("Model") then
+tryTrackNPC(inst)
+elseif depth > 0 and (inst:IsA("Folder") or inst:IsA("WorldModel")) then
+scanNPCContainer(inst, depth - 1)
+end
+end
+end
+task.spawn(function()
+while getgenv().FUST_SESSION == FUST_SESSION do
+if npcFeaturesActive() then
+pcall(function()
+for model in pairs(trackedNPCs) do
+if not model.Parent or not model:IsDescendantOf(Workspace) then
+trackedNPCs[model] = nil
+end
+end
+scanNPCContainer(Workspace, 2)
+for _, npcTag in ipairs({ "FustNpc", "FustAnimal", "FustDino" }) do
+local okTags, tagged = pcall(CollectionService.GetTagged, CollectionService, npcTag)
+if okTags and tagged then
+for _, taggedModel in ipairs(tagged) do
+tryTrackNPC(taggedModel)
+end
+end
+end
+end)
+end
+task.wait(1)
+end
+end)
+pcall(function()
+Library:Connect(Workspace.DescendantAdded, function(inst)
+if npcFeaturesActive() and inst:IsA("Model") then
+task.defer(tryTrackNPC, inst)
+end
+end)
+end)
+task.spawn(function()
+while getgenv().FUST_SESSION == FUST_SESSION do
+if S.NPC.DebugLog and npcFeaturesActive() then
+local npcCount = 0
+for model in pairs(trackedNPCs) do
+npcCount = npcCount + 1
+local hum = model:FindFirstChildOfClass("Humanoid")
+local root = model:FindFirstChild("HumanoidRootPart")
+local catText = "?"
+if hum and root then
+catText = tostring(npcGetCategory(model, hum, root))
+end
+local okP, parentName = pcall(function()
+return model.Parent and model.Parent.Name or "нет"
+end)
+local okT, tags = pcall(function()
+return table.concat(CollectionService:GetTags(model), ",")
+end)
+print(string.format(
+"[FUST][НПС] %s | папка: %s | теги: %s | категория: %s",
+tostring(model.Name),
+okP and tostring(parentName) or "?",
+(okT and tags and tags ~= "" and tags or "-"),
+catText
+))
+end
+print("[FUST][НПС] всего отслежено: " .. tostring(npcCount))
+end
+task.wait(10)
+end
+end)
+trackedBackpacks = {} 
+bpDrawings = {} 
+BP_NAME_PATTERNS = {
+"кзак", "КЗАК", "РЮКЗАК", "Рюкзак", "backpack", "BACKPACK",
+"умк", "УМК", "ешок", "ЕШОК", "руп", "РУП",
+"corpse", "CORPSE", "deadbody", "dead body", "lootbag", "loot bag", "dropbag", "drop bag",
+}
+BP_PROMPT_PATTERNS = { "кзак", "КЗАК", "РЮКЗАК", "Рюкзак", "ackpack", "ACKPACK", "умк", "УМК", "ешок", "ЕШОК", "руп", "РУП", "corpse", "CORPSE", "обыч", "ОБЫЧ", "лут", "Лут", "ЛУТ", "loot", "LOOT", "быск", "БЫСК", "search", "SEARCH" }
+BP_TAGS = { "FustBackpack", "Backpack", "LootBag", "LootBackpack", "Corpse", "FustCorpse", "DeadBody" }
+CT_NAME_PATTERNS = { "очк", "ОЧК", "barrel", "BARREL", "щик", "ЩИК", "crate", "CRATE", "chest", "CHEST", "онтейнер", "ОНТЕЙНЕР", "container", "CONTAINER", "lootbox", "LOOTBOX" }
+CT_PROMPT_PATTERNS = { "очк", "ОЧК", "barrel", "BARREL", "щик", "ЩИК", "crate", "CRATE", "chest", "CHEST", "онтейнер", "ОНТЕЙНЕР", "container", "CONTAINER", "lootbox", "LOOTBOX" }
+CT_TAGS = { "FustLoot", "LootCrate", "LootBarrel", "LootContainer", "Barrel", "Crate" }
+BP_OWNER_ATTRS = { "owner", "ownername", "ownerplayer", "player", "playername", "creator", "creatorname", "nick", "nickname", "username" }
+BP_OWNERID_ATTRS = { "ownerid", "owneruserid", "userid", "playerid" }
+BP_USED_ATTRS = { "usedslots", "filledslots", "slotsused", "slotstaken", "takenslots", "items", "itemcount", "itemscount", "lootcount", "count", "amount" }
+BP_MAX_ATTRS = { "slotcount", "maxslots", "totalslots", "slotsmax", "capacity", "slots" }
+BP_SLOT_FOLDERS = { "items", "inventory", "slots", "container", "storage", "contents", "content", "loot" }
+BP_OWNER_VALUE_NAMES = { "owner", "ownername", "player", "playername", "ownerplayer" }
+function bpNameLower(inst)
+local okN, nameL = pcall(function()
+return string.lower(tostring(inst.Name))
+end)
+if okN then
+return nameL
+end
+return ""
+end
+function bpMatchesFragments(text, patterns)
+for _, pat in ipairs(patterns) do
+if string.find(text, pat, 1, true) then
+return true
+end
+local up = string.upper(pat)
+if up ~= pat and string.find(text, up, 1, true) then
+return true
+end
+end
+return false
+end
+function bpCheckPromptText(prompt)
+local okT, txt = pcall(function()
+return string.lower(tostring(prompt.ObjectText)) .. " " .. tostring(prompt.ActionText)
+end)
+if not okT or not txt then
+return false
+end
+return bpMatchesFragments(txt, BP_PROMPT_PATTERNS)
+end
+function bpIsEligibleInstance(inst)
+if not inst or not inst.Parent then
+return false
+end
+if not inst:IsA("Model") and not inst:IsA("BasePart") then
+return false
+end
+if not inst:IsDescendantOf(Workspace) then
+return false
+end
+local cam = Workspace.CurrentCamera
+if cam and inst:IsDescendantOf(cam) then
+return false
+end
+for _, plr in ipairs(Players:GetPlayers()) do
+local c = plr.Character
+if c and (c == inst or inst:IsDescendantOf(c)) then
+return false
+end
+end
+if trackedNPCs[inst] then
+return false
+end
+if inst:IsA("Model") and inst:FindFirstChildOfClass("Humanoid") then
+return false
+end
+return true
+end
+function bpClassify(inst)
+local nameL = bpNameLower(inst)
+if bpMatchesFragments(nameL, CT_NAME_PATTERNS) then
+return "cont"
+end
+if bpMatchesFragments(nameL, BP_NAME_PATTERNS) then
+return "bag"
+end
+local okP, prompt = pcall(function()
+return inst:FindFirstChildOfClass("ProximityPrompt")
+end)
+if okP and prompt then
+local okT, txt = pcall(function()
+return string.lower(tostring(prompt.ObjectText)) .. " " .. tostring(prompt.ActionText)
+end)
+if okT and txt then
+if bpMatchesFragments(txt, CT_PROMPT_PATTERNS) then
+return "cont"
+end
+if bpMatchesFragments(txt, BP_PROMPT_PATTERNS) then
+return "bag"
+end
+end
+end
+return nil
+end
+function bpTryTrack(inst)
+if trackedBackpacks[inst] then
+return
+end
+if not bpIsEligibleInstance(inst) then
+return
+end
+local cat = bpClassify(inst)
+if cat then
+trackedBackpacks[inst] = { Cat = cat }
+end
+end
+function bpScanContainer(root, maxDepth)
+local function walk(parent, depth)
+if depth > maxDepth then
+return
+end
+local okC, kids = pcall(function()
+return parent:GetChildren()
+end)
+if not okC or type(kids) ~= "table" then
+return
+end
+for _, ch in ipairs(kids) do
+if ch:IsA("Model") or ch:IsA("BasePart") then
+bpTryTrack(ch)
+end
+if ch:IsA("Folder") or (ch:IsA("Model") and depth < 2) then
+walk(ch, depth + 1)
+end
+end
+end
+walk(root, 1)
+end
+function bpEnsureDrawings(inst)
+local ed = bpDrawings[inst]
+if not ed then
+ed = {
+Box = Drawing.new("Square"),
+Fill = Drawing.new("Square"), 
+Owner = Drawing.new("Text"),
+Slots = Drawing.new("Text"),
+Distance = Drawing.new("Text"),
+}
+ed.Box.Filled = false
+ed.Box.Thickness = 1
+ed.Fill.Filled = true
+ed.Fill.Thickness = 1
+ed.Fill.Visible = false
+for _, key in ipairs({ "Owner", "Slots", "Distance" }) do
+ed[key].Center = true
+ed[key].Outline = true
+ed[key].Font = Drawing.Fonts.Plex
+end
+ed.Owner.Size = 14
+ed.Slots.Size = 13
+ed.Distance.Size = 12
+bpDrawings[inst] = ed
+end
+return ed
+end
+function bpRemoveDrawings(inst)
+local ed = bpDrawings[inst]
+if ed then
+for _, obj in pairs(ed) do
+pcall(function()
+obj:Remove()
+end)
+end
+bpDrawings[inst] = nil
+end
+pcall(function()
+local e = trackedBackpacks[inst]
+local h = e and e.High
+if not h then
+h = inst:FindFirstChild("PETUH_LootChams")
+end
+if h then
+h:Destroy()
+end
+if e then
+e.High = nil
+end
+end)
+end
+function bpHideDrawings(inst)
+local ed = bpDrawings[inst]
+if ed then
+ed.Box.Visible = false
+ed.Owner.Visible = false
+ed.Slots.Visible = false
+ed.Distance.Visible = false
+ed.Fill.Visible = false 
+end
+local e = trackedBackpacks[inst]
+local h = e and e.High
+if h then
+pcall(function()
+h.Enabled = false
+end)
+end
+end
+function bpHideAll()
+for inst in pairs(bpDrawings) do
+bpHideDrawings(inst)
+end
+end
+function bpRemoveAll()
+for inst in pairs(bpDrawings) do
+bpRemoveDrawings(inst)
+end
+table.clear(trackedBackpacks)
+if bpOpenCacheInst then
+table.clear(bpOpenCacheInst) 
+end
+end
+function bpGetBBox(inst)
+local e = trackedBackpacks[inst]
+local now = os.clock()
+if e and e.BBoxCF and e.BBoxSize and e.BBoxAt and now - e.BBoxAt < 0.5 then
+return e.BBoxCF, e.BBoxSize
+end
+local cf, sz
+if inst:IsA("Model") then
+local okB, bcf, bsz = pcall(function()
+return inst:GetBoundingBox()
+end)
+if okB and bcf and bsz then
+cf, sz = bcf, bsz
+end
+elseif inst:IsA("BasePart") then
+cf, sz = inst.CFrame, inst.Size
+end
+if not cf or not sz or sz.Magnitude <= 0 then
+return nil
+end
+if sz.Magnitude > 60 then
+sz = Vector3.new(2, 2, 2)
+end
+if e then
+e.BBoxCF, e.BBoxSize, e.BBoxAt = cf, sz, now
+end
+return cf, sz
+end
+function bpProject(camera, cf, sz)
+local camPos = camera.CFrame.Position
+local look = camera.CFrame.LookVector
+local hx = sz.X * 0.5 + 0.5
+local hy = sz.Y * 0.5 + 0.5
+local hz = sz.Z * 0.5 + 0.5
+local minX, minY = math.huge, math.huge
+local maxX, maxY = -math.huge, -math.huge
+for i = 0, 7 do
+local ox = (i % 2 == 0) and -hx or hx
+local oy = (i % 4 < 2) and -hy or hy
+local oz = (i < 4) and -hz or hz
+local corner = (cf * CFrame.new(ox, oy, oz)).Position
+if (corner - camPos):Dot(look) <= 0.1 then
+return nil
+end
+local pt = camera:WorldToViewportPoint(corner)
+if pt.X < minX then minX = pt.X end
+if pt.X > maxX then maxX = pt.X end
+if pt.Y < minY then minY = pt.Y end
+if pt.Y > maxY then maxY = pt.Y end
+end
+return Vector2.new(minX, minY), Vector2.new(maxX - minX, maxY - minY)
+end
+function bpOwnerFromLabel(label)
+if type(label) ~= "string" or #label < 5 then
+return nil
+end
+local l = string.lower(label)
+local pats = {
+"^%s*(.-)'s%s*backpack%s*$", 
+"^%s*(.-)s%s*backpack%s*$", 
+"^%s*(.-)%s+backpack%s*$", 
+"^%s*(.-)'s%s*loot%s*bag%s*$",
+"^%s*(.-)s%s*loot%s*bag%s*$",
+"^%s*(.-)%s+loot%s*bag%s*$",
+"^рюкзак%s+(.+)%s*$", 
+"^Рюкзак%s+(.+)%s*$", 
+"^РЮКЗАК%s+(.+)%s*$", 
+"^сумка%s+(.+)%s*$", 
+"^Сумка%s+(.+)%s*$",
+"^СУМКА%s+(.+)%s*$",
+"^мешок%s+(.+)%s*$", 
+"^Мешок%s+(.+)%s*$",
+"^МЕШОК%s+(.+)%s*$",
+"^труп%s+(.+)%s*$", 
+"^Труп%s+(.+)%s*$",
+"^ТРУП%s+(.+)%s*$",
+}
+for _, p in ipairs(pats) do
+local _, _, cs, ce = string.find(l, p)
+if cs and ce then
+local owner = string.sub(label, cs, ce)
+owner = owner:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
+if #owner >= 2 then
+return owner
+end
+end
+end
+return nil
+end
+bpOpenCacheInst = {} 
+bpOpenCacheTitle = {} 
+BP_OPEN_TTL = 1800 -- 0.39: было 900с (15мин). 30мин кэш безопаснее для FPS.
+bpUiScanAt = {} 
+function bpLooksLikeBagTitle(text)
+if type(text) ~= "string" or #text < 4 or #text > 64 then
+return false
+end
+return bpMatchesFragments(string.lower(text), {
+"кзак", "КЗАК", "РЮКЗАК", "Рюкзак", "ackpack", "ACKPACK", "умк", "УМК",
+"ешок", "ЕШОК", "руп", "РУП", "corpse", "CORPSE", "обыч", "ОБЫЧ",
+"лут", "Лут", "ЛУТ", "loot", "Loot", "LOOT",
+})
+end
+function bpSlotsFromUiText(text)
+if type(text) ~= "string" or #text > 40 then
+return nil
+end
+local t = string.lower(text)
+if string.find(t, "счез", 1, true) or string.find(t, "ерез", 1, true)
+or string.find(t, "xpire", 1, true) or string.find(t, "espawn", 1, true)
+or string.find(t, "lapse", 1, true) or string.find(t, "кг", 1, true)
+or string.find(t, "kg", 1, true) or string.find(t, "вес", 1, true)
+or string.find(t, "weight", 1, true) or string.find(t, "минут", 1, true)
+or string.find(t, "хп", 1, true) or string.find(t, "hp", 1, true) then
+return nil
+end
+local u, m = string.match(text, "^%s*(%d+)%s*/%s*(%d+)%s*$")
+if u and m then
+return u .. "/" .. m
+end
+u, m = string.match(text, "(%d+)%s+из%s+(%d+)")
+or string.match(text, "(%d+)%s+Из%s+(%d+)")
+or string.match(text, "(%d+)%s+ИЗ%s+(%d+)")
+if u and m then
+return u .. "/" .. m
+end
+if #text <= 16 then
+u, m = string.match(text, "(%d+)%s*/%s*(%d+)")
+if u and m then
+return u .. "/" .. m
+end
+end
+return nil
+end
+function bpRememberOpenUI(owner, slots, titleLower)
+if slots == nil and owner == nil then
+return
+end
+local rec = { Owner = owner, Slots = slots, At = os.clock() }
+if titleLower then
+bpOpenCacheTitle[titleLower] = rec
+end
+local cam = Workspace.CurrentCamera
+if cam then
+local cc = cam.ViewportSize * 0.5
+local best, bestD = nil, 320
+for inst, e in pairs(trackedBackpacks) do
+if (e.Cat or "bag") == "bag" then
+local cf = e.BBoxCF
+if not cf then
+cf = bpGetBBox(inst)
+end
+if cf then
+local okP, pt = pcall(function()
+return cam:WorldToViewportPoint(cf.Position)
+end)
+if okP and pt and pt.Z > 0 then
+local dd = (Vector2.new(pt.X, pt.Y) - cc).Magnitude
+if dd < bestD then
+best, bestD = inst, dd
+end
+end
+end
+end
+end
+if best then
+bpOpenCacheInst[best] = rec
+if S.Loot.DebugLog then
+print("[FUST][ЛУТ-UI] запомнили мешок: владелец=" .. tostring(owner) .. " слоты=" .. tostring(slots))
+end
+end
+end
+end
+function bpCaptureBagGui(gui, force)
+local now = os.clock()
+if not force and bpUiScanAt[gui] and now - bpUiScanAt[gui] < 8 then
+return
+end
+bpUiScanAt[gui] = now
+local okD, desc = pcall(function()
+local out = {}
+local stack = { gui }
+while #stack > 0 and #out < 800 do
+local node = table.remove(stack)
+local kids = node:GetChildren()
+for i = #kids, 1, -1 do
+local k = kids[i]
+table.insert(out, k)
+if #out >= 800 then
+break
+end
+table.insert(stack, k)
+end
+end
+return out
+end)
+if not okD or type(desc) ~= "table" then
+return
+end
+local titleIdx, title, titleLower, owner
+for idx, d in ipairs(desc) do
+if titleIdx then
+break
+end
+if d:IsA("TextLabel") or d:IsA("TextButton") then
+local okT, txt = pcall(function()
+return tostring(d.Text)
+end)
+if okT and txt and bpLooksLikeBagTitle(txt) then
+titleIdx, title, titleLower = idx, txt, string.lower(txt)
+owner = bpOwnerFromLabel(txt)
+if owner and (string.find(string.lower(owner), "ерсонаж", 1, true)
+or string.find(string.lower(owner), "владел", 1, true)) then
+owner = nil
+end
+end
+end
+end
+if titleIdx == nil then
+return
+end
+local slots, slotsWeak
+local lastIdx = math.min(#desc, titleIdx + 400)
+for idx = titleIdx + 1, lastIdx do
+local d = desc[idx]
+if d:IsA("TextLabel") or d:IsA("TextButton") then
+local okT, txt = pcall(function()
+return tostring(d.Text)
+end)
+if okT and txt then
+local s = bpSlotsFromUiText(txt)
+if s then
+if string.match(txt, "^%s*(%d+)%s*/%s*(%d+)%s*$") then
+slots = s
+break
+elseif slotsWeak == nil then
+slotsWeak = s
+end
+end
+end
+end
+end
+slots = slots or slotsWeak
+if S.Loot.DebugLog then
+print("[FUST][ЛУТ-UI] экран мешка: заголовок=[" .. tostring(title)
+.. "] владелец=" .. tostring(owner) .. " слоты=" .. tostring(slots))
+end
+bpRememberOpenUI(owner, slots, titleLower)
+end
+function bpScanOpenBagUI()
+local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if not pg then
+return
+end
+local okG, guis = pcall(function()
+return pg:GetChildren()
+end)
+if not okG or type(guis) ~= "table" then
+return
+end
+for _, gui in ipairs(guis) do
+if gui:IsA("LayerCollector") then
+local nameL = string.lower(tostring(gui.Name))
+if not string.find(nameL, "petuh", 1, true) then
+bpCaptureBagGui(gui)
+end
+end
+end
+end
+function bpReadInfo(inst, deep) 
+local owner
+local slotsUsed, slotsMax, itemCount
+local cached = bpOpenCacheInst[inst]
+if cached and os.clock() - (cached.At or 0) > BP_OPEN_TTL then
+cached = nil
+bpOpenCacheInst[inst] = nil
+end
+if cached then
+if owner == nil then
+owner = cached.Owner
+end
+if slotsUsed == nil and cached.Slots then
+local cu, cm = string.match(cached.Slots, "(%d+)%s*/%s*(%d+)")
+if cu and cm then
+slotsUsed = tonumber(cu)
+slotsMax = tonumber(cm)
+else
+slotsUsed = tonumber(cached.Slots)
+end
+end
+end
+local okA, attrs = pcall(function()
+return inst:GetAttributes()
+end)
+if okA and type(attrs) == "table" then
+for key, val in pairs(attrs) do
+local keyL = string.lower(tostring(key))
+if owner == nil and type(val) == "string" and #val > 0 and #val <= 32
+and table.find(BP_OWNER_ATTRS, keyL) then
+owner = val
+end
+if owner == nil and type(val) == "number"
+and table.find(BP_OWNERID_ATTRS, keyL) then
+local okP, plr = pcall(Players.GetPlayerByUserId, Players, val)
+if okP and plr then
+owner = plr.Name
+end
+end
+if type(val) == "number" then
+if slotsUsed == nil and table.find(BP_USED_ATTRS, keyL) then
+slotsUsed = val
+end
+if slotsMax == nil and table.find(BP_MAX_ATTRS, keyL) then
+slotsMax = val
+end
+end
+end
+end
+local okC, children = pcall(function()
+return inst:GetChildren()
+end)
+if okC and type(children) == "table" then
+for _, ch in ipairs(children) do
+local nameL = string.lower(tostring(ch.Name))
+if ch:IsA("StringValue") then
+if owner == nil and table.find(BP_OWNER_VALUE_NAMES, nameL)
+and type(ch.Value) == "string" and #ch.Value > 0 and #ch.Value <= 32 then
+owner = ch.Value
+end
+elseif ch:IsA("ObjectValue") then
+if owner == nil and table.find(BP_OWNER_VALUE_NAMES, nameL)
+and typeof(ch.Value) == "Instance" then
+local okV, vName = pcall(function()
+return tostring(ch.Value.Name)
+end)
+if okV then
+owner = vName
+end
+end
+elseif ch:IsA("IntValue") or ch:IsA("NumberValue") then
+local v = tonumber(ch.Value)
+if v then
+if slotsUsed == nil and nameL ~= "slots" and table.find(BP_USED_ATTRS, nameL) then
+slotsUsed = v
+end
+if slotsMax == nil and table.find(BP_MAX_ATTRS, nameL) then
+slotsMax = v
+end
+end
+end
+end
+end
+local okP, prompt = pcall(function()
+return inst:FindFirstChildOfClass("ProximityPrompt")
+end)
+if okP and prompt then
+if owner == nil then
+local okT, title = pcall(function()
+return tostring(prompt.ObjectText)
+end)
+if okT and title and #title > 0 and #title <= 48 then
+local titleL = string.lower(title)
+for _, plr in ipairs(Players:GetPlayers()) do
+local nL = string.lower(plr.Name)
+local dL = string.lower(plr.DisplayName)
+if string.find(titleL, nL, 1, true)
+or (dL ~= nL and #dL > 2 and string.find(titleL, dL, 1, true)) then
+owner = plr.Name
+break
+end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(title)
+end
+if owner == nil then
+local cleaned = tostring(title)
+local stripWords = {
+"РЮКЗАК", "Рюкзак", "рюкзак", "BACKPACK", "Backpack", "backpack",
+"СУМКА", "Сумка", "сумка", "МЕШОК", "Мешок", "мешок",
+"ТРУП", "Труп", "труп", "CORPSE", "Corpse", "corpse",
+"LOOT", "Loot", "loot", "BAG", "Bag", "bag",
+"МАЛЕНЬКИЙ", "Маленький", "маленький",
+"БОЛЬШОЙ", "Большой", "большой", "СРЕДНИЙ", "Средний", "средний",
+"ОБЫЧНЫЙ", "Обычный", "обычный", "ОГРОМНЫЙ", "Огромный", "огромный",
+"ПУСТОЙ", "Пустой", "пустой",
+"SMALL", "Small", "small", "BIG", "Big", "big",
+"MEDIUM", "Medium", "medium", "LARGE", "Large", "large",
+"HUGE", "Huge", "huge", "COMMON", "Common", "common",
+}
+for _, w in ipairs(stripWords) do
+cleaned = cleaned:gsub(w, "")
+end
+cleaned = cleaned:gsub("^[%s%p]+", ""):gsub("[%s%p]+$", "")
+if #cleaned >= 3 then
+owner = cleaned
+end
+end
+end
+end
+if slotsUsed == nil then
+local okAc, actText = pcall(function()
+return tostring(prompt.ActionText)
+end)
+if okAc and actText then
+local uAct, mAct = string.match(actText, "%((%d+)%s*/%s*(%d+)%)")
+if uAct and mAct then
+slotsUsed = tonumber(uAct)
+slotsMax = tonumber(mAct)
+end
+local num = string.match(actText, "%((%d+)%)")
+or string.match(actText, "%[(%d+)%]")
+or string.match(actText, "(%d+)")
+if num then
+slotsUsed = tonumber(num)
+end
+end
+end
+end
+if deep and (owner == nil or slotsUsed == nil) then
+local okDesc, desc = pcall(function()
+return inst:GetDescendants()
+end)
+if okDesc and type(desc) == "table" then
+local scanned = 0
+for _, ch in ipairs(desc) do
+scanned = scanned + 1
+if scanned > 80 then
+break 
+end
+if owner == nil or slotsUsed == nil then
+pcall(function()
+for key, val in pairs(ch:GetAttributes()) do
+local keyL = string.lower(tostring(key))
+if owner == nil and type(val) == "string" and #val > 0 and #val <= 32
+and table.find(BP_OWNER_ATTRS, keyL) then
+owner = val
+end
+if owner == nil and type(val) == "number"
+and table.find(BP_OWNERID_ATTRS, keyL) then
+local okP3, plr3 = pcall(Players.GetPlayerByUserId, Players, val)
+if okP3 and plr3 then
+owner = plr3.Name
+end
+end
+if type(val) == "number" then
+if slotsUsed == nil and table.find(BP_USED_ATTRS, keyL) then
+slotsUsed = val
+end
+if slotsMax == nil and table.find(BP_MAX_ATTRS, keyL) then
+slotsMax = val
+end
+end
+end
+end)
+end
+if ch:IsA("ProximityPrompt") and (owner == nil or slotsUsed == nil) then
+pcall(function()
+if owner == nil then
+owner = bpOwnerFromLabel(tostring(ch.ObjectText))
+end
+if slotsUsed == nil then
+local prTxt = tostring(ch.ObjectText) .. " " .. tostring(ch.ActionText)
+local uPr, mPr = string.match(prTxt, "(%d+)%s*/%s*(%d+)")
+if uPr and mPr then
+slotsUsed = tonumber(uPr)
+slotsMax = tonumber(mPr)
+end
+end
+end)
+end
+if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+local okTx, txt = pcall(function()
+return tostring(ch.Text)
+end)
+if okTx and txt and #txt > 0 and #txt <= 80 then
+local txtL = string.lower(txt)
+if slotsUsed == nil then
+local isTimer = string.find(txtL, "счез", 1, true)
+or string.find(txtL, "ерез", 1, true)
+or string.find(txtL, "xpire", 1, true)
+or string.find(txtL, "espawn", 1, true)
+or string.find(txtL, "lapse", 1, true)
+if not isTimer then
+local uTxt, mTxt = string.match(txt, "(%d+)%s*/%s*(%d+)")
+if uTxt and mTxt then
+slotsUsed = tonumber(uTxt)
+slotsMax = tonumber(mTxt)
+end
+end
+end
+if owner == nil then
+for _, plr in ipairs(Players:GetPlayers()) do
+local nL = string.lower(plr.Name)
+local dL = string.lower(plr.DisplayName)
+if string.find(txtL, nL, 1, true)
+or (dL ~= nL and #dL > 2 and string.find(txtL, dL, 1, true)) then
+owner = plr.Name
+break
+end
+end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(txt)
+end
+end
+end
+if owner and slotsUsed then
+break 
+end
+end
+end
+end
+if owner == nil then
+local okN9, nm9 = pcall(function()
+return tostring(inst.Name)
+end)
+if okN9 and nm9 then
+local rec9 = bpOpenCacheTitle[string.lower(nm9)]
+if rec9 and os.clock() - (rec9.At or 0) <= BP_OPEN_TTL then
+owner = rec9.Owner
+end
+end
+end
+if owner == nil then
+local nameL = bpNameLower(inst)
+if #nameL > 0 then
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.find(nameL, string.lower(plr.Name), 1, true) then
+owner = plr.Name
+break
+end
+end
+end
+if owner == nil then
+owner = bpOwnerFromLabel(tostring(inst.Name))
+end
+end
+if slotsUsed == nil and okC and type(children) == "table" then
+for _, ch in ipairs(children) do
+if ch:IsA("Folder") or ch:IsA("Model") then
+local nameL = string.lower(tostring(ch.Name))
+if bpMatchesFragments(nameL, BP_SLOT_FOLDERS) then
+local cnt = 0
+local okI, items = pcall(function()
+return ch:GetChildren()
+end)
+if okI and type(items) == "table" then
+for _, item in ipairs(items) do
+if item:IsA("Tool") or item:IsA("Model") or item:IsA("BasePart")
+or item:IsA("IntValue") or item:IsA("NumberValue")
+or item:IsA("StringValue") then
+cnt = cnt + 1
+end
+end
+end
+if cnt > 0 then
+itemCount = math.max(itemCount or 0, cnt)
+end
+end
+end
+end
+local tools = 0
+for _, ch in ipairs(children) do
+if ch:IsA("Tool") then
+tools = tools + 1
+end
+end
+if tools > 0 then
+itemCount = math.max(itemCount or 0, tools)
+end
+end
+local slotsText
+if slotsUsed and slotsMax and slotsMax > 0 then
+slotsText = string.format("%d/%d", math.floor(slotsUsed), math.floor(slotsMax))
+elseif slotsUsed then
+slotsText = string.format("%d слот.", math.floor(slotsUsed))
+elseif slotsMax and slotsMax > 0 then
+slotsText = string.format("?/%d", math.floor(slotsMax))
+elseif itemCount then
+slotsText = tostring(itemCount) .. " предм."
+end
+return { Owner = owner, Slots = slotsText }
+end
+FC_MOD = {
+yaw = 0,
+pitch = 0,
+conns = {},
+savedType = nil,
+savedSubject = nil,
+savedFar = nil,
+streamAt = 0,
+rmb = false,
+touchObj = nil,
+lastTouch = nil,
+keySens = 0.0035,
+touchSens = 0.0045,
+jumpUntil = 0,
+getMoveVec = nil,
+savedHRP = nil,
+savedAnchor = nil,
+}
+FC_KEY_TOGGLE = Enum.KeyCode.K
+FC_KEY_SLOW = Enum.KeyCode.Z
+FC_KEY_FAST = Enum.KeyCode.X
+FC_SPEED_STEP = 5
+function freecamSyncToggleUI(state)
+if UIRegistry.FreeCamEnabled and UIRegistry.FreeCamEnabled.Set then
+pcall(function()
+UIRegistry.FreeCamEnabled:Set(state)
+end)
+end
+end
+function freecamEnable()
+if FreeCam.Enabled then
+return
+end
+local cam = Workspace.CurrentCamera
+if not cam then
+return
+end
+FreeCam.Enabled = true
+FC_MOD.savedType = cam.CameraType
+FC_MOD.savedSubject = cam.CameraSubject
+pcall(function()
+FC_MOD.savedFar = cam.Far
+end)
+local okLook, look = pcall(function()
+return cam.CFrame.LookVector
+end)
+if okLook and look then
+FC_MOD.yaw = math.atan2(-look.X, -look.Z)
+FC_MOD.pitch = math.asin(math.clamp(look.Y, -1, 1))
+else
+FC_MOD.yaw, FC_MOD.pitch = 0, 0
+end
+pcall(function()
+-- 0.39v5: Scriptable НЕОБХОДИМ — без него Roblox каждый кадр возвращает
+-- камеру к персонажу (CameraType.Custom). Ставим один раз при включении.
+-- Восстанавливаем при выключении. Это не детектится если не каждый кадр.
+cam.CameraType = Enum.CameraType.Scriptable
+cam.Far = math.max(cam.Far or 1000, 8000)
+end)
+FC_MOD.rmb = false
+FC_MOD.touchObj = nil
+FC_MOD.lastTouch = nil
+FC_MOD.jumpUntil = 0
+-- ТЕЛЕФОН: источник движения — джойстик. PlayerModule отдаёт ВЕКТОР ВВОДА
+-- (не персонажа), поэтому летает камера, а тело стоит (оно заякорено ниже).
+FC_MOD.getMoveVec = nil
+pcall(function()
+local ps = LocalPlayer:FindFirstChildOfClass("PlayerScripts")
+local pm = ps and (ps:FindFirstChild("PlayerModule") or ps:WaitForChild("PlayerModule", 2))
+if pm then
+local okReq, controls = pcall(function()
+local mod = require(pm)
+if mod and mod.GetControls then
+return mod:GetControls()
+end
+return nil
+end)
+if okReq and controls and controls.GetMoveVector then
+FC_MOD.getMoveVec = function()
+local okMV, mv = pcall(controls.GetMoveVector, controls)
+if okMV and typeof(mv) == "Vector3" then
+return mv
+end
+return nil
+end
+end
+end
+end)
+-- ЯКОРЬ ТЕЛА: персонаж стоит на месте, пока камера летает (телефон и ПК)
+-- STEALTH 0.39: фикс «бежит на месте / летит» — якоря HRP мало, анимация
+-- бега продолжает играть, а MoveDirection Humanoid-а может двигать тело
+-- через физику. Поэтому: WalkSpeed=0, JumpPower=0, AutoRotate=false,
+-- Humanoid:ChangeState(Physics) — тело реально замирает.
+FC_MOD.savedHRP = nil
+FC_MOD.savedAnchor = nil
+FC_MOD.savedHum = nil
+FC_MOD.savedWalkSpeed = nil
+FC_MOD.savedJumpPower = nil
+FC_MOD.savedJumpHeight = nil
+FC_MOD.savedUseJumpPower = nil
+FC_MOD.savedAutoRotate = nil
+pcall(function()
+local c = LocalPlayer.Character
+local hrp = c and c:FindFirstChild("HumanoidRootPart")
+local hum = c and c:FindFirstChildOfClass("Humanoid")
+if hrp then
+FC_MOD.savedHRP = hrp
+FC_MOD.savedAnchor = hrp.Anchored
+hrp.Anchored = true
+end
+if hum then
+FC_MOD.savedHum = hum
+FC_MOD.savedWalkSpeed = hum.WalkSpeed
+F
