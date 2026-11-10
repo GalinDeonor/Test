@@ -1,90 +1,3 @@
-on(label)
-Aim.Part = AIM_PART_LABELS[label] or "Head"
-journal("АИМ ПАРТ " .. tostring(Aim.Part))
-end
-})
-UIRegistry.AimPriority = TargetSection:Dropdown({
-Name = "Приоритет",
-Items = { "Прицел", "Дистанция" },
-Default = "Прицел",
-Flag = "AimPriority",
-Multi = false,
-Callback = function(value)
-Aim.Priority = value
-journal("ПРИОРИТЕТ " .. tostring(value))
-end
-})
-UIRegistry.AimTargets = TargetSection:Dropdown({
-Name = "Кого аимить",
-Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Вертолёты" },
-Default = { "Игроки" },
-Flag = "AimTargets",
-Multi = true,
-Callback = function(list)
-local players, npc, animals, sleepers, helis = false, false, false, false, false
-if type(list) == "table" then
-for _, v in ipairs(list) do
-if v == "Игроки" then
-players = true
-elseif v == "Боты и НПС" then
-npc = true
-elseif v == "Животные" then
-animals = true
-elseif v == "Слиперы" then
-sleepers = true
-elseif v == "Вертолёты" then
-helis = true
-end
-end
-end
-Aim.TargetsPlayers = players
-Aim.TargetsNPC = npc
-Aim.TargetsAnimals = animals
-Aim.TargetsSleepers = sleepers
-Aim.TargetsHelis = helis
-local labels = {}
-if players then
-table.insert(labels, "игроки")
-end
-if npc then
-table.insert(labels, "боты/НПС")
-end
-if animals then
-table.insert(labels, "животные")
-end
-if sleepers then
-table.insert(labels, "слиперы")
-end
-if helis then
-table.insert(labels, "вертолёты")
-end
-journal("АИМ ЦЕЛИ: " .. (#labels > 0 and table.concat(labels, " + ") or "никого"))
-end
-})
-if type(Drawing) ~= "table" and type(Drawing) ~= "userdata" then
-local function makeDummyDrawing()
-local dummy = {}
-dummy.Visible = false
-dummy.Color = Color3.new(1, 1, 1)
-dummy.Thickness = 0
-dummy.Filled = false
-dummy.Radius = 0
-dummy.NumSides = 3
-dummy.Text = ""
-dummy.Size = 0
-dummy.Center = false
-dummy.Outline = false
-dummy.Font = 0
-dummy.From = Vector2.new(0, 0)
-dummy.To = Vector2.new(0, 0)
-dummy.Position = Vector2.new(0, 0)
-dummy.Transparency = 1
-function dummy:Remove() end
-return dummy
-end
-Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
-warn("[FUST] Drawing недоступен в этом экзекуторе — ESP/прицел работают вхолостую")
-end
 AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
 AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
 fovCircle = SafeDrawing("Circle")
@@ -2471,4 +2384,48 @@ end)
 -- 2. Атрибуты игрока
 if not isAdm then
 pcall(function()
-loc
+local attrs = plr:GetAttributes()
+for k, v in pairs(attrs) do
+local kl = string.lower(tostring(k))
+for _, attr in ipairs(ADMIN_ATTRS) do
+if kl == string.lower(attr) and v then
+isAdm = true
+table.insert(found, plr.Name .. " (attr:" .. k .. ")")
+break
+end
+end
+end
+end)
+end
+-- 3. CollectionService теги
+if not isAdm then
+pcall(function()
+for _, tag in ipairs(ADMIN_TAGS) do
+if CollectionService:HasTag(plr, tag) then
+isAdm = true
+table.insert(found, plr.Name .. " (tag:" .. tag .. ")")
+break
+end
+end
+end)
+end
+-- 4. FUST-специфичные теги/атрибуты на Character
+if not isAdm then
+pcall(function()
+local c = plr.Character
+if c then
+for _, tag in ipairs({ "FustAdmin", "FustMod", "Admin", "Moderator" }) do
+if CollectionService:HasTag(c, tag) then
+isAdm = true
+table.insert(found, plr.Name .. " (char:" .. tag .. ")")
+break
+end
+end
+end
+end)
+end
+-- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
+--    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
+if not isAdm then
+pcall(function()
+-- Проверяем только если игра дала плей

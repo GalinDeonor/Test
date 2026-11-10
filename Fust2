@@ -1,12 +1,20 @@
-0, "Regular", {
-Id = "OutfitMedium",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
-})
-end)
+rLeave = function(self, Function)
+if not self.Instance then
+return
 end
-if not loaded or not Library.Font then
+return Library:Connect(self.Instance.MouseLeave, Function)
+end
+end
+local CustomFont = { } do
+function CustomFont:New(Name, Weight, Style, Data)
+-- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
+-- Возвращаем Roblox шрифт, кастомные не грузим.
+return Font.new(Enum.Font.GothamMedium)
+end
+do
+-- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
+-- который детектится анти-читом. Используем Roblox GothamMedium.
 Library.Font = Font.new(Enum.Font.GothamMedium)
-end
 end
 end
 Library.Holder = Instances:Create("ScreenGui", {
@@ -2305,47 +2313,4 @@ Parent = Items["Dragger"].Instance,
 Name = "\0",
 CornerRadius = UDimNew(1, 0)
 })
-Items["Glow2"] = Instances:Create("ImageLabel", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-}):AddToTheme({ImageColor3 = 'Accent'})
-end
-table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
-function Slider:Get()
-return Slider.Value
-end
-function Slider:SetVisibility(Bool)
-Items["Slider"].Instance.Visible = Bool
-end
-function Slider:Set(Value)
-Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
-Library.Flags[Slider.Flag] = Slider.Value
-Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
-Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
-if Slider.Callback then
-Library:SafeCall(Slider.Callback, Slider.Value)
-end
-end
-local InputChanged
-Items["RealSlider"]:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if InputChanged then
-pcall(function()
-InputChanged:Disconnect()
-end)
-InputChanged = nil
-end
-Slider.Sliding = true
-local SizeX = (Input.Position.X - Items["RealSlider"].In
+Items["Glow2"] = Instances:Create("

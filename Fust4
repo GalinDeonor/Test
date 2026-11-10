@@ -1,284 +1,4 @@
-SPBox:Colorpicker({
-Flag = "ESPBoxColor",
-Default = S.ESPColors.Box,
-Callback = function(color)
-S.ESPColors.Box = color
-end
-})
-UIRegistry.ESPChams = EspSection:Toggle({
-Name = "ESP Chams",
-Flag = "ESPChams",
-Default = false,
-Callback = function(state)
-S.ESP.Chams = state
-journal("ЧАМСЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.ESPChamsTransparency = EspSection:Slider({
-Name = "Прозрачность чамсов",
-Flag = "ESPChamsTransparency",
-Default = 0.5,
-Min = 0,
-Max = 1,
-Decimals = 0.05,
-Suffix = "",
-Callback = function(Value)
-S.ESP.ChamsTransparency = Value
-end
-})
-UIRegistry.ESPName = EspSection:Toggle({
-Name = "ESP Name",
-Flag = "ESPName",
-Default = false,
-Callback = function(state)
-S.ESP.Name = state
-end
-})
-UIRegistry.ESPDistance = EspSection:Toggle({
-Name = "ESP Distance",
-Flag = "ESPDistance",
-Default = false,
-Callback = function(state)
-S.ESP.Distance = state
-end
-})
-UIRegistry.ESPItem = EspSection:Toggle({
-Name = "ESP Предмет (что в руках)",
-Flag = "ESPItem",
-Default = false,
-Callback = function(state)
-S.ESP.Item = state
-journal("ПРЕДМЕТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
--- 0.39: цвет предмета в руках
-ESPItemColor = Color3.fromRGB(255, 215, 90)
-UIRegistry.ESPItemColor = EspSection:Label("Цвет предмета в руках"):Colorpicker({
-Name = "Цвет предмета в руках",
-Flag = "ESPItemColor",
-Default = ESPItemColor,
-Callback = function(c)
-ESPItemColor = c
-end
-})
--- 0.39: перевод названий предметов на русский (вкл/выкл)
-ItemRuTranslate = false
-ITEM_RU_DICT = {
--- оружие
-["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["m4a1"] = "М4А1",
-["m4a4"] = "М4А4", ["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90",
-["awp"] = "АВП", ["awm"] = "АВМ", ["mosin"] = "Мосина", ["kar98"] = "Кар98",
-["shotgun"] = "Дробовик", ["pump shotgun"] = "Помповый дробовик",
-["auto shotgun"] = "Авто-дробовик", ["double barrel"] = "Двустволка",
-["pistol"] = "Пистолет", ["glock"] = "Глок", ["deagle"] = "Дезерт Игл",
-["revolver"] = "Револьвер", ["sniper"] = "Снайперка", ["rifle"] = "Винтовка",
-["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт", ["grenade"] = "Граната",
-["flashbang"] = "Слеповая", ["smoke"] = "Дымовая", ["molotov"] = "Коктейл Молотова",
-["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
-["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
--- патроны
-["9mm"] = "9мм патроны", ["45acp"] = ".45 патроны", ["556"] = "5.56 патроны",
-["762"] = "7.62 патроны", ["12gauge"] = "12 калибр", ["shells"] = "Патроны",
-["ammo"] = "Патроны", ["magazine"] = "Магазин",
--- еда/вода
-["water"] = "Вода", ["water bottle"] = "Бутылка воды", ["cola"] = "Кола",
-["bread"] = "Хлеб", ["can"] = "Консерва", ["canned food"] = "Консерва",
-["meat"] = "Мясо", ["cooked meat"] = "Жареное мясо", ["raw meat"] = "Сырое мясо",
-["apple"] = "Яблоко", ["banana"] = "Банан", ["chocolate"] = "Шоколад",
-["energy bar"] = "Энергетический батончик",
--- броня
-["helmet"] = "Шлем", ["kevlar"] = "Кевлар", ["vest"] = "Жилет",
-["armor"] = "Броня", ["bulletproof vest"] = "Бронежилет",
--- лут/ресурсы
-["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
-["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
-["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
-["blood bag"] = "Пакет крови",
--- инструменты
-["pickaxe"] = "Кирка", ["hatchet"] = "Топорик", ["hammer"] = "Молоток",
-["screwdriver"] = "Отвёртка", ["wrench"] = "Гаечный ключ",
-["lockpick"] = "Отмычка", ["flashlight"] = "Фонарик",
-["map"] = "Карта", ["compass"] = "Компас", ["radio"] = "Радио",
-["binoculars"] = "Бинокль", ["scope"] = "Прицел",
--- расходники
-["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
-["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
-}
-function translateItemName(name)
-if not ItemRuTranslate or type(name) ~= "string" then
-return name
-end
-local nl = string.lower(name)
--- точное совпадение
-if ITEM_RU_DICT[nl] then
-return ITEM_RU_DICT[nl]
-end
--- частичное совпадение по подстроке
-for eng, rus in pairs(ITEM_RU_DICT) do
-if string.find(nl, eng, 1, true) then
-return rus
-end
-end
-return name
-end
-UIRegistry.ItemRuTranslate = EspSection:Toggle({
-Name = "Перевод названий на русский",
-Flag = "ItemRuTranslate",
-Default = false,
-Callback = function(state)
-ItemRuTranslate = state
-journal("ПЕРЕВОД ПРЕДМЕТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.BulletsEnabled = TracerSection:Toggle({
-Name = "Трассеры пуль (стиль VOMAGLA)",
-Flag = "BulletsEnabled",
-Default = false,
-Callback = function(state)
-S.Bullets.Enabled = state
-if FUST_BulletsSet then
-pcall(FUST_BulletsSet, state)
-end
-journal("ТРАССЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
-print("[FUST] Трассеры пуль " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.BulletsStyle = TracerSection:Dropdown({
-Name = "Трассеры: стиль луча",
-Items = { "Луч", "Квадратный", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
-Flag = "BulletsStyle",
-Default = "Луч",
-Callback = function(Value)
-S.Bullets.Style = Value
-journal("ТРАССЕРЫ-СТИЛЬ " .. tostring(Value))
-end
-})
-UIRegistry.BulletsWidth = TracerSection:Slider({
-Name = "Трассеры: толщина",
-Flag = "BulletsWidth",
-Default = 1.5,
-Min = 0.5,
-Max = 5,
-Decimals = 0.5,
-Suffix = "ст",
-Callback = function(Value)
-S.Bullets.Width = Value
-end
-})
-UIRegistry.BulletsTransparency = TracerSection:Slider({
-Name = "Трассеры: прозрачность",
-Flag = "BulletsTransparency",
-Default = 0,
-Min = 0,
-Max = 0.9,
-Decimals = 0.05,
-Callback = function(Value)
-S.Bullets.Transparency = Value
-end
-})
-UIRegistry.BulletsFade = TracerSection:Slider({
-Name = "Трассеры: затухание",
-Flag = "BulletsFade",
-Default = 1,
-Min = 0.5,
-Max = 5,
-Decimals = 0.1,
-Suffix = "с",
-Callback = function(Value)
-S.Bullets.Fade = Value
-end
-})
-UIRegistry.ESPHealthBar = EspSection:Toggle({
-Name = "ESP HealthBar",
-Flag = "ESPHealthBar",
-Default = false,
-Callback = function(state)
-S.ESP.HealthBar = state
-end
-})
-UIRegistry.ESPMaxDistance = EspSection:Slider({
-Name = "Max Distance",
-Flag = "ESPMaxDistance",
-Default = 3000,
-Min = 100,
-Max = 5000,
-Decimals = 50,
-Suffix = "m",
-Callback = function(Value)
-S.ESP.MaxDistance = Value
-end
-})
-UIRegistry.ESPDistanceScale = EspSection:Toggle({
-Name = "Сжатие ESP по дистанции (дальше = мельче)",
-Flag = "ESPDistanceScale",
-Default = true,
-Callback = function(state)
-S.ESP.DistanceScale = state
-journal("ESP СЖАТИЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-espVisCacheClear = function() end
-UIRegistry.ESPVisCheck = EspSection:Toggle({
-Name = "Проверка видимости (за стеной — серый)",
-Flag = "ESPVisCheck",
-Default = false,
-Callback = function(state)
-S.ESP.VisCheck = state
-espVisCacheClear()
-journal("ESP ВИДИМОСТЬ " .. (state and "ВКЛ (за стеной — серый + «СТЕНА»)" or "ВЫКЛ"))
-end
-})
-UIRegistry.ESPVisHitbox = EspSection:Toggle({
-Name = "Показывать хитбокс-доступ (жёлтый, если торчит)",
-Flag = "ESPVisHitbox",
-Default = false,
-Callback = function(state)
-S.ESP.VisHitbox = state
-espVisCacheClear()
-journal("ESP ХИТБОКС-ДОСТУП " .. (state and "ВКЛ (жёлтый = виден только хитбокс)" or "ВЫКЛ"))
-end
-})
-EspSection:Label("Видимость смотрит ТЕЛО (хитбоксы игнор). Жёлтый = тело за стеной, но хитбокс торчит. Серый + «СТЕНА» = не подстрелить.")
-HudSection = EspPage:Section({ Name = "HUD на экране", Tab = "ESP", Side = 2 })
-hudGui = nil 
-hudFrame = nil 
-hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
-hudConns = {} 
-hudDragging = false
-hudDragStart, hudFrameStart = nil, nil
-HUD_MARGIN = 12
-function hudSnap(corner)
-if not hudFrame then
-return
-end
-local ax = (corner and string.find(corner, "Право", 1, true)) and 1 or 0
-local ay = (corner and string.find(corner, "верх", 1, true)) and 0 or 1
-local ox = (ax == 1) and -HUD_MARGIN or HUD_MARGIN
-local oy = (ay == 1) and -HUD_MARGIN or HUD_MARGIN
-hudFrame.AnchorPoint = Vector2.new(ax, ay)
-hudFrame.Position = UDim2.new(ax, ox, ay, oy)
-end
-function hudApplyStyle()
-if not hudFrame then
-return
-end
-local size = math.clamp(math.floor((S.HUD.Size or 11) + 0.5), 8, 16)
-local textT = math.clamp(S.HUD.TextTransparency or 0, 0, 0.9)
-local colText = S.HUD.ColorText or Color3.fromRGB(235, 235, 240)
-local colBg = S.HUD.ColorBg or Color3.fromRGB(12, 12, 16)
-local colStroke = S.HUD.ColorStroke or Color3.fromRGB(255, 170, 40)
-for _, line in ipairs({ hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin }) do
-if line then
-line.TextSize = size
-line.TextTransparency = textT
-line.TextColor3 = (line == hudLineAdmin) and Color3.fromRGB(255, 80, 80) or colText
-end
-end
-local bg = math.clamp(S.HUD.BgTransparency or 0.35, 0, 0.95)
-if S.HUD.ShowBg then
-hudFrame.BackgroundTransparency = bg
-hudFrame.BackgroundColor3 = colBg
+ = colBg
 if hudStroke then
 hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
 hudStroke.Color = colStroke
@@ -1299,6 +1019,228 @@ S.UltraOpt = state
 applyUltraOpt(state)
 end
 })
+-- 0.39v6: X-RAY — прозрачность стен/пола/потолка
+XRayState = { Enabled = false, Transparency = 0.8, Originals = {} }
+function applyXRay(state)
+pcall(function()
+if state then
+-- делаем все BasePart в Workspace прозрачными (кроме Terrain, Characters, Tools)
+XRayState.Originals = {}
+local count = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+if d:IsA("BasePart") and not d:IsA("Terrain") then
+-- пропускаем персонажей и их части
+local isChar = false
+local p = d
+for _ = 1, 5 do
+if not p then break end
+if p:IsA("Model") and Players:GetPlayerFromCharacter(p) then
+isChar = true break
+end
+p = p.Parent
+end
+if not isChar and not d:IsDescendantOf(LocalPlayer.Character or Instance.new("Folder")) then
+XRayState.Originals[d] = d.Transparency
+d.Transparency = XRayState.Transparency
+count = count + 1
+if count > 2000 then break end -- лимит для FPS
+end
+end
+end
+journal("X-RAY ВКЛ — прозрачно " .. count .. " объектов")
+else
+-- восстанавливаем
+for part, orig in pairs(XRayState.Originals) do
+pcall(function() part.Transparency = orig end)
+end
+XRayState.Originals = {}
+journal("X-RAY ВЫКЛ")
+end
+end)
+end
+UIRegistry.XRay = WorldSection:Toggle({
+Name = "X-Ray (прозрачность стен/пола)",
+Flag = "XRay",
+Default = false,
+Callback = function(state)
+XRayState.Enabled = state
+applyXRay(state)
+end
+})
+UIRegistry.XRayTransparency = WorldSection:Slider({
+Name = "X-Ray: прозрачность",
+Flag = "XRayTransparency",
+Default = 0.8,
+Min = 0.3,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+XRayState.Transparency = v
+if XRayState.Enabled then
+-- обновить на лету
+applyXRay(false)
+applyXRay(true)
+end
+end
+})
+
+-- 0.39v6: ЧАМСЫ НА МЕБЕЛЬ (шкафы, ящики, локеры, гардеробы)
+FurnitureChams = { Enabled = false, Color = Color3.fromRGB(100, 200, 255), Transparency = 0.4 }
+FURNITURE_PATTERNS = {
+"шкаф", "кухонный шкаф", "навесной шкаф", "напольный шкаф", "стеллаж",
+"ящик", "большой ящик", "маленький ящик", "сундук", "контейнер",
+"локер", "локеры", "locker", "lockers",
+"металлический шкаф", "metal cabinet", "металл шкаф",
+"шкаф для базы", "base cabinet", "базовый шкаф",
+"гардероб", "wardrobe", "closet",
+"полка", "shelf", "стеллаж",
+"комод", "chest", "тумба",
+"стол", "table", "стул", "chair",
+"кровать", "bed", "диван", "couch",
+"дверь", "door", "ворота", "gate",
+}
+FURNITURE_TAGS = { "FustFurniture", "FustContainer", "FustStorage", "Furniture", "Container" }
+furnitureChamsPool = {}
+furnitureChamsAt = 0
+function furnitureScan()
+local now = os.clock()
+if now - furnitureChamsAt < 1.0 then return end
+furnitureChamsAt = now
+local found = {}
+pcall(function()
+-- 1. по тегам
+for _, tag in ipairs(FURNITURE_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst:IsA("Model") and inst.Parent then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. по имени в Workspace (верхние 2 уровня)
+for _, d in ipairs(Workspace:GetChildren()) do
+if d:IsA("Model") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN then
+for _, pat in ipairs(FURNITURE_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+-- проверяем детей модели
+for _, child in ipairs(d:GetChildren()) do
+if child:IsA("Model") or child:IsA("BasePart") then
+local okN2, name2 = pcall(function() return string.lower(tostring(child.Name)) end)
+if okN2 then
+for _, pat in ipairs(FURNITURE_PATTERNS) do
+if string.find(name2, pat, 1, true) then
+table.insert(found, child)
+break
+end
+end
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, f in ipairs(found) do
+if not seen[f] then seen[f] = true table.insert(unique, f) end
+end
+-- обновляем пул Highlight
+local POOL_MAX = 20
+for i = 1, math.min(#unique, POOL_MAX) do
+local inst = unique[i]
+local h = furnitureChamsPool[i]
+if not h then
+local okH, created = pcall(function()
+local nh = Instance.new("Highlight")
+nh.Name = "PETUH_FurnitureChams"
+nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+nh.FillTransparency = FurnitureChams.Transparency
+nh.OutlineTransparency = 0
+nh.Parent = Workspace
+return nh
+end)
+if okH and created then
+h = created
+furnitureChamsPool[i] = created
+end
+end
+if h then
+pcall(function()
+h.Adornee = inst
+h.FillColor = FurnitureChams.Color
+h.OutlineColor = FurnitureChams.Color
+h.Enabled = true
+end)
+end
+end
+-- скрыть неиспользуемые
+for i = math.min(#unique, POOL_MAX) + 1, #furnitureChamsPool do
+pcall(function()
+furnitureChamsPool[i].Enabled = false
+furnitureChamsPool[i].Adornee = nil
+end)
+end
+if #unique == 0 then
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i].Enabled = false end)
+end
+end
+end
+function furnitureChamsCleanup()
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i]:Destroy() end)
+furnitureChamsPool[i] = nil
+end
+end
+UIRegistry.FurnitureChams = WorldSection:Toggle({
+Name = "Чамсы мебели (шкафы/ящики/локеры)",
+Flag = "FurnitureChams",
+Default = false,
+Callback = function(state)
+FurnitureChams.Enabled = state
+if not state then
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i].Enabled = false end)
+end
+end
+journal("ЧАМСЫ МЕБЕЛИ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FurnitureChamsColor = WorldSection:Label("Цвет чамсов мебели"):Colorpicker({
+Name = "Цвет чамсов мебели",
+Flag = "FurnitureChamsColor",
+Default = Color3.fromRGB(100, 200, 255),
+Callback = function(c) FurnitureChams.Color = c end
+})
+UIRegistry.FurnitureChamsTransparency = WorldSection:Slider({
+Name = "Прозрачность чамсов мебели",
+Flag = "FurnitureChamsTransparency",
+Default = 0.4,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(v) FurnitureChams.Transparency = v end
+})
+-- фоновый сканер мебели
+task.spawn(function()
+while true do
+task.wait(1)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+if FurnitureChams.Enabled then
+pcall(furnitureScan)
+end
+end
+end)
 function normalizeName(raw)
 if type(raw) ~= "string" then
 return ""
@@ -2440,4 +2382,90 @@ Items = { "Голова", "Тело", "Ноги", "Рандом" },
 Default = "Голова",
 Flag = "AimPart",
 Multi = false,
-Callback = functi
+Callback = function(label)
+Aim.Part = AIM_PART_LABELS[label] or "Head"
+journal("АИМ ПАРТ " .. tostring(Aim.Part))
+end
+})
+UIRegistry.AimPriority = TargetSection:Dropdown({
+Name = "Приоритет",
+Items = { "Прицел", "Дистанция" },
+Default = "Прицел",
+Flag = "AimPriority",
+Multi = false,
+Callback = function(value)
+Aim.Priority = value
+journal("ПРИОРИТЕТ " .. tostring(value))
+end
+})
+UIRegistry.AimTargets = TargetSection:Dropdown({
+Name = "Кого аимить",
+Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Вертолёты" },
+Default = { "Игроки" },
+Flag = "AimTargets",
+Multi = true,
+Callback = function(list)
+local players, npc, animals, sleepers, helis = false, false, false, false, false
+if type(list) == "table" then
+for _, v in ipairs(list) do
+if v == "Игроки" then
+players = true
+elseif v == "Боты и НПС" then
+npc = true
+elseif v == "Животные" then
+animals = true
+elseif v == "Слиперы" then
+sleepers = true
+elseif v == "Вертолёты" then
+helis = true
+end
+end
+end
+Aim.TargetsPlayers = players
+Aim.TargetsNPC = npc
+Aim.TargetsAnimals = animals
+Aim.TargetsSleepers = sleepers
+Aim.TargetsHelis = helis
+local labels = {}
+if players then
+table.insert(labels, "игроки")
+end
+if npc then
+table.insert(labels, "боты/НПС")
+end
+if animals then
+table.insert(labels, "животные")
+end
+if sleepers then
+table.insert(labels, "слиперы")
+end
+if helis then
+table.insert(labels, "вертолёты")
+end
+journal("АИМ ЦЕЛИ: " .. (#labels > 0 and table.concat(labels, " + ") or "никого"))
+end
+})
+if type(Drawing) ~= "table" and type(Drawing) ~= "userdata" then
+local function makeDummyDrawing()
+local dummy = {}
+dummy.Visible = false
+dummy.Color = Color3.new(1, 1, 1)
+dummy.Thickness = 0
+dummy.Filled = false
+dummy.Radius = 0
+dummy.NumSides = 3
+dummy.Text = ""
+dummy.Size = 0
+dummy.Center = false
+dummy.Outline = false
+dummy.Font = 0
+dummy.From = Vector2.new(0, 0)
+dummy.To = Vector2.new(0, 0)
+dummy.Position = Vector2.new(0, 0)
+dummy.Transparency = 1
+function dummy:Remove() end
+return dummy
+end
+Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
+warn("[FUST] Drawing недоступен в этом экзекуторе — ESP/прицел работают вхолостую")
+end
