@@ -1,4 +1,69 @@
-efault = 1,
+DICT) do
+if string.find(nl, eng, 1, true) then
+return rus
+end
+end
+return name
+end
+UIRegistry.ItemRuTranslate = EspSection:Toggle({
+Name = "Перевод названий на русский",
+Flag = "ItemRuTranslate",
+Default = false,
+Callback = function(state)
+ItemRuTranslate = state
+journal("ПЕРЕВОД ПРЕДМЕТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.BulletsEnabled = TracerSection:Toggle({
+Name = "Трассеры пуль (стиль VOMAGLA)",
+Flag = "BulletsEnabled",
+Default = false,
+Callback = function(state)
+S.Bullets.Enabled = state
+if FUST_BulletsSet then
+pcall(FUST_BulletsSet, state)
+end
+journal("ТРАССЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Трассеры пуль " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.BulletsStyle = TracerSection:Dropdown({
+Name = "Трассеры: стиль луча",
+Items = { "Луч", "Квадратный", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
+Flag = "BulletsStyle",
+Default = "Луч",
+Callback = function(Value)
+S.Bullets.Style = Value
+journal("ТРАССЕРЫ-СТИЛЬ " .. tostring(Value))
+end
+})
+UIRegistry.BulletsWidth = TracerSection:Slider({
+Name = "Трассеры: толщина",
+Flag = "BulletsWidth",
+Default = 1.5,
+Min = 0.5,
+Max = 5,
+Decimals = 0.5,
+Suffix = "ст",
+Callback = function(Value)
+S.Bullets.Width = Value
+end
+})
+UIRegistry.BulletsTransparency = TracerSection:Slider({
+Name = "Трассеры: прозрачность",
+Flag = "BulletsTransparency",
+Default = 0,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(Value)
+S.Bullets.Transparency = Value
+end
+})
+UIRegistry.BulletsFade = TracerSection:Slider({
+Name = "Трассеры: затухание",
+Flag = "BulletsFade",
+Default = 1,
 Min = 0.5,
 Max = 5,
 Decimals = 0.1,
@@ -1824,53 +1889,4 @@ Decimals = 0.5,
 Callback = function(v) CH.Gap = v end
 })
 UIRegistry.CHDot = AimSection:Toggle({
-Name = "Прицел: точка в центре",
-Flag = "CHDot",
-Default = false,
-Callback = function(state) CH.Dot = state end
-})
-UIRegistry.CHOutline = AimSection:Toggle({
-Name = "Прицел: обводка (чёрная)",
-Flag = "CHOutline",
-Default = true,
-Callback = function(state) CH.Outline = state end
-})
-UIRegistry.CHColor = AimSection:Label("Прицел: цвет"):Colorpicker({
-Name = "Прицел: цвет",
-Flag = "CHColor",
-Default = Color3.fromRGB(255, 30, 30),
-Callback = function(c) CH.Color = c end
-})
--- 0.39v2: расширенные настройки CS2
-UIRegistry.CHTStyle = AimSection:Toggle({
-Name = "Прицел: T-стиль (без верха, как AWP)",
-Flag = "CHTStyle",
-Default = false,
-Callback = function(state) CH.TStyle = state end
-})
-UIRegistry.CHDotSize = AimSection:Slider({
-Name = "Прицел: размер точки",
-Flag = "CHDotSize",
-Default = 1,
-Min = 1,
-Max = 5,
-Decimals = 0.5,
-Callback = function(v) CH.DotSize = v end
-})
-UIRegistry.CHOutlineThickness = AimSection:Slider({
-Name = "Прицел: толщина обводки",
-Flag = "CHOutlineThickness",
-Default = 1,
-Min = 1,
-Max = 3,
-Decimals = 0.5,
-Callback = function(v) CH.OutlineThickness = v end
-})
-UIRegistry.CHAlpha = AimSection:Slider({
-Name = "Прицел: прозрачность (0-1)",
-Flag = "CHAlpha",
-Default = 1,
-Min = 0.1,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v) CH.Alpha =
+Name 

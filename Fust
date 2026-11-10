@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.41 (v18 LiquidGlass)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.42 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.41 LiquidGlass...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.42 LiquidGlass...")
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -647,7 +647,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.41 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.42 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: гружу LiquidGlass (красный акцент, iOS-стекло)...")
 Library = (function()
 -- ============================================================================
@@ -686,7 +686,7 @@ MathClamp = math.clamp
 
 local Library = {}
 Library.LG = LG
-Library.Version = "0.41-LiquidGlass"
+Library.Version = "0.42-LiquidGlass"
 Library.MenuKeybind = "RightControl"
 Library.Flags = {}      -- [flag] = значение или {Key=..}/{Color="#hex"}
 Library.SetFlags = {}   -- [flag] = обёртка элемента (для LoadConfig)
@@ -869,10 +869,21 @@ d.Name = d.Name or w.Title
 return makeColorpicker(lgSection, d)
 end
 
+-- 0.42 FIX: в старой VOMAGLA Label():Keybind() делал прикреплённый кейбинд
+-- (внутри Label'а). В LiquidGlass это невозможно — Keybind самостоятельный
+-- элемент. Раньше создавалось ДВА элемента (Label + Keybind) = "размножилось".
+-- Теперь: если родитель — Label/Paragraph, прячем его (SetVisible(false)),
+-- а Title родителя переносим в Keybind.
 function w:Keybind(d)
 d = d or {}
-d.Name = d.Name or w.Title
-return makeKeybind(lgSection, d)
+if (w.Kind == "label" or w.Kind == "paragraph") and w.Title and (not d.Name or d.Name == "") then
+d.Name = w.Title
+end
+local kb = makeKeybind(lgSection, d)
+if w.Kind == "label" or w.Kind == "paragraph" then
+pcall(function() if w.SetVisible then w:SetVisible(false) end end)
+end
+return kb
 end
 
 return w
@@ -1121,6 +1132,25 @@ SectionWrapper.Set = SectionWrapper.SetTitle
 function SectionWrapper:SetVisible(b)
 pcall(function() if self.LGSection and self.LGSection.SetVisible then self.LGSection:SetVisible(b) end end)
 end
+
+-- 0.42 FIX: совместимость со старой VOMAGLA — старый код лезет в
+-- Section.Items["Content"].Instance, чтобы прилепить кастомный UI
+-- (вайтлист-панель, cfgStatus). В LiquidGlass этого нет. Делаем заглушку:
+-- пустой Frame без родителя — старый код не падает, кастомный UI просто
+-- не виден (это нормально, в LiquidGlass он и не нужен).
+SectionWrapper.Items = setmetatable({}, {
+__index = function(_, k)
+if k == "Content" then
+local fake = Instance.new("Frame")
+fake.Name = "FUST_CompatContent"
+fake.BackgroundTransparency = 1
+fake.Size = UDim2.new()
+fake.Visible = false
+return { Instance = fake }
+end
+return nil
+end,
+})
 
 -- ================= окно =================
 local UsedTabTitles = {}
@@ -1478,15 +1508,19 @@ end
 -- он клампит окно в экран и не даёт ему улететь (старые костыли удалены).
 PETUH_MENU_KEY = Enum.KeyCode.RightControl
 PETUH_BTN_HIDDEN = false
--- 0.41: КНОПКА-ПЕТУХ — только на ПК. На мобиле LiquidGlass сам создаёт
--- нативную MobileButton (слева сверху, с драгом и пружиной), и наша была
--- бы лишней — юзер видел «два плавающих меню». На ПК MobileButton не
--- создаётся (LiquidGlass проверяет TouchEnabled) — там наша кнопка или
--- хоткей RightControl.
+-- 0.42: СВОЯ КНОПКА-ПЕТУХ УБРАНА. Раньше на мобиле LiquidGlass сам создаёт
+-- нативную MobileButton (слева сверху, иконка «layers»), а наша кнопка-петух
+-- создавалась ВТОРОЙ = «две плавающих кнопки чита». На ПК MobileButton нет,
+-- но есть хоткей RightControl + нативная кнопка X в окне (закрыть/скрыть).
+-- Если на ПК нужна кнопка-петух (не только хоткей) — раскомментируй блок ниже.
 local btn = nil
 local mobileBtn = nil
-local isTouch = UserInputService.TouchEnabled == true
-if not isTouch then
+-- нативная MobileButton от LiquidGlass (создаётся автоматически на мобиле)
+pcall(function()
+mobileBtn = Window.LGWindow and Window.LGWindow.MobileButton and Window.LGWindow.MobileButton.Root
+end)
+-- своя кнопка-петух — ТОЛЬКО на ПК (где нет MobileButton)
+if not mobileBtn and not (UserInputService.TouchEnabled == true) then
 btn = Instance.new("ImageButton")
 btn.Name = "PetuhMenuToggle"
 btn.Image = PETUH_ICON_ASSET
@@ -1540,15 +1574,9 @@ end
 dragging = false
 end
 end)
-else
--- мобила: берём нативную MobileButton из LiquidGlass-окна (создаётся
--- автоматически при TouchEnabled, хранится в Window.MobileButton)
-pcall(function()
-mobileBtn = Window.LGWindow and Window.LGWindow.MobileButton and Window.LGWindow.MobileButton.Root
-end)
 end
--- 0.41: перекраска петуха при смене акцента. На ПК красим свою кнопку,
--- на мобиле MobileButton перекрашивается через LiquidGlass:SetAccent.
+-- 0.42: перекраска. На ПК красим свою кнопку; MobileButton перекрашивается
+-- через LiquidGlass:SetAccent автоматически.
 function petuhAccentChanged(c)
 pcall(function()
 if btn and c then
@@ -1559,7 +1587,8 @@ btn.BackgroundColor3 = Color3.new(math.min(1, c.R * 0.25), math.min(1, c.G * 0.2
 end
 end)
 end
--- 0.41: скрытие работает для обеих кнопок (на мобиле — MobileButton)
+-- 0.42: скрытие работает для обеих кнопок. На мобиле — MobileButton,
+-- на ПК — наша кнопка-петух.
 function petuhSetBtnHidden(state)
 PETUH_BTN_HIDDEN = state
 pcall(function() if btn then btn.Visible = not state end end)
@@ -1632,23 +1661,30 @@ FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/в�
 -- 0.39: настраиваемые клавиши фрикама
 FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
 local FC_KEY_OBJ = nil
+-- 0.42 FIX: Mode="Toggle" в LiquidGlass сам зовёт Callback(true/false) при
+-- нажатии. Раньше Callback только менял клавишу, а отдельно FUST_FCKeyConn
+-- ловил InputBegan и звал freecamToggle() = ДВОЙНАЯ обработка. Теперь:
+-- Callback зовёт freecamEnable/Disable, а FUST_FCKeyConn убран.
+-- OnKeyChanged обновляет FreeCamKeys (для совместимости со старым кодом).
 UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
 Name = "Клавиша: вкл/выкл фрикам",
 Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
 Mode = "Toggle",
 Callback = function(state)
--- 0.39v3 FIX: правильно извлекаем имя клавиши из строки "Enum.KeyCode.K"
+-- 0.42: freecamEnable/Disable определены ниже в файле, но Callback зовётся
+-- только при нажатии клавиши (не при создании) — к тому моменту всё готово.
+-- pcall защищает от "attempt to call nil" если что-то пошло не так.
 pcall(function()
-local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-FreeCamKeys.Toggle = kc
-FC_KEY_TOGGLE = kc
-journal("ФРИКАМ: клавиша toggle = " .. keyName)
-end
+if state then freecamEnable() else freecamDisable() end
+end)
+end,
+OnKeyChanged = function(key)
+pcall(function()
+if key then
+FreeCamKeys.Toggle = key
+FC_KEY_TOGGLE = key
+journal("ФРИКАМ: клавиша toggle = " .. tostring(key))
 end
 end)
 end
@@ -1660,17 +1696,17 @@ Flag = "FreeCamKeySlow",
 Default = Enum.KeyCode.Z,
 Mode = "Toggle",
 Callback = function(state)
+if state then
+FreeCam.Speed = math.max(5, FreeCam.Speed - FC_SPEED_STEP)
+if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
+pcall(function() UIRegistry.FreeCamSpeed:Set(FreeCam.Speed) end)
+end
+journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
+end
+end,
+OnKeyChanged = function(key)
 pcall(function()
-local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-FreeCamKeys.Slow = kc
-FC_KEY_SLOW = kc
-journal("ФРИКАМ: клавиша slow = " .. keyName)
-end
-end
+if key then FreeCamKeys.Slow = key; FC_KEY_SLOW = key end
 end)
 end
 })
@@ -1681,17 +1717,17 @@ Flag = "FreeCamKeyFast",
 Default = Enum.KeyCode.X,
 Mode = "Toggle",
 Callback = function(state)
+if state then
+FreeCam.Speed = math.min(300, FreeCam.Speed + FC_SPEED_STEP)
+if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
+pcall(function() UIRegistry.FreeCamSpeed:Set(FreeCam.Speed) end)
+end
+journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
+end
+end,
+OnKeyChanged = function(key)
 pcall(function()
-local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
-if f and f.Key then
-local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
-local kc = Enum.KeyCode[keyName]
-if kc then
-FreeCamKeys.Fast = kc
-FC_KEY_FAST = kc
-journal("ФРИКАМ: клавиша fast = " .. keyName)
-end
-end
+if key then FreeCamKeys.Fast = key; FC_KEY_FAST = key end
 end)
 end
 })
@@ -6325,39 +6361,17 @@ else
 freecamEnable()
 end
 end
+-- 0.42 FIX: FUST_FCKeyConn УБРАН. Раньше он ДУБЛИРОВАЛ обработку клавиш
+-- фрикама — LiquidGlass Keybind (Mode="Toggle") сам зовёт Callback при
+-- нажатии, а этот InputBegan-коннект ловил ту же клавишу и звал
+-- freecamToggle() = двойное включение/выключение. Теперь вся обработка
+-- клавиш фрикама — через LiquidGlass Callback (см. FreeCamKeyToggle выше).
 if getgenv().FUST_FCKeyConn then
 pcall(function()
 getgenv().FUST_FCKeyConn:Disconnect()
 end)
+getgenv().FUST_FCKeyConn = nil
 end
-getgenv().FUST_FCKeyConn = UserInputService.InputBegan:Connect(function(input, gp)
-if gp then
-return
-end
-if input.UserInputType ~= Enum.UserInputType.Keyboard then
-return
-end
-local k = input.KeyCode
-if k == FC_KEY_TOGGLE then
-freecamToggle()
-elseif k == FC_KEY_SLOW then
-FreeCam.Speed = math.max(5, FreeCam.Speed - FC_SPEED_STEP)
-if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
-pcall(function()
-UIRegistry.FreeCamSpeed:Set(FreeCam.Speed)
-end)
-end
-journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
-elseif k == FC_KEY_FAST then
-FreeCam.Speed = math.min(300, FreeCam.Speed + FC_SPEED_STEP)
-if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
-pcall(function()
-UIRegistry.FreeCamSpeed:Set(FreeCam.Speed)
-end)
-end
-journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
-end
-end)
 LOOT_POOL_SIZE = 12
 LOOT_POOL_INTERVAL = 1.2 -- 0.39: было 0.35 — лагало на ПК. 1.2с достаточно.
 lootChamPool = {}
@@ -9651,7 +9665,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.41 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.42 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

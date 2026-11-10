@@ -1,4 +1,24 @@
-:SetAttribute("PetuhKind", "ribbon")
+
+return part
+end
+local a0 = Instance.new("Attachment")
+a0.Name = "A0"
+a0.Parent = part
+local a1 = Instance.new("Attachment")
+a1.Name = "A1"
+a1.Parent = part
+local b = Instance.new("Beam")
+b.Name = "B"
+b.Attachment0 = a0
+b.Attachment1 = a1
+b.FaceCamera = true
+b.LightEmission = 1
+b.LightInfluence = 0
+b.TextureLength = 2
+b.TextureSpeed = 2
+b.Enabled = false
+b.Parent = part
+part:SetAttribute("PetuhKind", "ribbon")
 return part
 end)
 if okP then
@@ -1742,7 +1762,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.41 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.42 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

@@ -1,4 +1,33 @@
-UseJumpPower = nil
+ols = pcall(function()
+local mod = require(pm)
+if mod and mod.GetControls then
+return mod:GetControls()
+end
+return nil
+end)
+if okReq and controls and controls.GetMoveVector then
+FC_MOD.getMoveVec = function()
+local okMV, mv = pcall(controls.GetMoveVector, controls)
+if okMV and typeof(mv) == "Vector3" then
+return mv
+end
+return nil
+end
+end
+end
+end)
+-- ЯКОРЬ ТЕЛА: персонаж стоит на месте, пока камера летает (телефон и ПК)
+-- STEALTH 0.39: фикс «бежит на месте / летит» — якоря HRP мало, анимация
+-- бега продолжает играть, а MoveDirection Humanoid-а может двигать тело
+-- через физику. Поэтому: WalkSpeed=0, JumpPower=0, AutoRotate=false,
+-- Humanoid:ChangeState(Physics) — тело реально замирает.
+FC_MOD.savedHRP = nil
+FC_MOD.savedAnchor = nil
+FC_MOD.savedHum = nil
+FC_MOD.savedWalkSpeed = nil
+FC_MOD.savedJumpPower = nil
+FC_MOD.savedJumpHeight = nil
+FC_MOD.savedUseJumpPower = nil
 FC_MOD.savedAutoRotate = nil
 pcall(function()
 local c = LocalPlayer.Character
@@ -257,39 +286,17 @@ else
 freecamEnable()
 end
 end
+-- 0.42 FIX: FUST_FCKeyConn УБРАН. Раньше он ДУБЛИРОВАЛ обработку клавиш
+-- фрикама — LiquidGlass Keybind (Mode="Toggle") сам зовёт Callback при
+-- нажатии, а этот InputBegan-коннект ловил ту же клавишу и звал
+-- freecamToggle() = двойное включение/выключение. Теперь вся обработка
+-- клавиш фрикама — через LiquidGlass Callback (см. FreeCamKeyToggle выше).
 if getgenv().FUST_FCKeyConn then
 pcall(function()
 getgenv().FUST_FCKeyConn:Disconnect()
 end)
+getgenv().FUST_FCKeyConn = nil
 end
-getgenv().FUST_FCKeyConn = UserInputService.InputBegan:Connect(function(input, gp)
-if gp then
-return
-end
-if input.UserInputType ~= Enum.UserInputType.Keyboard then
-return
-end
-local k = input.KeyCode
-if k == FC_KEY_TOGGLE then
-freecamToggle()
-elseif k == FC_KEY_SLOW then
-FreeCam.Speed = math.max(5, FreeCam.Speed - FC_SPEED_STEP)
-if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
-pcall(function()
-UIRegistry.FreeCamSpeed:Set(FreeCam.Speed)
-end)
-end
-journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
-elseif k == FC_KEY_FAST then
-FreeCam.Speed = math.min(300, FreeCam.Speed + FC_SPEED_STEP)
-if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
-pcall(function()
-UIRegistry.FreeCamSpeed:Set(FreeCam.Speed)
-end)
-end
-journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
-end
-end)
 LOOT_POOL_SIZE = 12
 LOOT_POOL_INTERVAL = 1.2 -- 0.39: было 0.35 — лагало на ПК. 1.2с достаточно.
 lootChamPool = {}
@@ -1820,23 +1827,3 @@ b.Enabled = false
 b.Parent = part
 end
 part:SetAttribute("PetuhKind", "square")
-return part
-end
-local a0 = Instance.new("Attachment")
-a0.Name = "A0"
-a0.Parent = part
-local a1 = Instance.new("Attachment")
-a1.Name = "A1"
-a1.Parent = part
-local b = Instance.new("Beam")
-b.Name = "B"
-b.Attachment0 = a0
-b.Attachment1 = a1
-b.FaceCamera = true
-b.LightEmission = 1
-b.LightInfluence = 0
-b.TextureLength = 2
-b.TextureSpeed = 2
-b.Enabled = false
-b.Parent = part
-part

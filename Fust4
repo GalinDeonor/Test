@@ -1,4 +1,53 @@
- v end
+= "Прицел: точка в центре",
+Flag = "CHDot",
+Default = false,
+Callback = function(state) CH.Dot = state end
+})
+UIRegistry.CHOutline = AimSection:Toggle({
+Name = "Прицел: обводка (чёрная)",
+Flag = "CHOutline",
+Default = true,
+Callback = function(state) CH.Outline = state end
+})
+UIRegistry.CHColor = AimSection:Label("Прицел: цвет"):Colorpicker({
+Name = "Прицел: цвет",
+Flag = "CHColor",
+Default = Color3.fromRGB(255, 30, 30),
+Callback = function(c) CH.Color = c end
+})
+-- 0.39v2: расширенные настройки CS2
+UIRegistry.CHTStyle = AimSection:Toggle({
+Name = "Прицел: T-стиль (без верха, как AWP)",
+Flag = "CHTStyle",
+Default = false,
+Callback = function(state) CH.TStyle = state end
+})
+UIRegistry.CHDotSize = AimSection:Slider({
+Name = "Прицел: размер точки",
+Flag = "CHDotSize",
+Default = 1,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.DotSize = v end
+})
+UIRegistry.CHOutlineThickness = AimSection:Slider({
+Name = "Прицел: толщина обводки",
+Flag = "CHOutlineThickness",
+Default = 1,
+Min = 1,
+Max = 3,
+Decimals = 0.5,
+Callback = function(v) CH.OutlineThickness = v end
+})
+UIRegistry.CHAlpha = AimSection:Slider({
+Name = "Прицел: прозрачность (0-1)",
+Flag = "CHAlpha",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v) CH.Alpha = v end
 })
 UIRegistry.CHRecoilFollow = AimSection:Toggle({
 Name = "Прицел: следует за отдачей (CS recoil)",
@@ -1888,33 +1937,4 @@ pcall(function()
 local ps = LocalPlayer:FindFirstChildOfClass("PlayerScripts")
 local pm = ps and (ps:FindFirstChild("PlayerModule") or ps:WaitForChild("PlayerModule", 2))
 if pm then
-local okReq, controls = pcall(function()
-local mod = require(pm)
-if mod and mod.GetControls then
-return mod:GetControls()
-end
-return nil
-end)
-if okReq and controls and controls.GetMoveVector then
-FC_MOD.getMoveVec = function()
-local okMV, mv = pcall(controls.GetMoveVector, controls)
-if okMV and typeof(mv) == "Vector3" then
-return mv
-end
-return nil
-end
-end
-end
-end)
--- ЯКОРЬ ТЕЛА: персонаж стоит на месте, пока камера летает (телефон и ПК)
--- STEALTH 0.39: фикс «бежит на месте / летит» — якоря HRP мало, анимация
--- бега продолжает играть, а MoveDirection Humanoid-а может двигать тело
--- через физику. Поэтому: WalkSpeed=0, JumpPower=0, AutoRotate=false,
--- Humanoid:ChangeState(Physics) — тело реально замирает.
-FC_MOD.savedHRP = nil
-FC_MOD.savedAnchor = nil
-FC_MOD.savedHum = nil
-FC_MOD.savedWalkSpeed = nil
-FC_MOD.savedJumpPower = nil
-FC_MOD.savedJumpHeight = nil
-FC_MOD.saved
+local okReq, contr
