@@ -446,186 +446,8 @@
 ]]
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
--- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
--- 0.39v4: экран загрузки ОТКЛЮЧЕН по умолчанию — на Xeno он может блокировать
--- запуск. Включается toggle в настройках (если работает — будет при следующем запуске).
-LoadScreenEnabled = false
-pcall(function()
-if type(readfile) == "function" and isfile and isfile("FUST_loadScreen_ON.txt") then
-LoadScreenEnabled = true
-end
-end)
-local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
-local loadScreenStart = os.clock()
-local loadScreenConn
-local function showLoadScreen()
-pcall(function()
-local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
-loadScreenGui = Instance.new("ScreenGui")
-loadScreenGui.Name = "PetuhLoadScreen"
-loadScreenGui.ResetOnSpawn = false
-loadScreenGui.IgnoreGuiInset = true
-loadScreenGui.DisplayOrder = 99999
-loadScreenGui.Parent = parentGui
-if not loadScreenGui.Parent then
-local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
-if pg then loadScreenGui.Parent = pg end
-end
-local bg = Instance.new("Frame")
-bg.Size = UDim2.fromScale(1, 1)
-bg.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
-bg.BorderSizePixel = 0
-bg.Parent = loadScreenGui
--- петух по центру (rbxassetid — без getcustomasset, не палится анти-читом)
-loadScreenPetuh = Instance.new("ImageLabel")
-loadScreenPetuh.Size = UDim2.fromOffset(180, 180)
-loadScreenPetuh.Position = UDim2.new(0.5, -90, 0.45, -90)
-loadScreenPetuh.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-loadScreenPetuh.BackgroundTransparency = 1
-loadScreenPetuh.BorderSizePixel = 0
-loadScreenPetuh.Image = "rbxassetid://134242818164054" -- fallback до загрузки PETUH_ICON_ASSET
-loadScreenPetuh.ScaleType = Enum.ScaleType.Fit
-loadScreenPetuh.Parent = bg
--- подпись
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0.62, 0)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextSize = 22
-title.TextColor3 = Color3.fromRGB(240, 130, 30)
-title.Text = "ПЬЯНЫЙ ПЕТУХ 0.39"
-title.Parent = bg
--- прогресс-бар фон
-local barBg = Instance.new("Frame")
-barBg.Size = UDim2.new(0, 280, 0, 6)
-barBg.Position = UDim2.new(0.5, -140, 0.72, 0)
-barBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-barBg.BorderSizePixel = 0
-barBg.Parent = bg
-local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(1, 0)
-barCorner.Parent = barBg
-loadScreenBar = Instance.new("Frame")
-loadScreenBar.Size = UDim2.new(0, 0, 1, 0)
-loadScreenBar.BackgroundColor3 = Color3.fromRGB(240, 130, 30)
-loadScreenBar.BorderSizePixel = 0
-loadScreenBar.Parent = barBg
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(1, 0)
-fillCorner.Parent = loadScreenBar
--- статус-текст
-loadScreenStatus = Instance.new("TextLabel")
-loadScreenStatus.Size = UDim2.new(1, 0, 0, 20)
-loadScreenStatus.Position = UDim2.new(0, 0, 0.78, 0)
-loadScreenStatus.BackgroundTransparency = 1
-loadScreenStatus.Font = Enum.Font.Code
-loadScreenStatus.TextSize = 13
-loadScreenStatus.TextColor3 = Color3.fromRGB(180, 180, 190)
-loadScreenStatus.Text = "Инициализация..."
-loadScreenStatus.Parent = bg
--- нижний текст про проверку
-loadScreenText = Instance.new("TextLabel")
-loadScreenText.Size = UDim2.new(0.9, 0, 0, 40)
-loadScreenText.Position = UDim2.new(0.05, 0, 0.88, 0)
-loadScreenText.BackgroundTransparency = 1
-loadScreenText.Font = Enum.Font.Code
-loadScreenText.TextSize = 11
-loadScreenText.TextColor3 = Color3.fromRGB(120, 120, 130)
-loadScreenText.TextWrapped = true
-loadScreenText.Text = "Проверяю детект-риски функций анти-читом..."
-loadScreenText.Parent = bg
-end)
-end
-local function hideLoadScreen()
--- 0.39 FIX: task.wait в RenderStepped запрещён — loadScreenGui:Destroy()
--- после него никогда не выполнялся, чёрный экран висел вечно. Убираем
--- wait и бесполезный tween, уничтожаем GUI сразу.
-pcall(function()
-if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
-if loadScreenGui then
-loadScreenGui:Destroy()
-end
-loadScreenGui = nil
-loadScreenPetuh = nil
-loadScreenBar = nil
-loadScreenText = nil
-loadScreenStatus = nil
-end)
-end
-local function setLoadProgress(pct, status)
-pcall(function()
-if loadScreenBar then
-loadScreenBar.Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0)
-end
-if loadScreenStatus and status then
-loadScreenStatus.Text = status
-end
-end)
-end
-local loadScreenPhases = {
-{ 0.10, "Проверяю Drawing API..." },
-{ 0.20, "Проверяю executor environment..." },
-{ 0.35, "Сканирую детект-риски функций..." },
-{ 0.50, "Анализирую hookmetamethod риски..." },
-{ 0.65, "Проверяю sethiddenproperty..." },
-{ 0.78, "Анализирую RequestStreamAround..." },
-{ 0.90, "Загружаю интерфейс..." },
-{ 1.00, "Готово." },
-}
-local loadScreenPhaseIdx = 1
-local loadScreenDetected = {}
-local function runLoadScreenCheck()
--- Реальная проверка детект-рисков: какие функции 100% видит анти-чит
-pcall(function()
--- Drawing.new: видим только у нас, но если executor плохо прячет — детект
-local drawOk = pcall(function() return Drawing and Drawing.new and Drawing.new("Text") end)
-table.insert(loadScreenDetected, drawOk and "Drawing: OK (локально)" or "Drawing: НЕДОСТУПЕН")
--- hookmetamethod: ВЫСОКИЙ риск (V12 отозвана именно из-за этого)
-local hm = type(getgenv and getgenv().hookmetamethod) == "function"
-or type(hookmetamethod) == "function"
-table.insert(loadScreenDetected, hm and "hookmetamethod: ДОСТУПЕН (рискованно использовать)" or "hookmetamethod: недоступен (безопасно)")
--- sethiddenproperty: используется для NoGrass/Decoration — обычно безопасно
-local shp = type(sethiddenproperty) == "function"
-table.insert(loadScreenDetected, shp and "sethiddenproperty: OK (для NoGrass)" or "sethiddenproperty: недоступен")
--- RequestStreamAroundAsync: легитимный API, низкий риск
-table.insert(loadScreenDetected, "RequestStreamAroundAsync: легитимный API")
--- root.Size изменение (хитбоксы): сервер видит через raycast hit detection
-table.insert(loadScreenDetected, "Hitbox.Size: серверный raycast видит — используем clamp 2..8")
--- camera.CFrame = (evil aim): сервер видит через Mouse.Hit сравнение
-table.insert(loadScreenDetected, "camera.CFrame: используем лерп (не мгновенно)")
-end)
-end
-local function updateLoadScreen()
--- 0.39v4: pcall вокруг — если что-то упадёт, экран всё равно скроется через 3с
-pcall(function()
-if not LoadScreenEnabled then return end
-local now = os.clock()
-local elapsed = now - loadScreenStart
-if loadScreenPhaseIdx <= #loadScreenPhases then
-local phase = loadScreenPhases[loadScreenPhaseIdx]
-local phaseTime = phase[1] * 3.0 -- 3с максимум
-if elapsed >= phaseTime then
-setLoadProgress(phase[1], phase[2])
-if loadScreenPhaseIdx == 3 then
--- в фазе 3 запускаем реальную проверку
-runLoadScreenCheck()
-if loadScreenText then
-loadScreenText.Text = "Проверки: " .. table.concat(loadScreenDetected, "  ||  ")
-end
-end
-loadScreenPhaseIdx = loadScreenPhaseIdx + 1
-end
-end
-if elapsed >= 3.0 then
-hideLoadScreen()
-end
-end)
-end
-if LoadScreenEnabled then
-showLoadScreen()
-loadScreenConn = game:GetService("RunService").RenderStepped:Connect(updateLoadScreen)
-end
+-- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
+-- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -4328,25 +4150,11 @@ end
 end)
 end
 })
-MenuSection:Toggle({
-Name = "Экран загрузки при старте (петух + проверки)",
-Flag = "LoadScreenEnabled",
-Default = false,
-Callback = function(state)
-LoadScreenEnabled = state
--- 0.39v4: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
+-- 0.39v9: экран загрузки убран полностью — вызывал чёрный экран на телефоне.
+-- Удаляем маркерный файл если он остался от старой версии.
 pcall(function()
-if type(writefile) == "function" then
-if state then
-writefile("FUST_loadScreen_ON.txt", "1")
-else
 if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
-end
-end
 end)
-journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ (при следующем запуске)" or "ВЫКЛ"))
-end
-})
 MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
 end
 local ThemingSection = SettingsPage:Section({Name = "Theming", Tab = "Оформление", Icon = "rbxassetid://73803440257131"})
@@ -12928,8 +12736,7 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
--- 0.39v4: гарантированно скрыть экран загрузки при ошибке
-pcall(hideLoadScreen)
+-- 0.39v9: load screen убран — прячивать нечего
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then

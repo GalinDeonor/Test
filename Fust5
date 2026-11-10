@@ -1,87 +1,4 @@
-тать")
-end
--- 0.39: ПРИЦЕЛ В СТИЛЕ CS2 — настраиваемые длина/толщина/зазор/точка/обводка/цвет
-CH = {
-Gap = 5,        -- зазор от центра
-Length = 7,     -- длина лучей
-Thickness = 2,  -- толщина линий
-Dot = false,    -- точка в центре
-Outline = true, -- обводка (чёрная за цветом)
-Color = Color3.fromRGB(255, 30, 30),
--- 0.39v2: расширенные настройки CS2
-TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
-DotSize = 1,       -- размер точки (1-5)
-OutlineThickness = 1, -- толщина обводки (1-3)
-Alpha = 1,         -- прозрачность 0..1
-RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
-}
-CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
-chLines = {}
-for i = 1, 4 do
-local l = SafeDrawing("Line")
-if l then
-l.Thickness = 2
-l.Color = Color3.fromRGB(255, 30, 30)
-l.Visible = false
-chLines[i] = l
-end
-end
-chDot = SafeDrawing("Circle")
-if chDot then
-chDot.Radius = 1
-chDot.Thickness = 1
-chDot.Filled = true
-chDot.Color = Color3.fromRGB(255, 30, 30)
-chDot.Visible = false
-end
--- обводка: 8 линий вокруг основных (4 направления × 2 смещения)
-chOutline = {}
-for i = 1, 8 do
-local l = SafeDrawing("Line")
-if l then
-l.Thickness = 3
-l.Color = Color3.fromRGB(0, 0, 0)
-l.Visible = false
-chOutline[i] = l
-end
-end
-function updateCrosshair(center, visible)
-local gap = CH.Gap
-local len = CH.Length
-local th = CH.Thickness
-local alpha = CH.Alpha or 1
--- 0.39v2: T-style — верхняя линия не рисуется (как AWP)
--- top (skipped if TStyle)
-if chLines[1] and not CH.TStyle then
-chLines[1].From = Vector2.new(center.X, center.Y - gap)
-chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
-chLines[1].Thickness = th
-chLines[1].Color = CH.Color
-chLines[1].Transparency = 1 - alpha
-chLines[1].Visible = visible
-elseif chLines[1] then
-chLines[1].Visible = false
-end
--- bottom
-if chLines[2] then
-chLines[2].From = Vector2.new(center.X, center.Y + gap)
-chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
-chLines[2].Thickness = th
-chLines[2].Color = CH.Color
-chLines[2].Transparency = 1 - alpha
-chLines[2].Visible = visible
-end
--- left
-if chLines[3] then
-chLines[3].From = Vector2.new(center.X - gap, center.Y)
-chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
-chLines[3].Thickness = th
-chLines[3].Color = CH.Color
-chLines[3].Transparency = 1 - alpha
-chLines[3].Visible = visible
-end
--- right
-if chLines[4] then
+hen
 chLines[4].From = Vector2.new(center.X + gap, center.Y)
 chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
 chLines[4].Thickness = th
@@ -2433,4 +2350,50 @@ end
 end
 end)
 end
--- 5. GroupRole — если 
+-- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
+--    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
+if not isAdm then
+pcall(function()
+-- Проверяем только если игра дала плейс-специфичную группу
+local placeGroup = nil
+pcall(function()
+-- FUST: пробуем common survival group IDs
+for _, gid in ipairs({ 0 }) do
+-- placeholder: реальный group ID нужно узнать из игры
+end
+end)
+end)
+end
+end
+end
+AdminScan_List = found
+AdminScan_Count = #found
+if #found > 0 then
+AdminScan_Names = table.concat(found, ", ")
+if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
+AdminScan_LastJournal = os.clock()
+journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
+end
+else
+AdminScan_Names = ""
+end
+end
+AdminScan_LastJournal = 0
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(adminScanTick)
+end
+end)
+HttpService = game:GetService("HttpService")
+CONFIG_FILE = "FUST_config.json"
+function colorToTable(c)
+return {
+R = math.floor(c.R * 255 + 0.5),
+G = math.floor(c.G * 255 + 0.5),
+B = math.floor(c.B * 255 + 0.5),
+}
+end
+function tableToColor(t)
+if ty
