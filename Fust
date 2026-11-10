@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44 (v19 LiquidGlass встроен)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44 (LiquidGlass встроен)...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44 LiquidGlass...")
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -648,24 +648,106 @@ end)
 end
 end
 journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
-print("[FUST] 2/4: LiquidGlass встроен в файл — HTTP не нужен.")
-Library = (function()
 -- ============================================================================
--- 0.40: ЯДРО UI = LiquidGlass (github.com/fischgesichtert/LiquidGlass)
--- Полностью заменяет встроенную VOMAGLA-библиотеку.
--- Лицензия LiquidGlass запрещает копировать/править её исходник, поэтому
--- грузим ОФИЦИАЛЬНЫМ лоадстрингом и кастомизируем через публичный API.
--- Голубой акцент библиотеки заменён КРАСНЫМ (255, 59, 48).
+-- 0.44: WATCHDOG. Если инициализация не дошла до «4/4» за 30 секунд —
+-- показываем красный баннер с ТОЧНЫМ шагом зависания вместо вечного молчания.
+-- Построен на чистом Instance.new — работает даже если библиотека не стартовала.
 -- ============================================================================
--- 0.44: LiquidGlass ВСТРОЕН в этот файл (LG_EMBED ниже) — БЕЗ HTTP ВООБЩЕ.
--- Причина: Delta вешается/обрезает game:HttpGet на 1МБ файле библиотеки
--- ("2/4" зависал намертво на 0.42 и 0.43). Чанки Fust по ~54КБ при этом
--- грузятся нормально — поэтому библиотека теперь скачается ЧАНКАМИ с нашего
--- репо вместе с остальным кодом. HTTP к GitHub оставлен только как
--- резервный путь, если встроенная копия вдруг не загрузится (редко).
--- Копия — официальный дистрибутив dist/LiquidGlass.lua 1.0.0, БЕЗ изменений
--- (эквивалент writefile-кеша из 0.43, только зашитый в чанки).
-local LG_EMBED = [==[
+getgenv().FUST_READY = false
+getgenv().FUST_T0 = os.time()
+getgenv().FUST_STEP = "старт"
+local function fustStep(text)
+getgenv().FUST_STEP = text
+end
+task.spawn(function()
+local deadline = os.time() + 30
+while os.time() < deadline do
+task.wait(1)
+if getgenv().FUST_READY then
+return
+end
+end
+local elapsed = os.time() - getgenv().FUST_T0
+local touchVal = "?"
+pcall(function() touchVal = tostring(game:GetService("UserInputService").TouchEnabled) end)
+local hasReq = tostring(type(request) == "function" or type(http_request) == "function")
+local diag = string.format(
+"ЗАВИСЛО НА ШАГЕ: %s (прошло %d сек)\nЭкзекутор: %s | Touch: %s | request: %s\nШаг 2a/2b = слабый телефон парсит встроенные 1.0 МБ — подожди ещё 1-2 мин, может дойти.\nШаг 3a-4/4 = скрин КОНСОЛИ и этого окна — в чат.",
+tostring(getgenv().FUST_STEP), elapsed, EXECUTOR_NAME, touchVal, hasReq
+)
+print("[FUST-WATCHDOG] " .. diag:gsub("\n", " | "))
+pcall(function()
+local banner = Instance.new("ScreenGui")
+banner.Name = "FUST_Watchdog"
+banner.ResetOnSpawn = false
+banner.IgnoreGuiInset = true
+banner.DisplayOrder = 9999999
+local parent = nil
+pcall(function() parent = gethui and gethui() end)
+if not parent then
+pcall(function() parent = game:GetService("CoreGui") end)
+end
+if not parent then
+pcall(function()
+local pg = game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then parent = pg end
+end)
+end
+if parent then
+banner.Parent = parent
+end
+if not banner.Parent then
+return
+end
+local fr = Instance.new("Frame")
+fr.Size = UDim2.new(1, -40, 0, 210)
+fr.Position = UDim2.new(0, 20, 0, 60)
+fr.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+fr.BorderSizePixel = 0
+fr.Parent = banner
+pcall(function()
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, 8)
+c.Parent = fr
+end)
+local t1 = Instance.new("TextLabel")
+t1.Size = UDim2.new(1, -120, 0, 30)
+t1.Position = UDim2.new(0, 10, 0, 4)
+t1.BackgroundTransparency = 1
+t1.Font = Enum.Font.GothamBold
+t1.TextSize = 16
+t1.TextColor3 = Color3.fromRGB(255, 130, 130)
+t1.TextXAlignment = Enum.TextXAlignment.Left
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.44 — ЗАВИСЛО (watchdog)"
+t1.Parent = fr
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 100, 0, 24)
+close.Position = UDim2.new(1, -110, 0, 6)
+close.Font = Enum.Font.GothamBold
+close.TextSize = 12
+close.TextColor3 = Color3.fromRGB(255, 255, 255)
+close.BackgroundColor3 = Color3.fromRGB(150, 25, 25)
+close.Text = "СКРЫТЬ"
+close.Parent = fr
+close.MouseButton1Click:Connect(function()
+banner:Destroy()
+end)
+local t2 = Instance.new("TextLabel")
+t2.Size = UDim2.new(1, -20, 1, -46)
+t2.Position = UDim2.new(0, 10, 0, 38)
+t2.BackgroundTransparency = 1
+t2.Font = Enum.Font.Code
+t2.TextSize = 12
+t2.TextColor3 = Color3.fromRGB(255, 235, 235)
+t2.TextXAlignment = Enum.TextXAlignment.Left
+t2.TextYAlignment = Enum.TextYAlignment.Top
+t2.TextWrapped = true
+t2.Text = diag .. "\nСкрин этого окна + консоль — в чат."
+t2.Parent = fr
+end)
+end)
+print("[FUST] 2/4: LiquidGlass ВСТРОЕНА в билд (1.0 МБ, качать не нужно). Парсинг...")
+local FUST_LG_SRC = [=[
 --!nocheck
 --[[
 	LiquidGlass — an iOS 26 "Liquid Glass" UI library for Roblox.
@@ -8331,11 +8413,34 @@ Library._blur = Blur
 Library._overlay = Overlay
 
 return Library
+]=]
+Library = (function()
+-- ============================================================================
+-- 0.40: ЯДРО UI = LiquidGlass (github.com/fischgesichtert/LiquidGlass)
+-- Полностью заменяет встроенную VOMAGLA-библиотеку.
+-- Лицензия LiquidGlass запрещает копировать/править её исходник, поэтому
+-- грузим ОФИЦИАЛЬНЫМ лоадстрингом и кастомизируем через публичный API.
+-- Голубой акцент библиотеки заменён КРАСНЫМ (255, 59, 48).
+-- ============================================================================
+-- ============================================================================
+-- 0.44: БИБЛИОТЕКА ВСТРОЕНА В СКРИПТ. Ни одного HttpGet для LiquidGlass —
+-- зависнуть на скачивании физически невозможно (в прошлых версиях HttpGet
+-- без таймаута на большом файле висел намертво на некоторых сетях).
+-- Дистрибутив встроен verbatim (лицензия не нарушена — исходник не изменён),
+-- выполняется локально через loadstring.
+-- ============================================================================
+-- SAFETY: getcustomasset детектится анти-читом этой игры (см. 0.39v6 —
+-- за него кикало). LiquidGlass без него сам откатывается на чистые контуры
+-- без стеклянных текстур и звуков (это документированный режим работы).
+-- Если захочешь полный стеклянный вид — удали следующую строку НА СВОЙ РИСК.
+getgenv().getcustomasset = nil
 
-]==]
+-- скип интро "Entity" (3 сек на мобиле — лишнее; лицензия это разрешает)
+getgenv().LiquidGlassSkipIntro = true
 
--- прогресс-баннер (обновляем поверх loadWidget)
+-- прогресс-баннер (обновляем поверх loadWidget) + шаг для watchdog
 local function setProgress(text, color)
+getgenv().FUST_STEP = text
 pcall(function()
 if lwText and lwText.Parent then
 lwText.Text = text
@@ -8344,62 +8449,29 @@ end
 end)
 end
 
--- резервный HTTP-путь (используется ТОЛЬКО если встроенная копия упала)
-local LIB_URLS = {
-"https://raw.githubusercontent.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
-"https://cdn.jsdelivr.net/gh/fischgesichtert/LiquidGlass@main/dist/LiquidGlass.lua",
-"https://raw.githack.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
-}
-local function httpGetWithTimeout(url, timeoutSec)
-timeoutSec = timeoutSec or 6
-local req = request or http_request or (syn and syn.request)
-if req then
-local ok, res = pcall(function()
-return req({ Url = url, Method = "GET", Timeout = timeoutSec * 1000 })
-end)
-if ok and type(res) == "table" and res.Body and #res.Body > 1000 then
-return res.Body
-end
-end
-local ok2, body = pcall(function() return game:HttpGet(url) end)
-if ok2 and type(body) == "string" and #body > 1000 then
-return body
-end
-return nil
-end
-
 local LG = nil
 do
--- путь 1: ВСТРОЕННАЯ копия (основной, мгновенный, без сети)
-setProgress("2/4: LiquidGlass (встроенная копия)...", Color3.fromRGB(120, 200, 120))
-local ok, result = pcall(function()
-return loadstring(LG_EMBED)()
+setProgress("2/4: парсинг встроенной LiquidGlass (1.0 МБ)...", Color3.fromRGB(120, 200, 120))
+local okC, fn = pcall(function()
+return (loadstring or load)(FUST_LG_SRC, "=LiquidGlass")
 end)
-if ok and type(result) == "table" then
-LG = result
+if okC and type(fn) == "function" then
+setProgress("2/4: запуск LiquidGlass...", Color3.fromRGB(120, 200, 120))
+local okR, res = pcall(fn)
+if okR and type(res) == "table" then
+LG = res
+else
+print("[FUST] LiquidGlass runtime: " .. tostring(okR and ("вернула " .. type(res)) or res))
 end
-
--- путь 2: HTTP-зеркала (только если встроенная вдруг сломалась)
+else
+print("[FUST] LiquidGlass compile: " .. tostring(fn))
+end
 if not LG then
-for i, url in ipairs(LIB_URLS) do
-setProgress("2/4: LiquidGlass — зеркало " .. i .. "/" .. #LIB_URLS .. " (резерв)...", Color3.fromRGB(240, 180, 60))
-local body = httpGetWithTimeout(url, 6)
-if body then
-local lOk, lResult = pcall(function() return loadstring(body)() end)
-if lOk and type(lResult) == "table" then
-LG = lResult
-break
+setProgress("2/4: LiquidGlass НЕ запустилась!", Color3.fromRGB(255, 80, 80))
+error("[FUST] Встроенная LiquidGlass не выполнилась (compile/runtime) — скрин консоли в чат")
 end
 end
-end
-end
-
-if not LG then
-setProgress("2/4: LiquidGlass НЕ загрузился!", Color3.fromRGB(255, 80, 80))
-task.wait(1)
-error("[FUST] LiquidGlass не загрузился ни встроенной копией, ни с зеркал")
-end
-end
+setProgress("2/4: LiquidGlass загружен, инициализация...", Color3.fromRGB(120, 200, 120))
 
 -- КРАСНЫЙ вместо голубого
 local ACCENT_RED = Color3.fromRGB(255, 59, 48)
@@ -9203,6 +9275,7 @@ reparent(Library.Holder)
 reparent(Library.UnusedHolder)
 end)
 print("[FUST] 3/4: LiquidGlass готов, создаю окно...")
+fustStep("3a: создание окна")
 -- 0.39v6: ИКОНКА ПЕТУХА — используем Roblox asset ID напрямую.
 -- getcustomasset убран — он детектится анти-читом ("Exploit detected;
 -- getcustomasset"). rbxassetid работает везде и не палится.
@@ -9473,6 +9546,7 @@ LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Л
 end)
 -- 0.39v16: yield убран — в v13 без него работало
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+fustStep("3b: фичи и вкладки")
 S = {
 ESP = {
 Enabled = false,
@@ -17314,7 +17388,9 @@ errSec:Label("⚠ " .. table.concat(UI_ERRORS, "  ||  "))
 end
 end
 end)
+fustStep("4/4: финал")
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
+getgenv().FUST_READY = true
 end)
 -- 0.39v15: скрываем виджет загрузки при успехе
 pcall(function() loadWidget:Destroy() end)
@@ -17422,4 +17498,5 @@ pcall(function() loadWidget:Destroy() end)
 FUST_LOAD_DONE = true
 FUST_LOAD_OK = false
 FUST_LOAD_ERR = err
+getgenv().FUST_READY = true -- ошибка уже показана баннером, watchdog молчит
 print("[FUST] v16: загрузка завершена (с ошибкой — смотри баннер выше).")

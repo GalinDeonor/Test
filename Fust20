@@ -1,14 +1,4 @@
-----------------------------------------------------------------
--- Layout helpers and custom content
----------------------------------------------------------------------------
-function Section:AddDivider()
-	local el = self:_element({ Title = "" }, "Divider", { MinHeight = 16, PadY = 0, Title = "" })
-	el.Row.Body.Visible = false
-	el.Row.Separator.AnchorPoint = Vector2.new(0, 0.5)
-	el.Row.Separator.Position = UDim2.new(0, S.RowInset, 0.5, 0)
-	el.Row.Separator.Size = UDim2.new(1, -2 * S.RowInset, 0, 1)
-	el.NoSeparator = true
-	self:_refresh()
+sh()
 	return el
 end
 
@@ -1427,4 +1417,24 @@ function Window:AddSettingsTab(o)
 		end })
 		-- mirror moves made with the grip
 		local userMoved = bar.OnMoved
-		bar.OnMoved = function(position, floating, 
+		bar.OnMoved = function(position, floating, screen, align)
+			if position ~= "Free" and posSeg.Value ~= position then
+				posSeg:Set(position, true)
+			end
+			if floatToggle.Value ~= floating then
+				floatToggle:Set(floating, true)
+			end
+			if screenToggle.Value ~= (screen == true) then
+				screenToggle:Set(screen == true, true)
+			end
+			if align and alignSeg.Value ~= align then
+				alignSeg:Set(align, true)
+			end
+			Util.fire(userMoved, position, floating, screen, align)
+		end
+	end
+
+	local snd = tab:AddSection("Sound")
+	snd:AddToggle({ Title = "Interface sounds", Icon = "volume", IconColor = Color3.fromRGB(255, 45, 85), Default = Library.Settings.Sounds, Callback = function(v)
+		Library.Settings.Sounds = v
+	en

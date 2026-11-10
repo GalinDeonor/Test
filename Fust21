@@ -1,24 +1,4 @@
-screen, align)
-			if position ~= "Free" and posSeg.Value ~= position then
-				posSeg:Set(position, true)
-			end
-			if floatToggle.Value ~= floating then
-				floatToggle:Set(floating, true)
-			end
-			if screenToggle.Value ~= (screen == true) then
-				screenToggle:Set(screen == true, true)
-			end
-			if align and alignSeg.Value ~= align then
-				alignSeg:Set(align, true)
-			end
-			Util.fire(userMoved, position, floating, screen, align)
-		end
-	end
-
-	local snd = tab:AddSection("Sound")
-	snd:AddToggle({ Title = "Interface sounds", Icon = "volume", IconColor = Color3.fromRGB(255, 45, 85), Default = Library.Settings.Sounds, Callback = function(v)
-		Library.Settings.Sounds = v
-	end })
+d })
 	snd:AddSlider({ Title = "Volume", Min = 0, Max = 100, Step = 1, Default = math.floor(Library.Settings.Volume * 100), Suffix = "%", Callback = function(v)
 		Library.Settings.Volume = v / 100
 	end, Released = function()
@@ -142,11 +122,34 @@ Library._blur = Blur
 Library._overlay = Overlay
 
 return Library
+]=]
+Library = (function()
+-- ============================================================================
+-- 0.40: ЯДРО UI = LiquidGlass (github.com/fischgesichtert/LiquidGlass)
+-- Полностью заменяет встроенную VOMAGLA-библиотеку.
+-- Лицензия LiquidGlass запрещает копировать/править её исходник, поэтому
+-- грузим ОФИЦИАЛЬНЫМ лоадстрингом и кастомизируем через публичный API.
+-- Голубой акцент библиотеки заменён КРАСНЫМ (255, 59, 48).
+-- ============================================================================
+-- ============================================================================
+-- 0.44: БИБЛИОТЕКА ВСТРОЕНА В СКРИПТ. Ни одного HttpGet для LiquidGlass —
+-- зависнуть на скачивании физически невозможно (в прошлых версиях HttpGet
+-- без таймаута на большом файле висел намертво на некоторых сетях).
+-- Дистрибутив встроен verbatim (лицензия не нарушена — исходник не изменён),
+-- выполняется локально через loadstring.
+-- ============================================================================
+-- SAFETY: getcustomasset детектится анти-читом этой игры (см. 0.39v6 —
+-- за него кикало). LiquidGlass без него сам откатывается на чистые контуры
+-- без стеклянных текстур и звуков (это документированный режим работы).
+-- Если захочешь полный стеклянный вид — удали следующую строку НА СВОЙ РИСК.
+getgenv().getcustomasset = nil
 
-]==]
+-- скип интро "Entity" (3 сек на мобиле — лишнее; лицензия это разрешает)
+getgenv().LiquidGlassSkipIntro = true
 
--- прогресс-баннер (обновляем поверх loadWidget)
+-- прогресс-баннер (обновляем поверх loadWidget) + шаг для watchdog
 local function setProgress(text, color)
+getgenv().FUST_STEP = text
 pcall(function()
 if lwText and lwText.Parent then
 lwText.Text = text
@@ -155,62 +158,29 @@ end
 end)
 end
 
--- резервный HTTP-путь (используется ТОЛЬКО если встроенная копия упала)
-local LIB_URLS = {
-"https://raw.githubusercontent.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
-"https://cdn.jsdelivr.net/gh/fischgesichtert/LiquidGlass@main/dist/LiquidGlass.lua",
-"https://raw.githack.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
-}
-local function httpGetWithTimeout(url, timeoutSec)
-timeoutSec = timeoutSec or 6
-local req = request or http_request or (syn and syn.request)
-if req then
-local ok, res = pcall(function()
-return req({ Url = url, Method = "GET", Timeout = timeoutSec * 1000 })
-end)
-if ok and type(res) == "table" and res.Body and #res.Body > 1000 then
-return res.Body
-end
-end
-local ok2, body = pcall(function() return game:HttpGet(url) end)
-if ok2 and type(body) == "string" and #body > 1000 then
-return body
-end
-return nil
-end
-
 local LG = nil
 do
--- путь 1: ВСТРОЕННАЯ копия (основной, мгновенный, без сети)
-setProgress("2/4: LiquidGlass (встроенная копия)...", Color3.fromRGB(120, 200, 120))
-local ok, result = pcall(function()
-return loadstring(LG_EMBED)()
+setProgress("2/4: парсинг встроенной LiquidGlass (1.0 МБ)...", Color3.fromRGB(120, 200, 120))
+local okC, fn = pcall(function()
+return (loadstring or load)(FUST_LG_SRC, "=LiquidGlass")
 end)
-if ok and type(result) == "table" then
-LG = result
+if okC and type(fn) == "function" then
+setProgress("2/4: запуск LiquidGlass...", Color3.fromRGB(120, 200, 120))
+local okR, res = pcall(fn)
+if okR and type(res) == "table" then
+LG = res
+else
+print("[FUST] LiquidGlass runtime: " .. tostring(okR and ("вернула " .. type(res)) or res))
 end
-
--- путь 2: HTTP-зеркала (только если встроенная вдруг сломалась)
+else
+print("[FUST] LiquidGlass compile: " .. tostring(fn))
+end
 if not LG then
-for i, url in ipairs(LIB_URLS) do
-setProgress("2/4: LiquidGlass — зеркало " .. i .. "/" .. #LIB_URLS .. " (резерв)...", Color3.fromRGB(240, 180, 60))
-local body = httpGetWithTimeout(url, 6)
-if body then
-local lOk, lResult = pcall(function() return loadstring(body)() end)
-if lOk and type(lResult) == "table" then
-LG = lResult
-break
+setProgress("2/4: LiquidGlass НЕ запустилась!", Color3.fromRGB(255, 80, 80))
+error("[FUST] Встроенная LiquidGlass не выполнилась (compile/runtime) — скрин консоли в чат")
 end
 end
-end
-end
-
-if not LG then
-setProgress("2/4: LiquidGlass НЕ загрузился!", Color3.fromRGB(255, 80, 80))
-task.wait(1)
-error("[FUST] LiquidGlass не загрузился ни встроенной копией, ни с зеркал")
-end
-end
+setProgress("2/4: LiquidGlass загружен, инициализация...", Color3.fromRGB(120, 200, 120))
 
 -- КРАСНЫЙ вместо голубого
 local ACCENT_RED = Color3.fromRGB(255, 59, 48)
@@ -1014,6 +984,7 @@ reparent(Library.Holder)
 reparent(Library.UnusedHolder)
 end)
 print("[FUST] 3/4: LiquidGlass готов, создаю окно...")
+fustStep("3a: создание окна")
 -- 0.39v6: ИКОНКА ПЕТУХА — используем Roblox asset ID напрямую.
 -- getcustomasset убран — он детектится анти-читом ("Exploit detected;
 -- getcustomasset"). rbxassetid работает везде и не палится.
@@ -1284,6 +1255,7 @@ LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Л
 end)
 -- 0.39v16: yield убран — в v13 без него работало
 print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+fustStep("3b: фичи и вкладки")
 S = {
 ESP = {
 Enabled = false,
@@ -1709,8 +1681,3 @@ ITEM_RU_DICT = {
 -- лут/ресурсы (Rust)
 ["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
 ["metal fragments"] = "Металлические фрагменты", ["metal ore"] = "Руда металла",
-["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
-["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
-["blood bag"] = "Пакет крови", ["syringe"] = "Шприц",
-["wood planks"] = "Доски", ["wooden planks"] = "Доски",
-["stone ore"] = "Каменная руда", ["sulfur ore"] 

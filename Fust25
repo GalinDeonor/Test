@@ -1,5 +1,4 @@
-letPoolSize]
-bulletPool[bulletPoolSize] = nil
+letPoolSize] = nil
 bulletPoolSize = bulletPoolSize - 1
 return item.Part
 end
@@ -1736,7 +1735,9 @@ errSec:Label("⚠ " .. table.concat(UI_ERRORS, "  ||  "))
 end
 end
 end)
+fustStep("4/4: финал")
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
+getgenv().FUST_READY = true
 end)
 -- 0.39v15: скрываем виджет загрузки при успехе
 pcall(function() loadWidget:Destroy() end)
@@ -1844,4 +1845,5 @@ pcall(function() loadWidget:Destroy() end)
 FUST_LOAD_DONE = true
 FUST_LOAD_OK = false
 FUST_LOAD_ERR = err
+getgenv().FUST_READY = true -- ошибка уже показана баннером, watchdog молчит
 print("[FUST] v16: загрузка завершена (с ошибкой — смотри баннер выше).")

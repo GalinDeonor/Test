@@ -1,0 +1,93 @@
+-- «Пьяный Петух» — универсальный лоадер v2 (Xeno + Delta)
+-- ЧТО ИЗМЕНИЛОСЬ В v2: контроль целостности (длина + md5) — если на репо
+-- смешаны части разных версий, лоадер СРАЗУ скажет об этом текстом, а не
+-- молча запустит мусор. Плюс понятный прогресс по каждой части.
+-- Обновление: перезалить в корень репозитория GalinDeonor/Test ВСЕ части
+-- Fust1..N + manifest.json (СТАРЫЕ части Fust* сначала УДАЛИТЬ из репо).
+-- Лоадер сам подхватит новую версию по manifest.json.
+
+local M1 = "https://raw.githubusercontent.com/GalinDeonor/Test/main/"
+local M2 = "https://raw.githubusercontent.com/GalinDeonor/Test/main/" -- резерв, поставь свой
+local H  = game:GetService("HttpService")
+
+local function get(u)
+    local ok, r = pcall(game.HttpGet, game, u)
+    if ok and type(r) == "string" and #r > 0 then return r end
+    local f = request or http_request or (syn and syn.request)
+    if f then
+        local ok2, r2 = pcall(f, {Url = u, Method = "GET"})
+        if ok2 and type(r2) == "table" then
+            return r2.Body or r2.body or ""
+        end
+    end
+    return nil
+end
+
+local function fetch(u)
+    local r = get(u)
+    if r then return r end
+    -- фолбэк: пробуем резервное зеркало (если M2 отличается от M1)
+    if M2 ~= M1 then
+        return get(u:gsub(M1, M2, 1))
+    end
+    return nil
+end
+
+-- 1. Тянем manifest.json (обход CDN-кэша)
+local mj = fetch(M1 .. "manifest.json?t=" .. tostring(os.time()))
+if not mj or #mj < 10 then
+    return warn("[ПП] manifest.json не скачался. Проверь интернет/репозиторий.")
+end
+
+local okM, m = pcall(H.JSONDecode, H, mj)
+if not okM or type(m) ~= "table" or not m.parts then
+    return warn("[ПП] manifest.json битый: " .. tostring(m))
+end
+
+print("[ПП] Версия на репо: " .. tostring(m.ver or "?") .. " | частей: " .. #m.parts)
+
+-- 2. Качаем все части, проверяем размеры по манифесту
+local src = ""
+for i = 1, #m.parts do
+    local u   = M1 .. m.parts[i] .. "?v=" .. tostring(m.v) .. "_" .. tostring(i)
+    local prt = fetch(u)
+    local want = m.sizes and m.sizes[i] or 0
+    if not prt or #prt < want then
+        return warn(string.format(
+            "[ПП] Часть %d (%s) битая: %d байт, нужно %d. Перезалей репозиторий.",
+            i, m.parts[i], prt and #prt or 0, want))
+    end
+    src = src .. prt
+    print(string.format("[ПП %s] %d/%d: %s (%d байт) OK", m.ver or "?", i, #m.parts, m.parts[i], #prt))
+end
+
+print("[ПП] Все " .. #m.parts .. " частей скачаны (" .. #src .. " байт). Проверяю целостность...")
+
+-- 3. Контроль целостности: точная длина + md5 (если экзекутор умеет crypt.hash)
+if m.total and #src ~= m.total then
+    return warn(string.format(
+        "[ПП] Сумма %d != %d — на репо СМЕШАНЫ части разных версий. Удали ВСЕ старые файлы Fust* и manifest.json, залей новый релиз целиком.",
+        #src, m.total))
+end
+if m.md5 then
+    local okH, h = pcall(function()
+        return (crypt and crypt.hash) and crypt.hash(src, "md5") or nil
+    end)
+    if okH and type(h) == "string" and #h > 0 and h ~= m.md5 then
+        return warn("[ПП] MD5 не совпал — на репо старые/чужие части. Удали ВСЕ Fust* + manifest.json и залей новый релиз ЦЕЛИКОМ, потом rejoin.")
+    end
+end
+print("[ПП] Целостность OK. Запускаю «Пьяный Петух»...")
+
+-- 4. Компилируем и запускаем
+local fn, err = (loadstring or load)(src, "=Fust")
+if not fn then
+    return warn("[ПП] Компиляция: " .. tostring(err))
+end
+local ok, rerr = pcall(fn)
+if not ok then
+    warn("[ПП] Выполнение: " .. tostring(rerr))
+    warn("[ПП] Скинь скрин консоли — там будет [FUST] с местом падения.")
+else
+    print("[ПП] Готово. Если меню не появилось — смотри красный баннер и консоль.")
+end

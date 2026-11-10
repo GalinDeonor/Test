@@ -1,4 +1,15 @@
-Workspace
+(function()
+return Workspace:FindFirstChild(folder, true)
+end)
+if okF and f then
+for _, d in ipairs(f:GetDescendants()) do
+if d:IsA("Model") then
+table.insert(found, d)
+end
+end
+end
+end
+-- 3. Поиск по имени в верхнем уровне Workspace
 for _, d in ipairs(Workspace:GetChildren()) do
 if d:IsA("Model") then
 local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
@@ -2004,6 +2015,4 @@ itemCount = math.max(itemCount or 0, tools)
 end
 end
 local slotsText
-if slotsUsed and slotsMax and slotsMax > 0 then
-slotsText = string.format("%d/%d", math.floor(slotsUsed), math.floor(slotsMax))
-elseif slotsU
+if slotsUsed and slotsMax and 

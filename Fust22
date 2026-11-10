@@ -1,4 +1,9 @@
-= "Серная руда",
+
+["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
+["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
+["blood bag"] = "Пакет крови", ["syringe"] = "Шприц",
+["wood planks"] = "Доски", ["wooden planks"] = "Доски",
+["stone ore"] = "Каменная руда", ["sulfur ore"] = "Серная руда",
 ["sulfur"] = "Сера", ["charcoal"] = "Древесный уголь",
 ["gunpowder"] = "Порох", ["explosives"] = "Взрывчатка",
 ["low grade fuel"] = "Низкосортное топливо", ["fuel"] = "Топливо",
@@ -1795,15 +1800,4 @@ end
 end
 -- 2. Поиск по папкам
 for _, folder in ipairs(HELI_FOLDER_NAMES) do
-local okF, f = pcall(function()
-return Workspace:FindFirstChild(folder, true)
-end)
-if okF and f then
-for _, d in ipairs(f:GetDescendants()) do
-if d:IsA("Model") then
-table.insert(found, d)
-end
-end
-end
-end
--- 3. Поиск по имени в верхнем уровне 
+local okF, f = pcall

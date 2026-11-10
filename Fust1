@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44 (v19 LiquidGlass встроен)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44 (LiquidGlass встроен)...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44 LiquidGlass...")
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -648,18 +648,33 @@ end)
 end
 end
 journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
-print("[FUST] 2/4: LiquidGlass встроен в файл — HTTP не нужен.")
-Library = (function()
 -- ============================================================================
--- 0.40: ЯДРО UI = LiquidGlass (github.com/fischgesichtert/LiquidGlass)
--- Полностью заменяет встроенную VOMAGLA-библиотеку.
--- Лицензия LiquidGlass запрещает копировать/править её исходник, поэтому
--- грузим ОФИЦИАЛЬНЫМ лоадстрингом и кастомизируем через публичный API.
--- Голубой акцент библиотеки заменён КРАСНЫМ (255, 59, 48).
+-- 0.44: WATCHDOG. Если инициализация не дошла до «4/4» за 30 секунд —
+-- показываем красный баннер с ТОЧНЫМ шагом зависания вместо вечного молчания.
+-- Построен на чистом Instance.new — работает даже если библиотека не стартовала.
 -- ============================================================================
--- 0.44: LiquidGlass ВСТРОЕН в этот файл (LG_EMBED ниже) — БЕЗ HTTP ВООБЩЕ.
--- Причина: Delta вешается/обрезает game:HttpGet на 1МБ файле библиотеки
--- ("2/4" зависал намертво на 0.42 и 0.43). Чанки Fust по ~54КБ при этом
--- грузятся нормально — поэтому библиотека теперь скачается ЧАНКАМИ с нашего
--- репо вместе с остальным кодом. HTTP к GitHub оставлен только как
--- резервный путь, если встроенная копия вдруг не загру�
+getgenv().FUST_READY = false
+getgenv().FUST_T0 = os.time()
+getgenv().FUST_STEP = "старт"
+local function fustStep(text)
+getgenv().FUST_STEP = text
+end
+task.spawn(function()
+local deadline = os.time() + 30
+while os.time() < deadline do
+task.wait(1)
+if getgenv().FUST_READY then
+return
+end
+end
+local elapsed = os.time() - getgenv().FUST_T0
+local touchVal = "?"
+pcall(function() touchVal = tostring(game:GetService("UserInputService").TouchEnabled) end)
+local hasReq = tostring(type(request) == "function" or type(http_request) == "function")
+local diag = string.format(
+"ЗАВИСЛО НА ШАГЕ: %s (прошло %d сек)\nЭкзекутор: %s | Touch: %s | request: %s\nШаг 2a/2b = слабый телефон парсит встроенные 1.0 МБ — подожди ещё 1-2 мин, может дойти.\nШаг 3a-4/4 = скрин КОНСОЛИ и этого окна — в чат.",
+tostring(getgenv().FUST_STEP), elapsed, EXECUTOR_NAME, touchVal, hasReq
+)
+print("[FUST-WATCHDOG] " .. diag:gsub("\n", " | "))
+pcall(function()
+local banner = Instance.new("Sc

@@ -1,4 +1,6 @@
-sed then
+slotsMax > 0 then
+slotsText = string.format("%d/%d", math.floor(slotsUsed), math.floor(slotsMax))
+elseif slotsUsed then
 slotsText = string.format("%d слот.", math.floor(slotsUsed))
 elseif slotsMax and slotsMax > 0 then
 slotsText = string.format("?/%d", math.floor(slotsMax))
@@ -1856,4 +1858,5 @@ if bulletPoolSize > 0 then
 for i = bulletPoolSize, 1, -1 do
 local item = bulletPool[i]
 if item and item.Kind == kind then
-bulletPool[i] = bulletPool[bul
+bulletPool[i] = bulletPool[bulletPoolSize]
+bulletPool[bul

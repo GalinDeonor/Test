@@ -1,8 +1,4 @@
-lf.MinimizeButton = Glass.iconButton({ Parent = header, Icon = "minus", Size = btn, IconSize = 12, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -g - btn - 8, 0.5, 0), ZIndex = 8, Callback = function()
-		self:Minimize()
-	end })
-
-	-- 4 px of breathing room on each side so pressed controls never clip
+om on each side so pressed controls never clip
 	local pages = new("Frame", { Name = "Pages", BackgroundTransparency = 1, ClipsDescendants = true, Position = UDim2.fromOffset(g - 4, S.WindowInset + S.Header), Size = UDim2.new(1, -2 * (g - 4), 1, -(S.WindowInset + S.Header) - S.WindowInset), ZIndex = 4, Parent = main })
 	self.Pages = pages
 end
@@ -1659,4 +1655,18 @@ end
 function Bar:destroy()
 	if self.Ghost then
 		self.Ghost:Destroy()
-		self.Ghost = 
+		self.Ghost = nil
+	end
+	if self.Glass then
+		self.Glass.Root:Destroy()
+		self.Glass = nil
+	end
+end
+
+-- Window API ---------------------------------------------------------------------
+-- cfg: Position, Floating, Screen, Align, Locked, HideWithWindow, Labels,
+-- Draggable, Grip, Cycle, Gap, OnMoved
+function Window:SetTabBar(cfg)
+	local bar = self.Bar
+	if not bar then
+		warn("[LiquidGlass] SetTabBar needs CreateWindo

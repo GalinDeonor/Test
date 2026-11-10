@@ -1,9 +1,4 @@
-Magnitude < 0.5
-		if done then
-			s.pos, s.vel = s.target, Vector2.zero
-			springs[inst] = nil
-		end
-		local x, y = s.pos.X, s.pos.Y
+os.Y
 		local st = s.stretch
 		if st then
 			if done then
@@ -1722,4 +1717,8 @@ function Window:_buildMain(o)
 	self.CloseButton = Glass.iconButton({ Parent = header, Icon = "close", Size = btn, IconSize = 12, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -g, 0.5, 0), ZIndex = 8, Callback = function()
 		self:_closePrompt()
 	end })
-	se
+	self.MinimizeButton = Glass.iconButton({ Parent = header, Icon = "minus", Size = btn, IconSize = 12, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -g - btn - 8, 0.5, 0), ZIndex = 8, Callback = function()
+		self:Minimize()
+	end })
+
+	-- 4 px of breathing ro

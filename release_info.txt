@@ -1,0 +1,45 @@
+=== РЕЛИЗ «Пьяный Петух» 0.44 ===
+Полный размер:   1382447 байт (md5: 52361332b233dcd67f6f4e3015a4e200)
+Частей:          25
+
+Размеры частей (для проверки в лоадере не нужны — берутся из manifest.json):
+  Fust1       55297 байт  md5=21e47e8a70c6c0b841bb52b29ea7cb72
+  Fust2       55297 байт  md5=451b67d2855273501ee9c3a5afdf37b9
+  Fust3       55297 байт  md5=583aec7ba178494233147f55f4166ac8
+  Fust4       55297 байт  md5=0acacfd8dbe70af9fbdfce39ce2c1cf0
+  Fust5       55297 байт  md5=c5038582bbe7152f9bcdbae2f50e8590
+  Fust6       55297 байт  md5=51fc9c605e5ef38ca8395c94e0fb4b79
+  Fust7       55297 байт  md5=d70c470f4eef0ff1c0aeacf08bd8b570
+  Fust8       55297 байт  md5=c84fd0d958ccf4bde5232c5bd381eb23
+  Fust9       55297 байт  md5=5a8451ccd4899dab3b5d6f00eb191349
+  Fust10      55297 байт  md5=2bef74750bf4d08f34cc9b3445713539
+  Fust11      55297 байт  md5=901c89b64fbfb3cd5d39e96e0fb98c17
+  Fust12      55297 байт  md5=2870cfac512087089b20e723b7977764
+  Fust13      55297 байт  md5=055f8757b62e44d29344421f4ef1c27c
+  Fust14      55297 байт  md5=13aa8f4011d4aeb0a1ce345762a07bef
+  Fust15      55297 байт  md5=f7723fd7a24fd708e84709204c072d98
+  Fust16      55297 байт  md5=2eb0e9d62bce353dc12769a5adca6bed
+  Fust17      55297 байт  md5=5e7c028b847e10d947ef8b7b8f8c3682
+  Fust18      55297 байт  md5=e6117846ba3defeb8f76f16d2841bcf9
+  Fust19      55297 байт  md5=abfaba781b777a736b35be24d5ed5385
+  Fust20      55297 байт  md5=6fe11599a86923b34ea9822ee4d63113
+  Fust21      55297 байт  md5=88db73394c677f672d32131ce7146007
+  Fust22      55297 байт  md5=a2fd965564b3d25c26b4e5c8ce10eaa5
+  Fust23      55297 байт  md5=80ae1ee9c4e287fcc8cdd94bfba451b1
+  Fust24      55297 байт  md5=45979ae7b91694e4dcc4e6cbb53d7320
+  Fust25      55319 байт  md5=3858b265e4dea708d74ecd9e48cf71c8
+  СУММА     1382447 байт
+
+ЧТО ЗАЛИВАТЬ В РЕПО GalinDeonor/Test (заменить старые):
+  Fust1, Fust2, ..., Fust25
+  Fust           (для Xeno одним файлом — опционально, но рекомендуется)
+  manifest.json  (ОБЯЗАТЕЛЬНО — лоадер читает v/sizes из него)
+
+ПОСЛЕ ЗАЛИВКИ:
+  1. Проверь: https://raw.githubusercontent.com/GalinDeonor/Test/main/manifest.json
+     должен отдавать новый файл (Ctrl+Shift+R от CDN-кэша).
+  2. ?v=44 в лоадере подставится автоматически из manifest.v.
+  3. ЛОАДЕР ОБНОВЛЁН до v2 (md5-проверка) — обязательно вставь новый текст в экзекутор.
+
+ПРОВЕРКА СБОРКИ (cat частей == исходный Fust):
+  cat Fust1..25 == Fust : OK
