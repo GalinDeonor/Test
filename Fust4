@@ -1,4 +1,7 @@
- = colBg
+r 0.35, 0, 0.95)
+if S.HUD.ShowBg then
+hudFrame.BackgroundTransparency = bg
+hudFrame.BackgroundColor3 = colBg
 if hudStroke then
 hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
 hudStroke.Color = colStroke
@@ -2467,5 +2470,4 @@ function dummy:Remove() end
 return dummy
 end
 Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
-warn("[FUST] Drawing недоступен в этом экзекуторе — ESP/прицел работают вхолостую")
-end
+warn("[FUST] Drawing недоступен в этом экзекуто

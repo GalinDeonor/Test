@@ -1245,4 +1245,4 @@ return
 end
 return Library:Connect(self.Instance.MouseEnter, Function)
 end
-Instances.OnHove
+Instances.OnHoverLeave = function(self, Function
