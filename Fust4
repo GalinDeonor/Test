@@ -1,62 +1,4 @@
-PS and true or false
-end
-if hudLineAdmin then
-hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
-end
-end
-function hudDestroy()
-for _, c in ipairs(hudConns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-hudConns = {}
-if hudGui then
-pcall(function()
-hudGui:Destroy()
-end)
-end
-hudGui = nil
-hudFrame = nil
-hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
-hudDragging = false
-end
-function hudEnsure()
-if hudFrame then
-return
-end
-local okGui = pcall(function()
-local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
-hudGui = Instance.new("ScreenGui")
-hudGui.Name = "PetuhHUD"
-hudGui.ResetOnSpawn = false
-hudGui.IgnoreGuiInset = true
-hudGui.DisplayOrder = 9999
-hudGui.Parent = parentGui
-hudFrame = Instance.new("Frame")
-hudFrame.Name = "Panel"
-hudFrame.Active = true
-hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-hudFrame.BorderSizePixel = 0
-hudFrame.AutomaticSize = Enum.AutomaticSize.XY
-hudFrame.Size = UDim2.new(0, 0, 0, 0)
-hudFrame.Parent = hudGui
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = hudFrame
-hudStroke = Instance.new("UIStroke")
-hudStroke.Color = Color3.fromRGB(255, 170, 40)
-hudStroke.Transparency = 0.6
-hudStroke.Parent = hudFrame
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.Padding = UDim.new(0, 2)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = hudFrame
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 6)
-pad.PaddingBottom = UDim.new(0, 6)
+Bottom = UDim.new(0, 6)
 pad.PaddingLeft = UDim.new(0, 9)
 pad.PaddingRight = UDim.new(0, 9)
 pad.Parent = hudFrame
@@ -488,6 +430,7 @@ journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or 
 end
 })
 LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
+task.wait() -- 0.39v15: yield перед большим блоком
 uiStep("Вкладка Боты и НПС", function()
 BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
 BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
@@ -2464,4 +2407,44 @@ CH = {
 Gap = 5,        -- зазор от центра
 Length = 7,     -- длина лучей
 Thickness = 2,  -- толщина линий
-Dot = false,
+Dot = false,    -- точка в центре
+Outline = true, -- обводка (чёрная за цветом)
+Color = Color3.fromRGB(255, 30, 30),
+-- 0.39v2: расширенные настройки CS2
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
+}
+CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
+chLines = {}
+for i = 1, 4 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 2
+l.Color = Color3.fromRGB(255, 30, 30)
+l.Visible = false
+chLines[i] = l
+end
+end
+chDot = SafeDrawing("Circle")
+if chDot then
+chDot.Radius = 1
+chDot.Thickness = 1
+chDot.Filled = true
+chDot.Color = Color3.fromRGB(255, 30, 30)
+chDot.Visible = false
+end
+-- обводка: 8 линий вокруг основных (4 направления × 2 смещения)
+chOutline = {}
+for i = 1, 8 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 3
+l.Color = Color3.fromRGB(0, 0, 0)
+l.Visible = false
+chOutline[i] = l
+end
+end
+f

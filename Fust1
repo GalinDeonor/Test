@@ -1,18 +1,18 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v14)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39 (v15)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
-    0.39v14 — быстрая безопасная загрузка (30 сек):
-    • При запуске скрипта в углу появляется виджет-таймер 0:30.
-    • В это время чит НЕ ДЕЛАЕТ НИЧЕГО подозрительного: ни Drawing,
-      ни hookmetamethod, ни sethiddenproperty, ни сканеров Workspace.
-    • Через 30 секунд виджет исчезает, чит загружается нормально.
+    0.39v15 — асинхронная загрузка (фикс зависания Roblox):
+    • Весь pcall загрузки чита обёрнут в task.spawn — Roblox watchdog
+      больше не убивает поток за "freeze" (>5сек без yield).
+    • Между большими блоками вставлены task.wait() — поток дышит.
+    • Виджет "ЗАГРУЗКА ЧИТА..." показывается сразу, исчезает когда
+      чит полностью загружен (или при ошибке — появляется красный баннер).
+    • 30-сек задержка убрана — была бессмысленна, проблема была в зависании.
     • УБРАНА модификация root.Size на чужих персонажах при старте —
-      это детектилось в первые секунды (sethiddenproperty на HRP
-      других игроков = мгновенный флаг).
-    • FUST_LOAD_SKIP = false (true = пропустить задержку для теста).
-    • FUST_LOAD_DELAY = 30 (30 секунд).
+      это детектилось в первые секунды (sethiddenproperty на HRP).
+    • FUST_LOAD_SKIP = true (заглушка, задержки больше нет).
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -457,8 +457,46 @@
 ]]
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
--- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
--- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
+-- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
+-- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
+-- убираем когда pcall завершён (успех или ошибка).
+local FUST_LOAD_DONE = false
+local FUST_LOAD_OK = nil
+local FUST_LOAD_ERR = nil
+
+-- Виджет загрузки — простой, не блокирует игру
+local loadWidget = Instance.new("ScreenGui")
+loadWidget.Name = "PetuhLoadScreen"
+loadWidget.ResetOnSpawn = false
+loadWidget.DisplayOrder = 999998
+loadWidget.IgnoreGuiInset = true
+pcall(function() loadWidget.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+if not loadWidget.Parent then
+    pcall(function() loadWidget.Parent = game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui", 3) end)
+end
+local lwPanel = Instance.new("Frame")
+lwPanel.Size = UDim2.new(0, 200, 0, 44)
+lwPanel.Position = UDim2.new(1, -212, 0, 12)
+lwPanel.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+lwPanel.BackgroundTransparency = 0.1
+lwPanel.BorderSizePixel = 0
+lwPanel.Parent = loadWidget
+pcall(function()
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = lwPanel
+    local s = Instance.new("UIStroke"); s.Color = Color3.fromRGB(240, 130, 30); s.Thickness = 1.2; s.Transparency = 0.3; s.Parent = lwPanel
+end)
+local lwIcon = Instance.new("ImageLabel")
+lwIcon.Size = UDim2.new(0, 28, 0, 28); lwIcon.Position = UDim2.new(0, 8, 0.5, -14)
+lwIcon.BackgroundTransparency = 1; lwIcon.Image = "rbxassetid://134242818164054"
+lwIcon.Parent = lwPanel
+local lwText = Instance.new("TextLabel")
+lwText.Size = UDim2.new(1, -44, 1, 0); lwText.Position = UDim2.new(0, 40, 0, 0)
+lwText.BackgroundTransparency = 1; lwText.Font = Enum.Font.GothamBold; lwText.TextSize = 12
+lwText.TextColor3 = Color3.fromRGB(240, 130, 30); lwText.TextXAlignment = Enum.TextXAlignment.Left
+lwText.Text = "ЗАГРУЗКА ЧИТА..."
+lwText.Parent = lwPanel
+
+task.spawn(function()
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -518,145 +556,12 @@ end
 end)
 
 -- ============================================================================
--- 0.39v14: Быстрая безопасная загрузка (30 сек)
--- Анти-чит FUST делает пиковые проверки первые ~30 секунд после входа.
--- Ждём 30 сек в безопасном режиме (только GUI), потом грузим чит.
+-- 0.39v15: Асинхронная загрузка — Roblox не зависает.
+-- Весь pcall с инициализацией чита обёрнут в task.spawn — Roblox watchdog
+-- не убивает поток (если пойдёт >5сек без yield, Roblox кикает за "freeze").
+-- Между большими блоками вставлены task.wait() чтобы давать потоку дышать.
 -- ============================================================================
-FUST_LOAD_DELAY = 30           -- 30 секунд (быстро + безопасно)
-FUST_LOAD_SKIP  = false        -- true = пропустить задержку (для теста)
-
-if not FUST_LOAD_SKIP then
-print("[FUST-LOAD] Короткая безопасная задержка перед загрузкой чита.")
-print("[FUST-LOAD] Ждём " .. FUST_LOAD_DELAY .. " сек, потом активируем чит.")
-
--- Виджет загрузки — маленький, в углу, НЕ перекрывает игру.
--- Только Instance.new, никаких Drawing/hookmetamethod/sethiddenproperty.
-local loadScreen = Instance.new("ScreenGui")
-loadScreen.Name = "PetuhLoadScreen"
-loadScreen.ResetOnSpawn = false
-loadScreen.DisplayOrder = 999998
-loadScreen.IgnoreGuiInset = true
-pcall(function() loadScreen.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
-if not loadScreen.Parent then
-    pcall(function() loadScreen.Parent = LocalPlayer:WaitForChild("PlayerGui", 3) end)
-end
-
--- Контейнер-панель 240×56 в правом верхнем углу
-local panel = Instance.new("Frame")
-panel.Size = UDim2.new(0, 240, 0, 56)
-panel.Position = UDim2.new(1, -252, 0, 12)
-panel.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
-panel.BackgroundTransparency = 0.1
-panel.BorderSizePixel = 0
-panel.Parent = loadScreen
-pcall(function()
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 8)
-    c.Parent = panel
-end)
-pcall(function()
-    local s = Instance.new("UIStroke")
-    s.Color = Color3.fromRGB(240, 130, 30)
-    s.Thickness = 1.2
-    s.Transparency = 0.3
-    s.Parent = panel
-end)
-
--- Иконка петуха слева в панели
-local icon = Instance.new("ImageLabel")
-icon.Size = UDim2.new(0, 36, 0, 36)
-icon.Position = UDim2.new(0, 8, 0.5, -18)
-icon.BackgroundTransparency = 1
-icon.Image = "rbxassetid://134242818164054"
-icon.Parent = panel
-
--- Заголовок
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -52, 0, 16)
-title.Position = UDim2.new(0, 48, 0, 6)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextSize = 11
-title.TextColor3 = Color3.fromRGB(240, 130, 30)
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Text = "ПЬЯНЫЙ ПЕТУХ · ЗАГРУЗКА"
-title.Parent = panel
-
--- Таймер
-local timer = Instance.new("TextLabel")
-timer.Size = UDim2.new(0.5, -52, 0, 18)
-timer.Position = UDim2.new(0, 48, 0, 22)
-timer.BackgroundTransparency = 1
-timer.Font = Enum.Font.GothamBold
-timer.TextSize = 15
-timer.TextColor3 = Color3.fromRGB(235, 235, 240)
-timer.TextXAlignment = Enum.TextXAlignment.Left
-timer.Text = "0:30"
-timer.Parent = panel
-
--- Мини-прогресс-бар внизу панели
-local pbBg = Instance.new("Frame")
-pbBg.Size = UDim2.new(1, -16, 0, 3)
-pbBg.Position = UDim2.new(0, 8, 1, -6)
-pbBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-pbBg.BorderSizePixel = 0
-pbBg.Parent = panel
-pcall(function()
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(1, 0)
-    c.Parent = pbBg
-end)
-
-local pbFill = Instance.new("Frame")
-pbFill.Size = UDim2.new(0, 0, 1, 0)
-pbFill.BackgroundColor3 = Color3.fromRGB(240, 130, 30)
-pbFill.BorderSizePixel = 0
-pbFill.Parent = pbBg
-pcall(function()
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(1, 0)
-    c.Parent = pbFill
-end)
-
--- Подсказка "играй нормально"
-local hint = Instance.new("TextLabel")
-hint.Size = UDim2.new(0, 240, 0, 14)
-hint.Position = UDim2.new(1, -252, 0, 72)
-hint.BackgroundTransparency = 1
-hint.Font = Enum.Font.Gotham
-hint.TextSize = 10
-hint.TextColor3 = Color3.fromRGB(140, 140, 155)
-hint.TextXAlignment = Enum.TextXAlignment.Right
-hint.Text = "Подожди 30 сек — чит сам включится"
-hint.Parent = loadScreen
-
--- Цикл ожидания с обновлением таймера каждую секунду
-local startTime = os.time()
-local endTime = startTime + FUST_LOAD_DELAY
-while true do
-    local now = os.time()
-    local remaining = endTime - now
-    if remaining <= 0 then break end
-    local mins = math.floor(remaining / 60)
-    local secs = remaining % 60
-    timer.Text = string.format("%d:%02d", mins, secs)
-    local progress = 1 - (remaining / FUST_LOAD_DELAY)
-    pbFill.Size = UDim2.new(progress, 0, 1, 0)
-    task.wait(1)
-end
-
-print("[FUST-LOAD] Задержка завершена, активируем чит...")
--- Плавно исчезаем
-pcall(function()
-    panel.Visible = false
-    hint.Visible = false
-    task.wait(0.1)
-    loadScreen:Destroy()
-end)
-task.wait(0.2)
-else
-print("[FUST-LOAD] Задержка пропущена (FUST_LOAD_SKIP=true)")
-end
+print("[FUST-LOAD] v15: запуск асинхронной загрузки чита...")
 
 diagExec()
 DRAWING_OK = false
@@ -1273,4 +1178,85 @@ local NewThread = coroutine.create(Function)
 coroutine.wrap(function()
 coroutine.resume(NewThread)
 end)()
-TableInsert(se
+TableInsert(self.Threads, NewThread)
+return NewThread
+end
+Library.SafeCall = function(self, Function, ...)
+local Arguements = { ... }
+local Success, Result = pcall(Function, TableUnpack(Arguements))
+if not Success then
+warn(Result)
+return false
+end
+return Success
+end
+Library.Connect = function(self, Event, Callback, Name)
+Name = Name or StringFormat("connection_number_%s_%s", self.UnnamedConnections + 1, HttpService:GenerateGUID(false))
+local NewConnection = {
+Event = Event,
+Callback = Callback,
+Name = Name,
+Connection = nil
+}
+Library:Thread(function()
+NewConnection.Connection = Event:Connect(Callback)
+end)
+TableInsert(self.Connections, NewConnection)
+return NewConnection
+end
+Library.Disconnect = function(self, Name)
+for _, Connection in self.Connections do
+if Connection.Name == Name then
+Connection.Connection:Disconnect()
+break
+end
+end
+end
+Library.NextFlag = function(self)
+local FlagNumber = self.UnnamedFlags + 1
+return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
+end
+Library.AddToTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+local ThemeData = {
+Item = Item,
+Properties = Properties,
+}
+for Property, Value in ThemeData.Properties do
+if type(Value) == "string" then
+if not self.Theme[Value] then
+Item[Property] = Value
+end
+Item[Property] = self.Theme[Value]
+else
+Item[Property] = Value()
+end
+end
+TableInsert(self.ThemeItems, ThemeData)
+self.ThemeMap[Item] = ThemeData
+end
+Library.ToRich = function(self, Text, Color)
+return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
+end
+Library.GetConfig = function(self)
+local Config = { }
+for Index, Value in Library.Flags do
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
+elseif type(Value) == "table" and Value.Color ~= nil then
+local hex = "#FFFFFF"
+if type(Value.HexValue) == "string" then
+hex = "#" .. Value.HexValue
+elseif typeof(Value.Color) == "Color3" then
+hex = "#" .. Value.Color:ToHex()
+end
+Config[Index] = {Color = hex}
+else
+Config[Index] = Value
+end
+end)
+end
+return HttpServi

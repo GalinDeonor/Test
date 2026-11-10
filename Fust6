@@ -1,45 +1,4 @@
-}) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
-if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
-AdminScan_LastJournal = os.clock()
-journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
-end
-else
-AdminScan_Names = ""
-end
-end
-AdminScan_LastJournal = 0
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
-end
-end)
-HttpService = game:GetService("HttpService")
-CONFIG_FILE = "FUST_config.json"
-function colorToTable(c)
-return {
-R = math.floor(c.R * 255 + 0.5),
-G = math.floor(c.G * 255 + 0.5),
-B = math.floor(c.B * 255 + 0.5),
-}
-end
-function tableToColor(t)
-if type(t) ~= "table" then
-return nil
-end
-return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
+Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
 end
 function saveConfig()
 local okFile, err = pcall(function()
@@ -1866,6 +1825,7 @@ Players.PlayerRemoving:Connect(function(player)
 removeEspDrawings(player)
 hitboxOriginals[player] = nil
 end)
+task.wait() -- 0.39v15: yield перед логгером киков
 
 -- ============================================================================
 -- FUST KICK/BAN LOGGER 0.38 — лог киков/банов с persist между запусками
@@ -2194,6 +2154,7 @@ print("[FUST-KL] лог киков/банов активен. Файл: " .. KIC
 -- ============================================================================
 -- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
 -- ============================================================================
+task.wait() -- 0.39v15: yield перед UI логов
 pcall(function()
 LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
 LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
@@ -2287,6 +2248,10 @@ end
 end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
+-- 0.39v15: скрываем виджет загрузки при успехе
+pcall(function() loadWidget:Destroy() end)
+FUST_LOAD_DONE = true
+FUST_LOAD_OK = true
 if not ok then
 -- 0.39v13: уничтожаем экран загрузки если он ещё висит (при ошибке во время задержки)
 pcall(function()
@@ -2384,3 +2349,10 @@ t2.Text = msg .. "\n" .. tb .. "\nСкрин этого окна — в чат."
 t2.Parent = fr
 end)
 end
+-- 0.39v15: скрываем виджет загрузки при ошибке (если ещё не скрыт)
+pcall(function() loadWidget:Destroy() end)
+FUST_LOAD_DONE = true
+FUST_LOAD_OK = false
+FUST_LOAD_ERR = err
+end)
+print("[FUST] v15: асинхронная загрузка запущена. Виджет исчезнет когда чит будет готов.")

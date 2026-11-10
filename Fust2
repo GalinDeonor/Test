@@ -1,85 +1,4 @@
-lf.Threads, NewThread)
-return NewThread
-end
-Library.SafeCall = function(self, Function, ...)
-local Arguements = { ... }
-local Success, Result = pcall(Function, TableUnpack(Arguements))
-if not Success then
-warn(Result)
-return false
-end
-return Success
-end
-Library.Connect = function(self, Event, Callback, Name)
-Name = Name or StringFormat("connection_number_%s_%s", self.UnnamedConnections + 1, HttpService:GenerateGUID(false))
-local NewConnection = {
-Event = Event,
-Callback = Callback,
-Name = Name,
-Connection = nil
-}
-Library:Thread(function()
-NewConnection.Connection = Event:Connect(Callback)
-end)
-TableInsert(self.Connections, NewConnection)
-return NewConnection
-end
-Library.Disconnect = function(self, Name)
-for _, Connection in self.Connections do
-if Connection.Name == Name then
-Connection.Connection:Disconnect()
-break
-end
-end
-end
-Library.NextFlag = function(self)
-local FlagNumber = self.UnnamedFlags + 1
-return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
-end
-Library.AddToTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-local ThemeData = {
-Item = Item,
-Properties = Properties,
-}
-for Property, Value in ThemeData.Properties do
-if type(Value) == "string" then
-if not self.Theme[Value] then
-Item[Property] = Value
-end
-Item[Property] = self.Theme[Value]
-else
-Item[Property] = Value()
-end
-end
-TableInsert(self.ThemeItems, ThemeData)
-self.ThemeMap[Item] = ThemeData
-end
-Library.ToRich = function(self, Text, Color)
-return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
-end
-Library.GetConfig = function(self)
-local Config = { }
-for Index, Value in Library.Flags do
-pcall(function()
-if type(Value) == "table" and Value.Key ~= nil then
-Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
-elseif type(Value) == "table" and Value.Color ~= nil then
-local hex = "#FFFFFF"
-if type(Value.HexValue) == "string" then
-hex = "#" .. Value.HexValue
-elseif typeof(Value.Color) == "Color3" then
-hex = "#" .. Value.Color:ToHex()
-end
-Config[Index] = {Color = hex}
-else
-Config[Index] = Value
-end
-end)
-end
-return HttpService:JSONEncode(Config)
+ce:JSONEncode(Config)
 end
 Library.LoadConfig = function(self, Config)
 local OkDecoded, Decoded = pcall(function()
@@ -2309,4 +2228,74 @@ if Input.UserInputState == Enum.UserInputState.End
 or Input.UserInputState == Enum.UserInputState.Cancel then
 Slider.Sliding = false
 if InputChanged then
-InputChanged:Disconnec
+InputChanged:Disconnect()
+InputChanged = nil
+end
+end
+end)
+end
+end)
+Library:Connect(UserInputService.InputChanged, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+if Slider.Sliding then
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+Slider:Set(Value)
+end
+end
+end)
+if Slider.Default then
+Slider:Set(Slider.Default)
+end
+Library.SetFlags[Slider.Flag] = function(Value)
+Slider:Set(Value)
+end
+return Slider
+end
+Library.Sections.Dropdown = function(self, Data)
+Data = Data or { }
+local Dropdown = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Dropdown",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Items = Data.Items or Data.items or { "One", "Two", "Three" },
+Default = Data.Default or Data.default or nil,
+Callback = Data.Callback or Data.callback or function() end,
+Multi = Data.Multi or Data.multi or false,
+Value = { },
+Options = { },
+IsOpen = false
+}
+local Items = { } do
+Items["Dropdown"] = Instances:Create("Frame", {
+Parent = Dropdown.Section.Items["Content"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 26),
+BorderSizePixel = 0
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FillDirection = Enum.FillDirection.Horizontal,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Padding = UDimNew(0, 8),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Dropdown.Name,
+Size = UDim2New(0, 0, 0, 15),
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+LayoutOrder = 1,
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 14
+}):
