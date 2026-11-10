@@ -1,1197 +1,4 @@
-os.Y
-		local st = s.stretch
-		if st then
-			if done then
-				inst.Size = st.Rest
-			elseif st.Axis == "Y" then
-				local k = math.min(math.abs(s.vel.Y) / 1600, 0.32)
-				local extra = st.Base.Y * k
-				inst.Size = UDim2.new(st.Rest.X.Scale, st.Rest.X.Offset, st.Rest.Y.Scale, st.Rest.Y.Offset + extra)
-				y -= extra * (0.5 - inst.AnchorPoint.Y)
-			else
-				local k = math.min(math.abs(s.vel.X) / 1600, 0.32)
-				local extra = st.Base.X * k
-				inst.Size = UDim2.new(st.Rest.X.Scale, st.Rest.X.Offset + extra, st.Rest.Y.Scale, st.Rest.Y.Offset)
-				x -= extra * (0.5 - inst.AnchorPoint.X)
-			end
-		end
-		local p = inst.Position
-		inst.Position = UDim2.new(p.X.Scale, x, p.Y.Scale, y)
-	end
-end))
-
-function Motion.rubber(x, lo, hi, give)
-	if x < lo then
-		return lo - give * (1 - 1 / ((lo - x) / give + 1))
-	elseif x > hi then
-		return hi + give * (1 - 1 / ((x - hi) / give + 1))
-	end
-	return x
-end
-
--- Cross-fades a subtree by wrapping it in a CanvasGroup only while animating,
--- so text stays pixel-sharp the rest of the time.
--- A fade that starts while another runs takes over the same group; only the
--- newest fade unwraps it and runs its `done`, so interrupted fades never stack.
-local fadeOwners = setmetatable({}, { __mode = "k" })
-function Motion.groupFade(frame, from, to, time, done)
-	local group = frame.Parent
-	if not (group and group:IsA("CanvasGroup") and group.Name == "LGFade") then
-		local holder = frame.Parent
-		if not holder then
-			return
-		end
-		group = new("CanvasGroup", {
-			Name = "LGFade",
-			BackgroundTransparency = 1,
-			-- mirror the frame's sizing so auto-sized parents keep their height
-			Size = frame.Size,
-			AutomaticSize = frame.AutomaticSize,
-			ZIndex = frame.ZIndex,
-			LayoutOrder = frame.LayoutOrder,
-			GroupTransparency = from,
-			Parent = holder,
-		})
-		group:SetAttribute("Mirrors", frame.Name)
-		frame.Parent = group
-	end
-	local token = {}
-	fadeOwners[group] = token
-	local tw = tween(group, time, { GroupTransparency = to }, Enum.EasingStyle.Quad)
-	tw.Completed:Once(function()
-		if fadeOwners[group] ~= token then
-			return
-		end
-		fadeOwners[group] = nil
-		if frame.Parent == group then
-			frame.Parent = group.Parent
-		end
-		group:Destroy()
-		if done then
-			done()
-		end
-	end)
-	return tw
-end
-
----------------------------------------------------------------------------
--- Backdrop blur
--- Glass parts just in front of the camera get blurred by a DepthOfField near
--- blur, and the closer a part sits to the camera the stronger its blur. Every
--- surface is a lightly blurred interior with blurrier rings toward its rim, so
--- the backdrop smears and wraps around the edge like a thick lens.
--- Near-field blur bleeds outward, so each layer is pulled in by its own bleed.
--- Glass also shows a sharp sun/moon specular spot wherever the mirrored light
--- lands on screen; when it would, the parts tilt until the spot leaves the view.
--- Fading a blur slides its parts toward the near limit, where blur reaches zero.
----------------------------------------------------------------------------
-local camera = workspace.CurrentCamera
-local blurFolder, dof
-
-local NEAR_LIMIT = 1.6 -- FocusDistance - InFocusRadius
-local INTERIOR_DEPTH = 0.6
--- rim rings: width = radius * frac clamped to [min, max] px. Parts can't be thinner
--- than 0.001 studs, so the shallow ring keeps a min width the clamp can't swallow.
-local RINGS = {
-	{ frac = 0.45, min = 6, max = 16, depth = 0.3 },
-	{ frac = 0.2, min = 4.5, max = 7, depth = 0.15 },
-}
-local TILT_X, TILT_Y = math.rad(31), math.rad(40)
-local SPOT_MARGIN = math.rad(24)
-local THIN = 0.001
-local INSET = 0.5
-local GLASS_T = 0.995
-local BLEED_FRAC = 0.014 -- outward bleed of the closest layer, fraction of viewport height
-local ROT90 = CFrame.Angles(0, math.rad(90), 0)
-
-Blur.regions = {}
-local tiltX, tiltY = 0, 0
-
-function Blur.attach()
-	camera = workspace.CurrentCamera
-	if not camera then
-		return
-	end
-	if not blurFolder then
-		blurFolder = new("Folder", { Name = "LiquidGlassBlur" })
-	end
-	blurFolder.Parent = camera
-	if not dof or not dof.Parent then
-		dof = new("DepthOfFieldEffect", {
-			Name = "LiquidGlassDOF",
-			FarIntensity = 0,
-			FocusDistance = 51.6,
-			InFocusRadius = 50,
-			NearIntensity = 1,
-			Enabled = false,
-		})
-	end
-	dof.Parent = camera
-end
-Blur.attach()
-Util.track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(Blur.attach))
-
-local function glassPart(shape)
-	return new("Part", {
-		Name = "Glass",
-		Shape = shape,
-		Material = Enum.Material.Glass,
-		Transparency = 1,
-		Color = WHITE,
-		Anchored = true,
-		CanCollide = false,
-		CanQuery = false,
-		CanTouch = false,
-		CastShadow = false,
-		Size = Vector3.new(THIN, THIN, THIN),
-		Parent = blurFolder,
-	})
-end
-
-local function shown(o)
-	local gui = Library.Gui
-	if not gui or not gui.Enabled then
-		return false
-	end
-	while o and o ~= gui do
-		if o:IsA("GuiObject") and not o.Visible then
-			return false
-		end
-		o = o.Parent
-	end
-	return o == gui
-end
-
--- inset of a rounded rect's left edge at row py (0..h) for corner radius r
-local function cornerInset(py, h, r)
-	local dy = 0
-	if py < r then
-		dy = r - py
-	elseif py > h - r then
-		dy = py - (h - r)
-	end
-	if dy <= 0 then
-		return 0
-	end
-	return r - math.sqrt(math.max(r * r - dy * dy, 0))
-end
-
-local function bleed(depth, maxBleed)
-	return maxBleed * math.clamp((NEAR_LIMIT - depth) / NEAR_LIMIT, 0, 1)
-end
-
--- screen-space primitives {kind, cx, cy, w, h, rot, depth} of one rounded rect
-local function buildPrims(x0, y0, w0, h0, r0, interiorDepth, tilted, maxBleed, amount)
-	local prims = {}
-	local function rect(ax, ay, bx, by, depth)
-		if bx - ax > 0.05 and by - ay > 0.05 then
-			table.insert(prims, { "rect", (ax + bx) / 2, (ay + by) / 2, bx - ax, by - ay, 0, depth })
-		end
-	end
-	local function shrink(e)
-		e = math.min(e, math.min(w0, h0) / 2 - 1)
-		return x0 + e, y0 + e, w0 - 2 * e, h0 - 2 * e, math.max(r0 - e, 0)
-	end
-	local function depthOf(d)
-		return NEAR_LIMIT - (NEAR_LIMIT - d) * amount
-	end
-
-	local di = depthOf(interiorDepth)
-	local x, y, w, h, r = shrink(bleed(di, maxBleed))
-	if not tilted then
-		rect(x, y + r, x + w, y + h - r, di)
-		rect(x + r, y, x + w - r, y + h, di)
-		if r > 0.5 then
-			for _, c in ipairs({ { x + r, y + r }, { x + w - r, y + r }, { x + r, y + h - r }, { x + w - r, y + h - r } }) do
-				table.insert(prims, { "cyl", c[1], c[2], 2 * r, 2 * r, 0, di })
-			end
-		end
-	else
-		-- tilted parts must stay short along the tilt, so the interior becomes strips
-		local yy = 0
-		while yy < h - 0.01 do
-			local step = math.min((yy < r or yy >= h - r) and 3 or 24, h - yy)
-			local ins = math.max(cornerInset(yy, h, r), cornerInset(yy + step, h, r))
-			-- neighbours overlap slightly so tilted strips never leave hairline cracks
-			rect(x + ins, y + yy - 0.6, x + w - ins, y + yy + step + 0.6, di)
-			yy += step
-		end
-	end
-
-	for _, ring in ipairs(RINGS) do
-		local d = depthOf(ring.depth)
-		x, y, w, h, r = shrink(bleed(d, maxBleed))
-		local t = math.min(math.clamp(r0 * ring.frac, ring.min, ring.max), math.min(w, h) / 2)
-		rect(x + r, y, x + w - r, y + t, d)
-		rect(x + r, y + h - t, x + w - r, y + h, d)
-		rect(x, y + r, x + t, y + h - r, d)
-		rect(x + w - t, y + r, x + w, y + h - r, d)
-		if r > 0.5 then
-			-- quarter annuli out of short tangential bricks (inscribed polygon)
-			local ro, ri = r, math.max(r - t, 0)
-			local n = math.clamp(math.ceil(r / 6), 3, 7)
-			local da = (math.pi / 2) / n
-			local hd = da / 2
-			local outer = ro * (1 + math.cos(hd)) / 2
-			local inner = ri * math.cos(hd)
-			local radial = outer - inner
-			local tangential = 2 * ro * math.sin(hd) + 0.8
-			local mid = (outer + inner) / 2
-			for _, c in ipairs({
-				{ x + r, y + r, math.pi },
-				{ x + w - r, y + r, math.pi * 1.5 },
-				{ x + w - r, y + h - r, 0 },
-				{ x + r, y + h - r, math.pi * 0.5 },
-			}) do
-				for j = 0, n - 1 do
-					local am = c[3] + da * (j + 0.5)
-					table.insert(prims, { "rect", c[1] + math.cos(am) * mid, c[2] + math.sin(am) * mid, tangential, radial, am + math.pi / 2, d })
-				end
-			end
-		end
-	end
-	return prims
-end
-
--- camera-space CFrame and size of a primitive; K = world units per px at depth 1
-local function primToLocal(p, K, hx, hy)
-	local kind, cx, cy, w, h, rot, depth = p[1], p[2], p[3], p[4], p[5], p[6], p[7]
-	local P = Vector3.new((cx - hx) * K * depth, (hy - cy) * K * depth, -depth)
-	if kind == "cyl" then
-		return CFrame.new(P) * ROT90, Vector3.new(THIN, h * K * depth, h * K * depth)
-	end
-	local axisX = rot ~= 0 or w >= h
-	local angle = axisX and tiltX or tiltY
-	if angle == 0 then
-		return CFrame.new(P) * CFrame.Angles(0, 0, -rot), Vector3.new(w * K * depth, h * K * depth, THIN)
-	end
-	local n = axisX and Vector3.new(0, -math.sin(angle), math.cos(angle)) or Vector3.new(math.sin(angle), 0, math.cos(angle))
-	local nP = n:Dot(P)
-	local c, s = math.cos(rot), math.sin(rot)
-	local function onPlane(u, v)
-		local sx = cx + u * w * c - v * h * s
-		local sy = cy + u * w * s + v * h * c
-		local d = Vector3.new((sx - hx) * K, (hy - sy) * K, -1)
-		return d * (nP / n:Dot(d))
-	end
-	local l, rr, t, b = onPlane(-0.5, 0), onPlane(0.5, 0), onPlane(0, -0.5), onPlane(0, 0.5)
-	local U, V = rr - l, b - t
-	local X = U.Unit
-	local Vp = V - X * V:Dot(X)
-	return CFrame.fromMatrix((l + rr + t + b) / 4, X, -Vp.Unit), Vector3.new(U.Magnitude, Vp.Magnitude, THIN)
-end
-
--- smallest angle between the view frustum and the view ray whose mirror image
--- (about a plane with camera-space normal n) points at light direction s
-local function spotAngle(n, s, tanH, tanV)
-	local v = s - n * (2 * s:Dot(n))
-	if v.Z > -0.02 then
-		return math.pi
-	end
-	local px, py = v.X / -v.Z, v.Y / -v.Z
-	local d = Vector3.new(math.clamp(px, -tanH, tanH), math.clamp(py, -tanV, tanV), -1).Unit
-	return math.acos(math.clamp(v.Unit:Dot(d), -1, 1))
-end
-
-local function chooseTilt(current, axisX, maxAngle, lights, tanH, tanV)
-	local function worst(a)
-		local n = axisX and Vector3.new(0, -math.sin(a), math.cos(a)) or Vector3.new(math.sin(a), 0, math.cos(a))
-		local m = math.pi
-		for _, s in ipairs(lights) do
-			m = math.min(m, spotAngle(n, s, tanH, tanV))
-		end
-		return m
-	end
-	-- flat whenever safe (with hysteresis), otherwise keep or pick the safer tilt
-	if worst(0) > SPOT_MARGIN + (current ~= 0 and math.rad(6) or 0) then
-		return 0
-	end
-	if current ~= 0 and worst(current) > SPOT_MARGIN then
-		return current
-	end
-	return worst(maxAngle) >= worst(-maxAngle) and maxAngle or -maxAngle
-end
-
-local function setVisible(rg, on)
-	if rg.visible == on then
-		return
-	end
-	rg.visible = on
-	for _, part in ipairs(rg.used) do
-		part.Transparency = on and GLASS_T or 1
-	end
-end
-
-local function rebuild(rg, x, y, w, h, r, K, hx, hy, tilted, maxBleed)
-	local prims = buildPrims(x + INSET, y + INSET, w - 2 * INSET, h - 2 * INSET, math.max(r - INSET, 0), rg.depth, tilted, maxBleed, rg.amount)
-	local nb, nc = 0, 0
-	local used, locals = {}, {}
-	for i, p in ipairs(prims) do
-		local part
-		if p[1] == "cyl" then
-			nc += 1
-			part = rg.cyls[nc] or glassPart(Enum.PartType.Cylinder)
-			rg.cyls[nc] = part
-		else
-			nb += 1
-			part = rg.blocks[nb] or glassPart(Enum.PartType.Block)
-			rg.blocks[nb] = part
-		end
-		local lcf, size = primToLocal(p, K, hx, hy)
-		part.Size = size
-		used[i], locals[i] = part, lcf
-	end
-	for j = nb + 1, #rg.blocks do
-		rg.blocks[j].Transparency = 1
-	end
-	for j = nc + 1, #rg.cyls do
-		rg.cyls[j].Transparency = 1
-	end
-	for _, part in ipairs(used) do
-		part.Transparency = rg.visible and GLASS_T or 1
-	end
-	rg.used, rg.locals = used, locals
-end
-
-local Region = {}
-Region.__index = Region
-
--- fade the blur in (1) or out (0)
-function Region:SetTarget(t, speed)
-	self.target = t
-	self.speed = speed or self.speed
-end
-
-function Region:Remove()
-	if self.removed then
-		return
-	end
-	self.removed = true
-	local i = table.find(Blur.regions, self)
-	if i then
-		table.remove(Blur.regions, i)
-	end
-	for _, p in ipairs(self.blocks) do
-		p:Destroy()
-	end
-	for _, p in ipairs(self.cyls) do
-		p:Destroy()
-	end
-end
-
--- frame: the GuiObject whose rounded shape is blurred; radius: number or function()
-function Blur.add(frame, radius, o)
-	o = o or {}
-	local rg = setmetatable({
-		frame = frame,
-		radius = radius,
-		depth = o.Depth or INTERIOR_DEPTH,
-		amount = o.Instant == false and 0 or (o.Start or 1),
-		target = 1,
-		speed = o.Speed or 12,
-		blocks = {},
-		cyls = {},
-		used = {},
-		locals = {},
-		visible = false,
-	}, Region)
-	table.insert(Blur.regions, rg)
-	frame.Destroying:Connect(function()
-		rg:Remove()
-	end)
-	return rg
-end
-
-local bulkParts, bulkCFrames = {}, {}
-Blur.stats = { parts = 0 }
-local function updateBlur(dt)
-	if not camera or not camera.Parent then
-		Blur.attach()
-		if not camera then
-			return
-		end
-	end
-	local cf = camera.CFrame
-	local vs = camera.ViewportSize
-	local fov = math.rad(camera.FieldOfView)
-	local tanV = math.tan(fov / 2)
-	local tanH = tanV * vs.X / vs.Y
-	local K = 2 * tanV / vs.Y
-	local hx, hy = vs.X / 2, vs.Y / 2
-
-	local lights = {}
-	for _, dir in ipairs({ Lighting:GetSunDirection(), Lighting:GetMoonDirection() }) do
-		if dir.Y > -0.15 then
-			table.insert(lights, cf:VectorToObjectSpace(dir))
-		end
-	end
-	tiltX = chooseTilt(tiltX, true, TILT_X, lights, tanH, tanV)
-	tiltY = chooseTilt(tiltY, false, TILT_Y, lights, tanH, tanV)
-	local tilted = tiltX ~= 0 or tiltY ~= 0
-	local maxBleed = vs.Y * BLEED_FRAC
-
-	table.clear(bulkParts)
-	table.clear(bulkCFrames)
-	local enabled = Library.Settings.Blur and not Library.Unloaded
-	local origin = Library.Gui and Library.Gui.AbsolutePosition or Vector2.zero
-	for _, rg in ipairs(Blur.regions) do
-		if rg.amount ~= rg.target then
-			rg.amount += (rg.target - rg.amount) * (1 - math.exp(-dt * rg.speed))
-			if math.abs(rg.target - rg.amount) < 0.01 then
-				rg.amount = rg.target
-			end
-		end
-		if not enabled or rg.amount < 0.02 or not shown(rg.frame) then
-			setVisible(rg, false)
-			continue
-		end
-		-- AbsolutePosition lives in inset space; make it relative to the (inset-ignoring) ScreenGui
-		local pos, size = rg.frame.AbsolutePosition - origin, rg.frame.AbsoluteSize
-		if size.X < 2 or size.Y < 2 then
-			setVisible(rg, false)
-			continue
-		end
-		local base = rg.frame.Size.Y.Offset
-		local scale = base > 0 and size.Y / base or 1
-		local radius = type(rg.radius) == "function" and rg.radius() or rg.radius * scale
-		local r = math.min(radius, size.X / 2, size.Y / 2)
-		local key = string.format("%.2f|%.2f|%.2f|%.2f|%.2f|%.4f|%.4f|%.4f|%d|%d|%.2f", pos.X, pos.Y, size.X, size.Y, r, tiltX, tiltY, fov, vs.X, vs.Y, rg.amount)
-		if key ~= rg.key then
-			rg.key = key
-			rebuild(rg, pos.X, pos.Y, size.X, size.Y, r, K, hx, hy, tilted, maxBleed)
-		end
-		setVisible(rg, true)
-		for i, part in ipairs(rg.used) do
-			bulkParts[#bulkParts + 1] = part
-			bulkCFrames[#bulkCFrames + 1] = cf * rg.locals[i]
-		end
-	end
-	Blur.stats.parts = #bulkParts
-	if dof then
-		dof.Enabled = #bulkParts > 0
-	end
-	if #bulkParts > 0 then
-		workspace:BulkMoveTo(bulkParts, bulkCFrames, Enum.BulkMoveMode.FireCFrameChanged)
-	end
-end
-
--- unique per instance: a reloaded copy unbinding by name must never hit the new one
-local BIND_NAME = "LiquidGlassBlur_" .. Util.hash(tostring(os.clock()) .. tostring(math.random()))
-local lastBlur = os.clock()
-RunService:BindToRenderStep(BIND_NAME, Enum.RenderPriority.Camera.Value + 1, function()
-	local now = os.clock()
-	local dt = math.min(now - lastBlur, 0.1)
-	lastBlur = now
-	local ok, err = pcall(updateBlur, dt)
-	if not ok then
-		warn("[LiquidGlass] blur: " .. tostring(err))
-	end
-end)
-
-Util.onCleanup(function()
-	RunService:UnbindFromRenderStep(BIND_NAME)
-	for _, rg in ipairs(table.clone(Blur.regions)) do
-		rg:Remove()
-	end
-	if blurFolder then
-		blurFolder:Destroy()
-	end
-	if dof then
-		dof:Destroy()
-	end
-end)
-
-function Library:SetBlur(on)
-	Library.Settings.Blur = on and true or false
-end
-
----------------------------------------------------------------------------
--- Glass surfaces
---   Surface  floating glass over the world: blur + dim + tint + rim + shadow
---   Card     grouped glass on glass (sections, sidebars)
---   Control  small glass controls (fields, glass buttons, pills)
---   Tinted   colored glass (primary buttons, active toggles)
---   Solid    opaque white glass (switch and slider knobs)
----------------------------------------------------------------------------
-local RIM_MIN, RIM_MAX = 4, 40
-local SHADOW_STEP, SHADOW_MAX, SHADOW_SM_MAX = 4, 40, 24
-local SHADOW_PAD, SHADOW_SM_PAD = 48, 12
-
--- keep in sync with RIM_SIZES in build.py
-local RIM_SIZES = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 30, 33, 36, 40 }
-local function rimFor(r)
-	local want = math.clamp(r, RIM_MIN, RIM_MAX)
-	local rt = RIM_SIZES[1]
-	for _, size in ipairs(RIM_SIZES) do
-		if math.abs(size - want) < math.abs(rt - want) then
-			rt = size
-		end
-	end
-	local id = Assets.get(("rim_%d.png"):format(rt))
-	return id, Rect.new(2 * rt, 2 * rt, 2 * rt + 8, 2 * rt + 8), 0.5 * math.max(r, 1) / rt
-end
-
-local function shadowFor(r, small)
-	local maxR = small and SHADOW_SM_MAX or SHADOW_MAX
-	local rt = math.clamp(math.floor(r / SHADOW_STEP + 0.5) * SHADOW_STEP, SHADOW_STEP, maxR)
-	local pad = small and SHADOW_SM_PAD or SHADOW_PAD
-	local id = Assets.get(((small and "shadowsm_%d.png") or "shadow_%d.png"):format(rt))
-	local scale = math.max(r, 1) / rt
-	return id, Rect.new(pad + rt, pad + rt, pad + rt + 4, pad + rt + 4), scale, pad * scale
-end
-Glass.rimFor = rimFor
-
-local KIND = {
-	Surface = { fill = "Glass", fillT = "GlassT", rim = "Rim", gradient = true, dim = true, shadow = 0.36 },
-	Card = { fill = "Card", fillT = "CardT", rim = "CardRim" },
-	Control = { fill = "Control", fillT = "ControlT", rim = "ControlRim" },
-	Tinted = { fill = "Accent", fillT = function()
-		return 0.06
-	end, rim = function()
-		return 0.65
-	end, gradient = true },
-	Solid = { fill = "Knob", fillT = function()
-		return 0
-	end, rim = function()
-		return 0
-	end, shadow = 0.28, small = true },
-}
-
--- o: Kind, Parent, Name, Position, Size, AnchorPoint, ZIndex, Radius, Tint (Color3 or
--- theme token), TintTransparency, Blur (Surface default true), BlurDepth, Shadow
--- (strength or false), SmallShadow, Rim (strength 0..1), AutomaticSize
-function Glass.new(o)
-	local kind = KIND[o.Kind or "Card"]
-	local r = o.Radius or 16
-	local root = new("Frame", {
-		Name = o.Name or (o.Kind or "Glass"),
-		BackgroundTransparency = 1,
-		Position = o.Position or UDim2.new(),
-		Size = o.Size or UDim2.fromScale(1, 1),
-		AnchorPoint = o.AnchorPoint or Vector2.zero,
-		ZIndex = o.ZIndex or 1,
-		LayoutOrder = o.LayoutOrder or 0,
-		Parent = o.Parent,
-	})
-	local g = { Root = root, Radius = r, Kind = o.Kind or "Card" }
-	g.Scale = new("UIScale", { Parent = root })
-
-	local shadowStrength = o.Shadow
-	if shadowStrength == nil then
-		shadowStrength = kind.shadow
-	end
-	if shadowStrength then
-		local small = o.SmallShadow or kind.small
-		local id, slice, scale, pad = shadowFor(r, small)
-		if id then
-			local holder = new("Frame", { Name = "ShadowHolder", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 0, Parent = root })
-			g.Shadow = new("ImageLabel", {
-				Name = "Shadow",
-				BackgroundTransparency = 1,
-				Image = id,
-				ScaleType = Enum.ScaleType.Slice,
-				SliceCenter = slice,
-				SliceScale = scale,
-				Position = UDim2.fromOffset(-pad, -pad),
-				Size = UDim2.new(1, pad * 2, 1, pad * 2),
-				ZIndex = 0,
-				Parent = holder,
-			})
-			if o.Kind == "Surface" then
-				Theme.bind(g.Shadow, { ImageTransparency = function(t)
-					return 1 - (t.Shadow or 0.3)
-				end })
-			else
-				g.Shadow.ImageTransparency = 1 - shadowStrength
-			end
-		end
-	end
-
-	if kind.dim then
-		g.Dim = new("Frame", {
-			Name = "Dim",
-			BorderSizePixel = 0,
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 1,
-			Parent = root,
-		}, { Util.corner(r) })
-		-- overlays sit above other LiquidGlass UI, which the world blur can't soften,
-		-- so their glass is much denser
-		Theme.bind(g.Dim, { BackgroundColor3 = "Dim", BackgroundTransparency = o.Dense and "DenseDimT" or "DimT" })
-	end
-
-	g.Fill = new("Frame", {
-		Name = "Fill",
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 2,
-		Parent = root,
-	}, { Util.corner(r) })
-	local tint = o.Tint or kind.fill
-	local tintT = o.TintTransparency or kind.fillT
-	if typeof(tint) == "Color3" then
-		g.Fill.BackgroundColor3 = tint
-		Theme.bind(g.Fill, { BackgroundTransparency = tintT })
-	else
-		Theme.bind(g.Fill, { BackgroundColor3 = tint, BackgroundTransparency = tintT })
-	end
-	if typeof(o.TintTransparency) == "number" then
-		Theme.unbind(g.Fill, "BackgroundTransparency")
-		g.Fill.BackgroundTransparency = o.TintTransparency
-	end
-	if kind.gradient and o.Gradient ~= false then
-		new("UIGradient", {
-			Rotation = 90,
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0),
-				NumberSequenceKeypoint.new(0.45, 0.35),
-				NumberSequenceKeypoint.new(1, 0.15),
-			}),
-			Parent = g.Fill,
-		})
-	end
-
-	local rimId, slice, sliceScale = rimFor(r)
-	if rimId then
-		g.Rim = new("ImageLabel", {
-			Name = "Rim",
-			BackgroundTransparency = 1,
-			Image = rimId,
-			ScaleType = Enum.ScaleType.Slice,
-			SliceCenter = slice,
-			SliceScale = sliceScale,
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 3,
-			Parent = root,
-		})
-		if o.Rim then
-			g.Rim.ImageTransparency = 1 - o.Rim
-		else
-			local rimToken = kind.rim
-			Theme.bind(g.Rim, { ImageTransparency = function(t)
-				local v = type(rimToken) == "function" and rimToken(t) or t[rimToken] or 1
-				return 1 - v
-			end })
-		end
-	else
-		-- no texture support: a plain hairline keeps the shape readable
-		g.Rim = new("UIStroke", { Color = WHITE, Transparency = 0.75, Thickness = 1, Parent = g.Fill })
-	end
-
-	local auto = o.AutomaticSize
-	if auto == Enum.AutomaticSize.None then
-		auto = nil
-	end
-	g.Content = new("Frame", {
-		Name = "Content",
-		BackgroundTransparency = 1,
-		Size = (auto == Enum.AutomaticSize.XY and UDim2.new()) or (auto == Enum.AutomaticSize.X and UDim2.fromScale(0, 1)) or (auto and UDim2.fromScale(1, 0)) or UDim2.fromScale(1, 1),
-		AutomaticSize = auto or Enum.AutomaticSize.None,
-		ZIndex = 5,
-		Parent = root,
-	})
-	if auto then
-		-- Roblox AutomaticSize misbehaves with scale-sized layers (fill, rim, shadow),
-		-- so the root follows its content's measured size instead
-		local function sync()
-			local sc = g.Scale.Scale * (Library.ScaleObject and Library.ScaleObject.Scale or 1)
-			if sc <= 0.01 then
-				return
-			end
-			local cs = g.Content.AbsoluteSize / sc
-			local size = root.Size
-			if auto == Enum.AutomaticSize.XY then
-				root.Size = UDim2.fromOffset(math.ceil(cs.X), math.ceil(cs.Y))
-			elseif auto == Enum.AutomaticSize.X then
-				root.Size = UDim2.new(0, math.ceil(cs.X), size.Y.Scale, size.Y.Offset)
-			else
-				root.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, math.ceil(cs.Y))
-			end
-		end
-		g.Content:GetPropertyChangedSignal("AbsoluteSize"):Connect(sync)
-		g.Scale:GetPropertyChangedSignal("Scale"):Connect(sync)
-		task.defer(sync)
-		g.SyncSize = sync
-	end
-
-	local blur = o.Blur
-	if blur == nil then
-		blur = o.Kind == "Surface"
-	end
-	if blur then
-		g.BlurRegion = Blur.add(g.Fill, function()
-			return r * g.Scale.Scale * (Library.ScaleObject and Library.ScaleObject.Scale or 1)
-		end, { Depth = o.BlurDepth, Start = o.BlurStart })
-	end
-
-	function g.SetTint(color, transparency, time)
-		Theme.unbind(g.Fill, "BackgroundColor3")
-		if transparency then
-			Theme.unbind(g.Fill, "BackgroundTransparency")
-		end
-		local props = { BackgroundColor3 = color }
-		if transparency then
-			props.BackgroundTransparency = transparency
-		end
-		if time then
-			tween(g.Fill, time, props)
-		else
-			for k, v in pairs(props) do
-				g.Fill[k] = v
-			end
-		end
-	end
-
-	function g.BindTint(map)
-		Theme.bind(g.Fill, map)
-	end
-	return g
-end
-
----------------------------------------------------------------------------
--- Interaction helpers
----------------------------------------------------------------------------
-function Glass.hitbox(parent, z, props)
-	local b = new("TextButton", {
-		Name = "Hit",
-		BackgroundTransparency = 1,
-		Text = "",
-		AutoButtonColor = false,
-		Selectable = false,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = z or 20,
-		Parent = parent,
-	})
-	for k, v in pairs(props or {}) do
-		b[k] = v
-	end
-	return b
-end
-local hitbox = Glass.hitbox
-
--- light that follows the pointer inside a glass shape, clipped to its corners
-function Glass.glow(g, strength)
-	local clip = new("CanvasGroup", {
-		Name = "PointerLight",
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-		GroupTransparency = 1,
-		ZIndex = 4,
-		Parent = g.Root,
-	}, { Util.corner(g.Radius) })
-	local light = new("ImageLabel", {
-		BackgroundTransparency = 1,
-		Image = Assets.get("radial.png") or "",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = UDim2.fromScale(1.5, 1.5),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY,
-		ImageTransparency = 1 - (strength or 0.45),
-		Parent = clip,
-	})
-	local ctl = {}
-	function ctl.follow()
-		local rel = (pointer() - screenPos(g.Root)) / math.max(g.Scale.Scale, 0.01)
-		light.Position = UDim2.fromOffset(rel.X, rel.Y)
-	end
-	function ctl.set(level, time)
-		tween(clip, time or 0.3, { GroupTransparency = 1 - level })
-	end
-	return ctl
-end
-
--- glass that swells on press, glows under the pointer and clicks
--- opts: Grow, OnClick, Sound ("click" default, false = silent), Disabled() -> bool, Glow
-function Glass.pressable(g, opts)
-	opts = opts or {}
-	local hit = hitbox(g.Root, opts.Z or 20)
-	local grow = opts.Grow or 1.05
-	local glow = opts.Glow ~= false and Glass.glow(g, opts.GlowStrength) or nil
-	local hovered, pressed = false, false
-	local function disabled()
-		return opts.Disabled and opts.Disabled()
-	end
-	hit.MouseEnter:Connect(function()
-		if disabled() then
-			return
-		end
-		hovered = true
-		if glow then
-			glow.follow()
-			glow.set(0.5)
-		end
-		Sound.play("hover")
-	end)
-	hit.MouseMoved:Connect(function()
-		if glow and hovered then
-			glow.follow()
-		end
-	end)
-	hit.MouseLeave:Connect(function()
-		hovered = false
-		if glow and not pressed then
-			glow.set(0, 0.4)
-		end
-	end)
-	hit.InputBegan:Connect(function(input)
-		if not isPress(input) or disabled() then
-			return
-		end
-		pressed = true
-		tween(g.Scale, 0.35, { Scale = grow }, Enum.EasingStyle.Quint)
-		if glow then
-			glow.follow()
-			glow.set(1, 0.15)
-		end
-	end)
-	Util.track(UserInputService.InputEnded:Connect(function(input)
-		if pressed and isPress(input) then
-			pressed = false
-			tween(g.Scale, 0.55, { Scale = 1 }, Enum.EasingStyle.Back)
-			if glow then
-				glow.set(hovered and 0.5 or 0, 0.5)
-			end
-		end
-	end))
-	hit.Activated:Connect(function()
-		if disabled() then
-			return
-		end
-		if opts.Sound ~= false then
-			Sound.play(opts.Sound or "click")
-		end
-		Util.fire(opts.OnClick)
-	end)
-	return hit
-end
-
--- small round glass icon button (window controls, field accessories)
-function Glass.iconButton(o)
-	local size = o.Size or 30
-	local g = Glass.new({
-		Kind = o.Kind or "Control",
-		Parent = o.Parent,
-		Name = o.Name,
-		Radius = size / 2,
-		Size = UDim2.fromOffset(size, size),
-		Position = o.Position,
-		AnchorPoint = o.AnchorPoint,
-		ZIndex = o.ZIndex,
-		Shadow = false,
-		Tint = o.Tint,
-	})
-	local img = new("ImageLabel", {
-		BackgroundTransparency = 1,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(o.IconSize or math.floor(size * 0.46), o.IconSize or math.floor(size * 0.46)),
-		ZIndex = 6,
-		Parent = g.Content,
-	})
-	Assets.apply(img, o.Icon)
-	Theme.bind(img, { ImageColor3 = o.IconColor or "Text" })
-	g.Icon = img
-	g.Hit = Glass.pressable(g, { Grow = o.Grow or 1.12, OnClick = o.Callback, Sound = o.Sound })
-	return g
-end
-
--- themed text
-function Glass.text(o)
-	local l = new(o.Class or "TextLabel", {
-		Name = o.Name or "Text",
-		BackgroundTransparency = 1,
-		Text = o.Text or "",
-		FontFace = o.Font or Util.font(o.Weight),
-		TextSize = o.TextSize or 15,
-		TextXAlignment = o.XAlign or Enum.TextXAlignment.Left,
-		TextYAlignment = o.YAlign or Enum.TextYAlignment.Center,
-		TextWrapped = o.Wrap or false,
-		TextTruncate = o.Truncate and Enum.TextTruncate.AtEnd or Enum.TextTruncate.None,
-		RichText = o.Rich or false,
-		Position = o.Position or UDim2.new(),
-		Size = o.Size or UDim2.new(1, 0, 0, o.TextSize and o.TextSize + 4 or 19),
-		AnchorPoint = o.AnchorPoint or Vector2.zero,
-		AutomaticSize = o.AutomaticSize or Enum.AutomaticSize.None,
-		ZIndex = o.ZIndex or 6,
-		LayoutOrder = o.LayoutOrder or 0,
-		Parent = o.Parent,
-	})
-	if l:IsA("TextButton") then
-		l.AutoButtonColor = false
-	end
-	local level = o.Level or 1
-	Theme.bind(l, {
-		TextColor3 = o.Color or "Text",
-		TextTransparency = function(t)
-			return level == 1 and 0 or level == 2 and t.Text2T or t.Text3T
-		end,
-	})
-	return l
-end
-
-function Glass.icon(o)
-	local img = new("ImageLabel", {
-		Name = o.Name or "Icon",
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(o.Size or 18, o.Size or 18),
-		Position = o.Position or UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = o.AnchorPoint or Vector2.new(0.5, 0.5),
-		ScaleType = o.ScaleType or Enum.ScaleType.Fit,
-		ZIndex = o.ZIndex or 6,
-		LayoutOrder = o.LayoutOrder or 0,
-		Parent = o.Parent,
-	})
-	local level = o.Level or 1
-	local _, r = Assets.apply(img, o.Icon)
-	-- only glyphs follow the text color; pictures keep their own colors
-	if o.Color ~= false and ((r and r.Icon) or o.Color) then
-		Theme.bind(img, {
-			ImageColor3 = o.Color or "Text",
-			ImageTransparency = function(t)
-				return level == 1 and 0 or level == 2 and t.Text2T or t.Text3T
-			end,
-		})
-	end
-	return img
-end
-
----------------------------------------------------------------------------
--- ScreenGui
----------------------------------------------------------------------------
-do
-	local function guiParent()
-		local ok, h = pcall(function()
-			return gethui and gethui()
-		end)
-		if ok and h then
-			return h
-		end
-		local core = game:GetService("CoreGui")
-		if pcall(function()
-			return core:GetChildren()
-		end) then
-			return core
-		end
-		return LocalPlayer:WaitForChild("PlayerGui")
-	end
-	Library.Gui = new("ScreenGui", {
-		Name = "LiquidGlass",
-		IgnoreGuiInset = true,
-		ResetOnSpawn = false,
-		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		DisplayOrder = 10000,
-		AutoLocalize = false,
-	})
-	pcall(function()
-		Library.Gui.ScreenInsets = Enum.ScreenInsets.None
-	end)
-	if syn and syn.protect_gui then
-		pcall(syn.protect_gui, Library.Gui)
-	end
-	Library.Gui.Parent = guiParent()
-	Library.ScaleObject = new("UIScale", { Parent = Library.Gui })
-end
-
-local zCounter = 10
-local function nextZ(n)
-	zCounter += n or 1
-	return zCounter
-end
-Library._nextZ = nextZ
-
--- windows keep their on-screen center and stay reachable when the scale changes
-function Library:SetScale(s)
-	s = math.clamp(tonumber(s) or 1, 0.4, 2)
-	local old = Library.ScaleObject.Scale
-	Library.Settings.Scale = s
-	Library.ScaleObject.Scale = s
-	local vs = camera.ViewportSize / s
-	for _, w in ipairs(Library.Windows) do
-		local root = w.Root
-		local pos = Motion.target(root)
-		local size = Vector2.new(root.Size.X.Offset, root.Size.Y.Offset)
-		local center = (pos + size / 2) * old / s
-		local fit = Vector2.new(math.clamp(size.X, w.MinSize.X, math.max(vs.X - 20, w.MinSize.X)), math.clamp(size.Y, w.MinSize.Y, math.max(vs.Y - 20, w.MinSize.Y)))
-		root.Size = UDim2.fromOffset(fit.X, fit.Y)
-		local np = w:_clampPos(center - fit / 2)
-		Motion.stop(root)
-		root.Position = UDim2.fromOffset(np.X, np.Y)
-	end
-	if Overlay.layoutNotifications then
-		Overlay.layoutNotifications()
-	end
-	if Overlay.active then
-		Overlay.active.Close()
-	end
-end
-
-local function typing()
-	return UserInputService:GetFocusedTextBox() ~= nil
-end
-Library._typing = typing
-
----------------------------------------------------------------------------
--- Smooth scrolling: mouse wheel eases the canvas; the topmost scroller under the
--- pointer wins; a thin indicator fades in while scrolling (iOS style).
----------------------------------------------------------------------------
-local scrollers = {}
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-
-function Glass.scroller(sf, o)
-	o = o or {}
-	local s = { sf = sf, target = 0, last = 0, prio = o.Priority or function()
-		return 0
-	end }
-	sf.ScrollingEnabled = touchOnly
-	sf.ScrollBarThickness = 0
-	sf.Active = true
-	local indicator = new("Frame", {
-		Name = "ScrollIndicator",
-		AnchorPoint = Vector2.new(1, 0),
-		BorderSizePixel = 0,
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(3, 30),
-		ZIndex = 40,
-		Parent = o.IndicatorParent or sf.Parent,
-	}, { Util.corner(2) })
-	Theme.bind(indicator, { BackgroundColor3 = "Text" })
-	s.indicator = indicator
-	local shownT = 1
-	local function maxY()
-		return math.max(sf.AbsoluteCanvasSize.Y - sf.AbsoluteWindowSize.Y, 0)
-	end
-	function s.wheel(z)
-		s.target = math.clamp(s.target - z * 90, 0, maxY())
-		s.last = os.clock()
-	end
-	function s.scrollTo(y, instant)
-		s.target = math.clamp(y, 0, maxY())
-		if instant then
-			sf.CanvasPosition = Vector2.new(0, s.target)
-		end
-	end
-	function s.step(dt)
-		if not sf.Parent then
-			return false
-		end
-		local m = maxY()
-		local cur = sf.CanvasPosition.Y
-		if touchOnly then
-			s.target = cur
-		else
-			s.target = math.clamp(s.target, 0, m)
-			if math.abs(s.target - cur) > 0.25 then
-				sf.CanvasPosition = Vector2.new(0, cur + (s.target - cur) * (1 - math.exp(-dt * 16)))
-				s.last = os.clock()
-			end
-		end
-		-- indicator
-		local win = sf.AbsoluteWindowSize.Y
-		local active = m > 1 and (os.clock() - s.last < 0.9)
-		local want = active and 0.55 or 1
-		shownT += (want - shownT) * (1 - math.exp(-dt * (active and 18 or 6)))
-		indicator.BackgroundTransparency = shownT
-		if m > 1 then
-			local h = math.max(24, win * win / sf.AbsoluteCanvasSize.Y)
-			local y = (sf.CanvasPosition.Y / m) * (win - h - 8) + 4
-			local base = screenPos(sf) - screenPos(indicator.Parent)
-			indicator.Size = UDim2.fromOffset(3, h)
-			indicator.Position = UDim2.fromOffset(base.X + sf.AbsoluteSize.X - 2, base.Y + y)
-		end
-		return true
-	end
-	table.insert(scrollers, s)
-	return s
-end
-
-Util.track(UserInputService.InputChanged:Connect(function(input)
-	if input.UserInputType ~= Enum.UserInputType.MouseWheel then
-		return
-	end
-	local best, bestPrio
-	local p = pointer(input)
-	for _, s in ipairs(scrollers) do
-		local sf = s.sf
-		if sf.Parent and sf.Visible and Motion.inside(sf, p) then
-			local visible = true
-			local o = sf
-			while o and o ~= Library.Gui do
-				if o:IsA("GuiObject") and not o.Visible then
-					visible = false
-					break
-				end
-				o = o.Parent
-			end
-			if visible then
-				local pr = s.prio()
-				if not bestPrio or pr >= bestPrio then
-					best, bestPrio = s, pr
-				end
-			end
-		end
-	end
-	if best then
-		best.wheel(input.Position.Z)
-	end
-end))
-
-Util.track(RunService.RenderStepped:Connect(function(dt)
-	for i = #scrollers, 1, -1 do
-		if not scrollers[i].step(dt) then
-			table.remove(scrollers, i)
-		end
-	end
-end))
-
----------------------------------------------------------------------------
--- Selector: tap or drag a glass pill across items. While held the pill lifts
--- into a clear glass lens that follows the pointer and magnifies the item under
--- it, then snaps onto the nearest item with a liquid bounce.
----------------------------------------------------------------------------
--- o: Hit (GuiButton receiving input), Ref (frame whose top-left is the pill's
--- coordinate origin), Pill (glass), Count(), Slot(i) -> Vector2, Axis ("X"/"Y"),
--- Items() -> {GuiObject}, Paint(i, held), OnSelect(i), Magnify, LensScale
-function Glass.selector(o)
-	local pill = o.Pill
-	local axis = o.Axis or "X"
-	local current = o.Initial or 1
-	local held, under = false, nil
-	local scales = setmetatable({}, { __mode = "k" })
-	local baseFill = pill.Fill.BackgroundTransparency
-	local sel = {}
-	local rest = pill.Root.Size
-
-	-- the pill's size at rest in px (never the stretched size, or it would grow forever)
-	local function pillSize()
-		local parent = pill.Root.Parent
-		local ps = parent and (parent:IsA("ScrollingFrame") and parent.AbsoluteWindowSize or parent.AbsoluteSize) or Vector2.zero
-		ps = ps / Library.ScaleObject.Scale
-		return Vector2.new(ps.X * rest.X.Scale + rest.X.Offset, ps.Y * rest.Y.Scale + rest.Y.Offset)
-	end
-	local function stretch()
-		return { Base = pillSize(), Rest = rest, Axis = axis }
-	end
-	local function scaleOf(item)
-		local sc = scales[item]
-		if not sc then
-			sc = item:FindFirstChild("LensScale") or new("UIScale", { Name = "LensScale", Parent = item })
-			scales[item] = sc
-		end
-		return sc
-	end
-	local function localPos(p)
-		local s = Library.ScaleObject.Scale
-		local lp = (p - screenPos(o.Ref)) / s
-		if o.Ref:IsA("ScrollingFrame") then
-			lp += o.Ref.CanvasPosition
-		end
-		return lp
-	end
-	local function nearest(lp)
-		local best, bd = 1, math.huge
-		local size = pillSize()
-		for i = 1, o.Count() do
-			local c = o.Slot(i) + size / 2
-			local d = axis == "X" and math.abs(lp.X - c.X) or math.abs(lp.Y - c.Y)
+ath.abs(lp.X - c.X) or math.abs(lp.Y - c.Y)
 			if d < bd then
 				best, bd = i, d
 			end
@@ -1721,4 +528,1175 @@ function Window:_buildMain(o)
 		self:Minimize()
 	end })
 
-	-- 4 px of breathing ro
+	-- 4 px of breathing room on each side so pressed controls never clip
+	local pages = new("Frame", { Name = "Pages", BackgroundTransparency = 1, ClipsDescendants = true, Position = UDim2.fromOffset(g - 4, S.WindowInset + S.Header), Size = UDim2.new(1, -2 * (g - 4), 1, -(S.WindowInset + S.Header) - S.WindowInset), ZIndex = 4, Parent = main })
+	self.Pages = pages
+end
+
+function Window:_fitHeaderTitle(withSearch)
+	local g, btn = S.Gutter, S.IconButton
+	local right = g + 2 * btn + 16 + (withSearch and (170 + 8) or 0)
+	self.PageTitle.Size = UDim2.new(1, -self.TitleX - right, 0, S.LargeTitle + 6)
+end
+
+-- keeps enough of the window on screen to grab it again
+function Window:_clampPos(p)
+	local vs = camera.ViewportSize / Library.ScaleObject.Scale
+	local w = self.Root.Size.X.Offset
+	local keep = 90
+	return Vector2.new(math.clamp(p.X, keep - w, vs.X - keep), math.clamp(p.Y, 0, vs.Y - 70))
+end
+
+function Window:_dragHandle(hit)
+	local startPos
+	Motion.drag(hit, {
+		began = function()
+			startPos = Motion.target(self.Root)
+		end,
+		moved = function(_, delta, moved)
+			if moved then
+				self.AtBar = false
+				local s = Library.ScaleObject.Scale
+				Motion.spring(self.Root, self:_clampPos(startPos + delta / s), 26, 1)
+			end
+		end,
+	})
+end
+
+function Window:_buildResize()
+	local root = self.Root
+	local gripId = Assets.get("grip.png")
+	local grip
+	if gripId then
+		grip = new("ImageLabel", {
+			Name = "ResizeGrip",
+			BackgroundTransparency = 1,
+			Image = gripId,
+			ImageTransparency = 1,
+			Position = UDim2.new(1, -S.WindowRadius, 1, -S.WindowRadius),
+			Size = UDim2.fromOffset(S.WindowRadius, S.WindowRadius),
+			ZIndex = 60,
+			Parent = self.Glass.Content,
+		})
+		Theme.bind(grip, { ImageColor3 = "Text" })
+	end
+	local function zone(name, props)
+		local b = hitbox(self.Glass.Content, 61, props)
+		b.Name = name
+		return b
+	end
+	local corner = zone("ResizeCorner", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1), Size = UDim2.fromOffset(22, 22) })
+	local right = zone("ResizeRight", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 3, 0, S.WindowRadius), Size = UDim2.new(0, 8, 1, -2 * S.WindowRadius) })
+	local bottom = zone("ResizeBottom", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, S.WindowRadius, 1, 3), Size = UDim2.new(1, -2 * S.WindowRadius, 0, 8) })
+	local resizing = false
+	local function showGrip(on)
+		if grip then
+			tween(grip, 0.25, { ImageTransparency = on and 0.35 or 1 })
+		end
+	end
+	for _, z in ipairs({ corner, right, bottom }) do
+		z.MouseEnter:Connect(function()
+			if self.Resizable then
+				showGrip(true)
+			end
+		end)
+		z.MouseLeave:Connect(function()
+			if not resizing then
+				showGrip(false)
+			end
+		end)
+		local start
+		Motion.drag(z, {
+			allow = function()
+				return self.Resizable
+			end,
+			began = function()
+				resizing = true
+				self.Resizing = true
+				start = Vector2.new(root.Size.X.Offset, root.Size.Y.Offset)
+				showGrip(true)
+			end,
+			moved = function(_, delta)
+				local s = Library.ScaleObject.Scale
+				local d = delta / s
+				local vs = camera.ViewportSize / s
+				local w = z == bottom and start.X or math.clamp(start.X + d.X, self.MinSize.X, vs.X)
+				local h = z == right and start.Y or math.clamp(start.Y + d.Y, self.MinSize.Y, vs.Y)
+				root.Size = UDim2.fromOffset(w, h)
+			end,
+			ended = function()
+				resizing = false
+				self.Resizing = false
+				showGrip(false)
+			end,
+		})
+	end
+	self.ResizeZones = { corner, right, bottom }
+end
+
+-- responsive layout: the sidebar collapses to icons on narrow windows
+function Window:_layout(instant)
+	if self.NavMode == "TabBar" then
+		self.Main.Position = UDim2.new()
+		self.Main.Size = UDim2.fromScale(1, 1)
+		self:_layoutTabBar(instant)
+		return
+	end
+	local w = self.Root.Size.X.Offset
+	local collapsed = w < COLLAPSE_BELOW
+	local sw = collapsed and S.SidebarMini or S.Sidebar
+	if collapsed ~= self.Collapsed or instant then
+		self.Collapsed = collapsed
+		local t = instant and 0 or 0.35
+		local function set(inst, props)
+			if t == 0 then
+				for k, v in pairs(props) do
+					inst[k] = v
+				end
+			else
+				tween(inst, t, props)
+			end
+		end
+		set(self.Sidebar.Root, { Size = UDim2.new(0, sw, 1, -2 * S.WindowInset) })
+		set(self.Main, { Position = UDim2.fromOffset(S.WindowInset + sw, 0), Size = UDim2.new(1, -(S.WindowInset + sw), 1, 0) })
+		self.TitleLabel.Visible = not collapsed
+		self:_placeBrandText()
+		if self.Search then
+			self.Search.Root.Visible = not collapsed
+		end
+		for _, tab in ipairs(self.Tabs) do
+			tab:_setCompact(collapsed, t)
+		end
+		if self.Profile then
+			for _, ch in ipairs(self.Profile:GetChildren()) do
+				if ch:IsA("TextLabel") then
+					ch.Visible = not collapsed
+				end
+			end
+		end
+		local top = (self.Search and not collapsed) and self.TabTop or S.Header
+		set(self.TabList, { Position = UDim2.fromOffset(0, top), Size = UDim2.new(1, 0, 1, -top - (self.Profile and S.Header or 0)) })
+	end
+end
+
+function Window:_buildMobileButton(o)
+	local b = Glass.new({ Kind = "Surface", Name = "MobileToggle", Parent = Library.Gui, Radius = 24, Size = UDim2.fromOffset(48, 48), Position = UDim2.fromOffset(18, 120), ZIndex = nextZ(200) })
+	local src = opt(o, "layers", "Icon", "Logo")
+	Glass.icon({ Parent = b.Content, Icon = Assets.isIcon(src) and src or "layers", Size = 22 })
+	local hit = hitbox(b.Root, 20)
+	local start
+	Motion.drag(hit, {
+		began = function()
+			start = Motion.target(b.Root)
+			tween(b.Scale, 0.3, { Scale = 1.1 })
+		end,
+		moved = function(_, d, moved)
+			if moved then
+				Motion.spring(b.Root, start + d / Library.ScaleObject.Scale, 30, 1)
+			end
+		end,
+		ended = function(_, moved)
+			tween(b.Scale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+			if not moved then
+				Sound.play("click")
+				self:Toggle()
+			end
+		end,
+	})
+	self.MobileButton = b
+end
+
+function Window:SetTitle(t)
+	self.Title = t
+	if self.TitleLabel then
+		self.TitleLabel.Text = t
+	end
+	if self.Pill then
+		self.Pill.Title.Text = t
+	end
+end
+
+function Window:SetSubtitle(t)
+	self.Subtitle = t
+	if not self.SubtitleLabel then
+		return
+	end
+	self.SubtitleLabel.Text = t or ""
+	self:_placeBrandText()
+end
+
+function Window:SetSize(size)
+	local v = toVector(size, Vector2.new(self.Root.Size.X.Offset, self.Root.Size.Y.Offset))
+	tween(self.Root, 0.4, { Size = UDim2.fromOffset(math.max(v.X, self.MinSize.X), math.max(v.Y, self.MinSize.Y)) })
+end
+
+function Window:Center()
+	self.AtBar = false
+	local s = Library.ScaleObject.Scale
+	local vs = camera.ViewportSize / s
+	local size = Vector2.new(self.Root.Size.X.Offset, self.Root.Size.Y.Offset)
+	Motion.spring(self.Root, (vs - size) / 2, 22, 0.8)
+end
+
+function Window:SetResizable(on)
+	self.Resizable = on
+end
+
+-- hide/show with the glass dissolving into the backdrop
+function Window:SetVisible(on, silent)
+	on = on and true or false
+	if on == self.Visible and not self.Minimized then
+		return
+	end
+	if on and self.Minimized then
+		self:Restore()
+		return
+	end
+	self.Visible = on
+	local root, g = self.Root, self.Glass
+	if on then
+		root.Visible = true
+		self:Focus()
+		g.Scale.Scale = 0.94
+		tween(g.Scale, 0.55, { Scale = 1 }, Enum.EasingStyle.Back)
+		Glass.surfaceFade(g, true, 0.3)
+		Motion.groupFade(self.Body, 1, 0, 0.3)
+		g.BlurRegion:SetTarget(1, 12)
+		if not silent then
+			Sound.play("open")
+		end
+	else
+		tween(g.Scale, 0.25, { Scale = 0.94 }, Enum.EasingStyle.Quad)
+		Glass.surfaceFade(g, false, 0.22)
+		g.BlurRegion:SetTarget(0, 14)
+		Motion.groupFade(self.Body, 0, 1, 0.22, function()
+			if not self.Visible then
+				root.Visible = false
+			end
+		end)
+		if not silent then
+			Sound.play("close")
+		end
+	end
+end
+
+function Window:Toggle()
+	if self.Minimized then
+		self:Restore()
+	else
+		self:SetVisible(not self.Visible)
+	end
+end
+
+function Window:IsVisible()
+	return self.Visible and not self.Minimized
+end
+
+-- collapse into a floating glass pill at the top of the screen
+function Window:Minimize()
+	if self.Minimized then
+		return
+	end
+	self:SetVisible(false, true)
+	self.Minimized = true
+	Sound.play("close")
+	-- a tab bar that stays on screen brings the window back; no pill needed
+	if self.Bar and self.Bar:persists() then
+		return
+	end
+	if not self.Pill then
+		-- icon and chevron sit on the centers of the capsule's round ends
+		local PH = S.ButtonLarge
+		local p = Glass.new({ Kind = "Surface", Name = "MinimizedPill", Parent = Library.Gui, Radius = PH / 2, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(220, PH), ZIndex = nextZ(50), BlurStart = 0 })
+		local ic = self.AppIcon and self.Opts and opt(self.Opts, "layers", "Icon", "Logo", "Image")
+		Glass.icon({ Parent = p.Content, Icon = Assets.isIcon(ic) and ic or "layers", Size = 16, Position = UDim2.fromOffset(PH / 2, PH / 2) })
+		local t = Glass.text({ Parent = p.Content, Text = self.Title, Weight = Enum.FontWeight.SemiBold, TextSize = S.Callout, Truncate = true, Position = UDim2.fromOffset(PH / 2 + 16, 0), Size = UDim2.new(1, -(PH + 32), 1, 0) })
+		Glass.icon({ Parent = p.Content, Icon = "chevron-down", Size = S.Chevron, Level = 2, Position = UDim2.new(1, -PH / 2, 0, PH / 2) })
+		p.Title = t
+		-- tap restores, drag moves it out of the way of the game's own UI
+		local glow = Glass.glow(p)
+		local hit = hitbox(p.Root, 20)
+		local start
+		hit.MouseEnter:Connect(function()
+			glow.follow()
+			glow.set(0.5)
+		end)
+		hit.MouseMoved:Connect(glow.follow)
+		hit.MouseLeave:Connect(function()
+			glow.set(0, 0.4)
+		end)
+		Motion.drag(hit, {
+			began = function()
+				start = Motion.target(p.Root)
+				tween(p.Scale, 0.3, { Scale = 1.06 })
+			end,
+			moved = function(_, d, moved)
+				if moved then
+					local vs2 = camera.ViewportSize / Library.ScaleObject.Scale
+					local target = start + d / Library.ScaleObject.Scale
+					Motion.spring(p.Root, Vector2.new(math.clamp(target.X, 110, vs2.X - 110), math.clamp(target.Y, 4, vs2.Y - 46)), 30, 1)
+				end
+			end,
+			ended = function(_, moved)
+				tween(p.Scale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+				if moved then
+					self.PillHome = Motion.target(p.Root)
+				else
+					Sound.play("click")
+					self:Restore()
+				end
+			end,
+		})
+		self.Pill = p
+	end
+	local p = self.Pill
+	local vs = camera.ViewportSize / Library.ScaleObject.Scale
+	local home = self.PillHome or Vector2.new(vs.X / 2, 14)
+	home = Vector2.new(math.clamp(home.X, 110, vs.X - 110), math.clamp(home.Y, 4, vs.Y - 46))
+	p.Root.Visible = true
+	p.Root.Position = UDim2.fromOffset(home.X, home.Y - 70)
+	Motion.spring(p.Root, home, 20, 0.62)
+	Glass.surfaceFade(p, true, 0.3)
+	p.BlurRegion:SetTarget(1, 10)
+end
+
+function Window:Restore()
+	if not self.Minimized then
+		return
+	end
+	self.Minimized = false
+	local p = self.Pill
+	if p then
+		local at = Motion.target(p.Root)
+		Motion.spring(p.Root, Vector2.new(at.X, at.Y - 70), 22, 1)
+		Glass.surfaceFade(p, false, 0.25)
+		p.BlurRegion:SetTarget(0, 12)
+		task.delay(0.35, function()
+			if not self.Minimized then
+				p.Root.Visible = false
+			end
+		end)
+	end
+	self.Visible = false
+	self:SetVisible(true)
+end
+
+function Window:_closePrompt()
+	if self.Opts.ConfirmClose == false then
+		self:Destroy()
+		return
+	end
+	self:Dialog({
+		Title = "Close " .. self.Title .. "?",
+		Content = "Hide keeps everything running — press " .. Util.keyName(Library.ToggleKey) .. " to bring it back. Unload removes the UI completely.",
+		Icon = "power",
+		Buttons = {
+			{ Title = "Hide", Style = "Primary", Callback = function()
+				self:SetVisible(false)
+			end },
+			{ Title = "Unload", Style = "Destructive", Callback = function()
+				Library:Destroy()
+			end },
+			{ Title = "Cancel", Style = "Cancel" },
+		},
+	})
+end
+
+function Window:Destroy()
+	if self.Destroyed then
+		return
+	end
+	self.Destroyed = true
+	self:SetVisible(false)
+	task.delay(0.3, function()
+		self.Root:Destroy()
+		if self.Pill then
+			self.Pill.Root:Destroy()
+		end
+		if self.MobileButton then
+			self.MobileButton.Root:Destroy()
+		end
+	end)
+	local i = table.find(Library.Windows, self)
+	if i then
+		table.remove(Library.Windows, i)
+	end
+	Util.fire(self.Opts.OnDestroy)
+end
+
+-- Glass can't blur other LiquidGlass UI, so surfaces that sit on top of another
+-- window turn denser (and clear again once they no longer overlap)
+local stackCheck = 0
+Util.track(RunService.Heartbeat:Connect(function(dt)
+	stackCheck += dt
+	if stackCheck < 0.15 then
+		return
+	end
+	stackCheck = 0
+	local wins = {}
+	for _, w in ipairs(Library.Windows) do
+		if w.Root and w.Root.Visible then
+			table.insert(wins, w)
+		end
+	end
+	local surfaces = {}
+	for _, w in ipairs(wins) do
+		table.insert(surfaces, { g = w.Glass, z = w.Root.ZIndex, self = w.Root })
+		if w.Bar and w.Bar.Floating and w.Bar.Glass then
+			table.insert(surfaces, { g = w.Bar.Glass, z = w.Bar.Root.ZIndex, self = w.Bar.Root })
+		end
+	end
+	local function overlap(a, b)
+		local ap, as = a.AbsolutePosition, a.AbsoluteSize
+		local bp, bs = b.AbsolutePosition, b.AbsoluteSize
+		return ap.X < bp.X + bs.X - 6 and bp.X < ap.X + as.X - 6 and ap.Y < bp.Y + bs.Y - 6 and bp.Y < ap.Y + as.Y - 6
+	end
+	for _, sf in ipairs(surfaces) do
+		local covering = false
+		for _, w in ipairs(wins) do
+			if w.Root ~= sf.self and w.Root.ZIndex < sf.z and overlap(sf.self, w.Root) then
+				covering = true
+				break
+			end
+		end
+		local g = sf.g
+		if g.Dim and g.Stacked ~= covering then
+			g.Stacked = covering
+			local map = Theme.binds[g.Dim]
+			if map then
+				map.BackgroundTransparency = covering and "StackDimT" or "DimT"
+			end
+			tween(g.Dim, 0.3, { BackgroundTransparency = Theme.value(covering and "StackDimT" or "DimT") })
+		end
+	end
+end))
+
+-- toggle key for every window
+Util.track(UserInputService.InputBegan:Connect(function(input)
+	if typing() or Library.Unloaded then
+		return
+	end
+	if Library._intro and Library._intro.Active then
+		return
+	end
+	if Library.ToggleKey and input.KeyCode == Library.ToggleKey and not Library._capturingKey then
+		for _, w in ipairs(Library.Windows) do
+			w:Toggle()
+		end
+	end
+end))
+
+---------------------------------------------------------------------------
+-- Tabs
+---------------------------------------------------------------------------
+function Window:AddTab(o, icon)
+	if type(o) == "string" then
+		o = { Title = o, Icon = icon }
+	end
+	o = o or {}
+	local tab = setmetatable({
+		Window = self,
+		Title = opt(o, "Tab", "Title", "Name"),
+		Icon = opt(o, nil, "Icon", "Image"),
+		Sections = {},
+		Index = #self.Tabs + 1,
+		Elements = {},
+	}, Tab)
+	table.insert(self.Tabs, tab)
+
+	if not self.Bar then
+		-- sidebar button
+		local b = new("Frame", { Name = "Tab_" .. tab.Title, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, S.TabRow), LayoutOrder = tab.Index, ZIndex = 9, Parent = self.TabItems })
+		tab.Button = b
+		tab.IconImage = Glass.icon({ Parent = b, Icon = tab.Icon or "circle", Size = 18, Position = UDim2.fromOffset(S.IconAxis - S.WindowInset, S.TabRow / 2) })
+		tab.Label = Glass.text({ Parent = b, Text = tab.Title, Weight = Enum.FontWeight.Medium, TextSize = S.Callout, Truncate = true, Position = UDim2.fromOffset(S.TextAxis - S.WindowInset, 0), Size = UDim2.new(1, -(S.TextAxis - S.WindowInset) - 8, 1, 0), ZIndex = 9 })
+		tab:_setCompact(self.Collapsed, 0)
+	end
+
+	-- page
+	local page = new("ScrollingFrame", {
+		Name = "Page_" .. tab.Title,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		Visible = false,
+		ZIndex = 4,
+		Parent = self.Pages,
+	}, {
+		Util.list(nil, S.SectionGap),
+		Util.pad(4, 4, S.Gutter, 4),
+	})
+	tab.Page = page
+	tab.Scroller = Glass.scroller(page, { IndicatorParent = self.Pages, Priority = function()
+		return self.Root.ZIndex
+	end })
+
+	if self.Bar then
+		self.Bar:addItem(tab)
+	else
+		self.TabPill.Root.Visible = true
+	end
+	if not self.ActiveTab then
+		self:SelectTab(tab, true)
+	end
+	return tab
+end
+Window.CreateTab = Window.AddTab
+
+function Window:SelectTab(t, instant)
+	local tab = type(t) == "number" and self.Tabs[t] or t
+	if not tab or tab == self.ActiveTab then
+		return
+	end
+	local old = self.ActiveTab
+	self.ActiveTab = tab
+	if old then
+		old.Page.Visible = false
+		if self.SearchBox and self.SearchBox.Text ~= "" then
+			old:_filter("")
+		end
+	end
+	tab.Page.Visible = true
+	self.PageTitle.Text = tab.Title
+	self.TabSelector.set(tab.Index, instant)
+	if self.SearchBox and self.SearchBox.Text ~= "" then
+		tab:_filter(self.SearchBox.Text)
+	end
+	if not instant then
+		tab.Page.Position = UDim2.fromOffset(0, 14)
+		tween(tab.Page, 0.45, { Position = UDim2.new() })
+		Motion.groupFade(tab.Page, 1, 0, 0.28)
+	end
+	Util.fire(self.Opts.OnTabChanged, tab)
+end
+
+function Tab:_paint(selected)
+	self.Selected = selected
+	Theme.bind(self.IconImage, { ImageColor3 = selected and "Accent" or "Text", ImageTransparency = function(t)
+		return selected and 0 or t.Text2T
+	end })
+	if self.Window.Bar then
+		Theme.bind(self.Label, { TextColor3 = selected and "Accent" or "Text", TextTransparency = function(t)
+			return selected and 0 or t.Text2T
+		end })
+		return
+	end
+	Theme.bind(self.Label, { TextTransparency = function()
+		return 0
+	end })
+	self.Label.FontFace = Util.font(selected and Enum.FontWeight.SemiBold or Enum.FontWeight.Medium)
+end
+
+function Tab:_setCompact(compact)
+	-- the icon stays on the sidebar's icon axis in both states
+	if self.Window.Bar then
+		return
+	end
+	self.Label.Visible = not compact
+end
+
+function Tab:Select()
+	self.Window:SelectTab(self)
+end
+
+function Tab:SetTitle(t)
+	self.Title = t
+	self.Label.Text = t
+	if self.Window.ActiveTab == self then
+		self.Window.PageTitle.Text = t
+	end
+end
+
+function Tab:SetIcon(src)
+	self.Icon = src
+	Assets.apply(self.IconImage, src)
+end
+
+function Tab:_filter(query)
+	query = (query or ""):lower()
+	for _, section in ipairs(self.Sections) do
+		local any = false
+		for _, el in ipairs(section.Elements) do
+			local hay = ((el.TitleText or "") .. " " .. (el.DescText or "")):lower()
+			local match = query == "" or hay:find(query, 1, true) ~= nil
+			el._filtered = not match
+			el:_updateVisible()
+			any = any or (match and not el._hidden)
+		end
+		section._filtered = query ~= "" and not any
+		section:_refresh()
+	end
+	self.Window.PageTitle.Text = query == "" and self.Title or ("Results for “" .. query .. "”")
+end
+
+---------------------------------------------------------------------------
+-- Sections and rows
+---------------------------------------------------------------------------
+function Tab:AddSection(o)
+	if type(o) ~= "table" then
+		o = { Title = o }
+	end
+	local section = setmetatable({
+		Tab = self,
+		Title = opt(o, nil, "Title", "Name", "Text"),
+		Elements = {},
+		Order = 0,
+	}, Section)
+	local frame = new("Frame", { Name = "Section", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = #self.Sections + 1, ZIndex = 4, Parent = self.Page }, {
+		Util.list(nil, S.HeaderGap),
+	})
+	section.Frame = frame
+	section.Header = Glass.text({ Parent = frame, Text = section.Title and section.Title:upper() or "", Weight = Enum.FontWeight.SemiBold, TextSize = S.Footnote, Level = 2, Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 0 })
+	new("UIPadding", { PaddingLeft = UDim.new(0, S.RowInset), PaddingRight = UDim.new(0, S.RowInset), Parent = section.Header })
+	section.Header.Visible = section.Title ~= nil
+	section.Card = Glass.new({ Kind = "Card", Name = "Card", Parent = frame, Radius = S.CardRadius, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, ZIndex = 4 })
+	section.Rows = section.Card.Content
+	Util.list(nil, 0).Parent = section.Rows
+	table.insert(self.Sections, section)
+	self.CurrentSection = section
+	return section
+end
+Tab.CreateSection = Tab.AddSection
+
+function Tab:_section()
+	return self.CurrentSection or self:AddSection({})
+end
+
+function Section:SetTitle(t)
+	self.Title = t
+	self.Header.Text = t and t:upper() or ""
+	self.Header.Visible = t ~= nil
+end
+Section.Set = Section.SetTitle
+
+function Section:SetVisible(on)
+	self._hidden = not on
+	self:_refresh()
+end
+
+function Section:Destroy()
+	self.Frame:Destroy()
+	local i = table.find(self.Tab.Sections, self)
+	if i then
+		table.remove(self.Tab.Sections, i)
+	end
+end
+
+function Section:_refresh()
+	local last
+	for _, el in ipairs(self.Elements) do
+		if el.Row and el.Row.Frame.Visible then
+			last = el
+		end
+	end
+	for _, el in ipairs(self.Elements) do
+		if el.Row and el.Row.Separator then
+			el.Row.Separator.Visible = el ~= last and not el.NoSeparator
+		end
+	end
+	self.Frame.Visible = not self._hidden and not self._filtered and last ~= nil
+end
+
+function Section:_order()
+	self.Order += 1
+	return self.Order
+end
+
+-- a list row: icon/title/description on the left, a control on the right.
+-- The text column and an invisible RowMin strut sit side by side in a centered
+-- horizontal list, so short rows are exactly RowMin tall with their text centered.
+-- o: Title, Description, Icon, IconColor (draws a colored badge), Right (width),
+--    MinHeight, PadY, Inset (left/right override for full-bleed content)
+function Section:_row(o)
+	local row = { Section = self }
+	local minH = o.MinHeight or S.RowMin
+	local padY = o.PadY or S.RowPadY
+	local frame = new("Frame", { Name = "Row", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = self:_order(), ZIndex = 5, Parent = self.Rows })
+	row.Frame = frame
+	row.Highlight = new("Frame", { Name = "Highlight", BorderSizePixel = 0, BackgroundTransparency = 1, Position = UDim2.fromOffset(S.HighlightInset, 2), Size = UDim2.new(1, -2 * S.HighlightInset, 1, -4), ZIndex = 5, Parent = frame }, { Util.corner(S.HighlightRadius) })
+	Theme.bind(row.Highlight, { BackgroundColor3 = "Highlight" })
+
+	local left = S.RowInset
+	if o.Icon then
+		if o.IconColor then
+			local badge = new("Frame", { Name = "Badge", BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, S.RowInset, 0.5, 0), Size = UDim2.fromOffset(S.Badge, S.Badge), ZIndex = 6, Parent = frame }, { Util.corner(S.BadgeRadius) })
+			if typeof(o.IconColor) == "Color3" then
+				badge.BackgroundColor3 = o.IconColor
+			else
+				Theme.bind(badge, { BackgroundColor3 = o.IconColor })
+			end
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(205, 205, 205)), Parent = badge })
+			Glass.icon({ Parent = badge, Icon = o.Icon, Size = S.BadgeIcon, Color = Color3.new(1, 1, 1), ZIndex = 7 })
+			row.Badge = badge
+		else
+			row.IconImage = Glass.icon({ Parent = frame, Icon = o.Icon, Size = S.RowIcon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, S.RowInset + S.Badge / 2, 0.5, 0), Level = 1, ZIndex = 6 })
+		end
+		left = S.TextX
+	end
+	left = o.Inset or left
+	local rightInset = o.Inset or S.RowInset
+	row.TextX = left
+	local rightW = o.Right or 0
+	local function lineWidth(w)
+		return UDim2.new(1, -(left + rightInset + (w > 0 and w + S.IconGap or 0)), 0, 0)
+	end
+	row.Line = new("Frame", {
+		Name = "Line",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(left, 0),
+		Size = lineWidth(rightW),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		ZIndex = 6,
+		Parent = frame,
+	}, { Util.list(Enum.FillDirection.Horizontal, 0, { VerticalAlignment = Enum.VerticalAlignment.Center }) })
+	row.Strut = new("Frame", { Name = "Strut", BackgroundTransparency = 1, Size = UDim2.fromOffset(0, minH), LayoutOrder = 0, Parent = row.Line })
+	row.Body = new("Frame", {
+		Name = "Body",
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = 1,
+		ZIndex = 6,
+		Parent = row.Line,
+	}, { Util.pad(padY, 0, padY, 0), Util.list(nil, S.RowGap) })
+	row.Title = Glass.text({ Parent = row.Body, Text = o.Title or "", Weight = Enum.FontWeight.Medium, TextSize = S.Body, Wrap = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 1, ZIndex = 6 })
+	row.Title.Visible = (o.Title or "") ~= ""
+	row.Desc = Glass.text({ Parent = row.Body, Text = o.Description or "", Level = 2, TextSize = S.Subhead, Wrap = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 2, ZIndex = 6 })
+	row.Desc.Visible = (o.Description or "") ~= ""
+	row.Right = new("Frame", { Name = "Right", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -rightInset, 0.5, 0), Size = UDim2.fromOffset(rightW, S.Control), ZIndex = 8, Parent = frame })
+	row.Separator = new("Frame", { Name = "Separator", BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, left, 1, 0), Size = UDim2.new(1, -left, 0, 1), ZIndex = 5, Parent = frame })
+	Theme.bind(row.Separator, { BackgroundColor3 = "Separator", BackgroundTransparency = "SeparatorT" })
+
+	function row.SetRight(w)
+		rightW = w
+		row.Right.Size = UDim2.fromOffset(w, row.Right.Size.Y.Offset)
+		row.Line.Size = lineWidth(w)
+	end
+
+	-- rows with a control stacked under the text (sliders, fields...) keep their
+	-- icon level with the title block instead of the middle of the whole row
+	function row.TopIcon()
+		local icon = row.Badge or row.IconImage
+		if not icon then
+			return
+		end
+		local function place()
+			local sc = Library.ScaleObject.Scale
+			local h = row.Title.Visible and row.Title.AbsoluteSize.Y / sc or 0
+			if row.Desc.Visible then
+				h += S.RowGap + row.Desc.AbsoluteSize.Y / sc
+			end
+			local y = padY + math.max(h, S.Badge) / 2
+			icon.Position = UDim2.new(icon.Position.X.Scale, icon.Position.X.Offset, 0, y)
+		end
+		row.Title:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+		row.Desc:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+		row.Desc:GetPropertyChangedSignal("Visible"):Connect(place)
+		place()
+	end
+
+	-- whole-row press feedback; returns the hit button
+	function row.Interactive(onClick, ro)
+		ro = ro or {}
+		local hit = hitbox(frame, 7)
+		local hovered, pressed = false, false
+		local function paint()
+			local t = Theme.current
+			local target = pressed and t.PressT or hovered and t.HighlightT or 1
+			tween(row.Highlight, pressed and 0.08 or 0.25, { BackgroundTransparency = target })
+		end
+		hit.MouseEnter:Connect(function()
+			if row.Locked then
+				return
+			end
+			hovered = true
+			paint()
+			if ro.HoverSound ~= false then
+				Sound.play("hover")
+			end
+			if ro.OnHover then
+				ro.OnHover(true)
+			end
+		end)
+		hit.MouseLeave:Connect(function()
+			hovered = false
+			paint()
+			if ro.OnHover then
+				ro.OnHover(false)
+			end
+		end)
+		hit.InputBegan:Connect(function(input)
+			if isPress(input) and not row.Locked then
+				pressed = true
+				paint()
+			end
+		end)
+		Util.track(UserInputService.InputEnded:Connect(function(input)
+			if pressed and isPress(input) then
+				pressed = false
+				paint()
+			end
+		end))
+		hit.Activated:Connect(function()
+			if not row.Locked and onClick then
+				onClick()
+			end
+		end)
+		row.Hit = hit
+		return hit
+	end
+
+	-- dims the row and blocks its input
+	function row.SetLocked(on)
+		if (row.Locked or false) == on then
+			return
+		end
+		row.Locked = on
+		if on then
+			-- the group sizes itself from the row content, so a row locked before it was
+			-- ever laid out keeps its height
+			local group = new("CanvasGroup", { Name = "Locked", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 0), AutomaticSize = Enum.AutomaticSize.Y, GroupTransparency = 0.55, ZIndex = 6, Parent = frame })
+			new("Frame", { Name = "LockStrut", BackgroundTransparency = 1, Size = UDim2.fromOffset(0, minH), Parent = group })
+			for _, ch in ipairs(frame:GetChildren()) do
+				if ch ~= group and ch:IsA("GuiObject") and ch ~= row.Highlight then
+					ch.Parent = group
+				end
+			end
+			hitbox(group, 90).Name = "Blocker"
+			row.LockGroup = group
+		else
+			local group = row.LockGroup
+			for _, ch in ipairs(group:GetChildren()) do
+				if ch.Name ~= "Blocker" and ch.Name ~= "LockStrut" and ch:IsA("GuiObject") then
+					ch.Parent = frame
+				end
+			end
+			group:Destroy()
+		end
+	end
+	return row
+end
+
+---------------------------------------------------------------------------
+-- Tab bar navigation (CreateWindow({ Navigation = "TabBar", TabBar = {...} })):
+-- an iOS 26 style glass tab bar instead of the sidebar. It docks inside the
+-- window on any edge, or floats next to it (trailing the window like liquid).
+-- Its grip moves it: tap to go to the next edge, drag to throw it to any edge
+-- (or anywhere on screen when floating); it snaps with a soft bounce.
+-- A floating bar stays on screen while the window is hidden, and its tabs
+-- bring the window back; one pinned to the screen edge keeps the window
+-- right next to it, like a dock.
+---------------------------------------------------------------------------
+local Bar = {}
+Bar.__index = Bar
+Library._classes.TabBar = Bar
+
+local EDGES = { Bottom = true, Top = true, Left = true, Right = true }
+local CYCLE = { "Bottom", "Left", "Top", "Right" }
+
+local function isVertical(pos)
+	return pos == "Left" or pos == "Right"
+end
+
+local function edgeName(v)
+	if type(v) == "string" then
+		local n = v:sub(1, 1):upper() .. v:sub(2):lower()
+		if EDGES[n] then
+			return n
+		end
+	end
+	return nil
+end
+
+-- where a pinned bar sits along its screen edge: "Start" (left / top), "Center"
+-- or "End" (right / bottom), so a corner works lying down or standing up
+local function alignName(v)
+	v = type(v) == "string" and v:lower() or nil
+	if v == "start" or v == "left" or v == "top" then
+		return "Start"
+	elseif v == "end" or v == "right" or v == "bottom" then
+		return "End"
+	elseif v == "center" or v == "middle" then
+		return "Center"
+	end
+	return nil
+end
+
+-- Roblox's backpack hotbar sits at the bottom middle of the screen while the
+-- player has tools; a bar pinned to the bottom edge moves up above it
+local StarterGui = game:GetService("StarterGui")
+local hotbarAt, hotbarOn = 0, false
+local function hotbarVisible()
+	local now = os.clock()
+	if now - hotbarAt > 0.25 then
+		hotbarAt = now
+		local ok, on = pcall(StarterGui.GetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.Backpack)
+		local lp = Players.LocalPlayer
+		local bp = lp and lp:FindFirstChildOfClass("Backpack")
+		local tool = (bp and bp:FindFirstChildOfClass("Tool")) or (lp and lp.Character and lp.Character:FindFirstChildOfClass("Tool"))
+		hotbarOn = ok and on and tool ~= nil
+	end
+	return hotbarOn
+end
+
+-- top-left of a bar of this size pinned to a screen edge; the top edge stays
+-- clear of Roblox's top bar, the bottom middle of the backpack hotbar
+local function screenSpot(edge, align, size)
+	local sc = Library.ScaleObject.Scale
+	local vs = camera.ViewportSize / sc
+	local margin = 14
+	local top = GuiService:GetGuiInset().Y / sc + 8
+	local function along(lo, hi, len)
+		if align == "Start" then
+			return lo
+		elseif align == "End" then
+			return hi - len
+		end
+		return lo + (hi - lo - len) / 2
+	end
+	if edge == "Bottom" or edge == "Top" then
+		local x = along(margin, vs.X - margin, size.X)
+		if edge == "Top" then
+			return Vector2.new(x, top)
+		end
+		local lift = (align == "Center" and hotbarVisible()) and 62 or 0
+		return Vector2.new(x, vs.Y - size.Y - margin - lift)
+	end
+	local y = along(top, vs.Y - margin, size.Y)
+	return Vector2.new(edge == "Left" and margin or vs.X - size.X - margin, y)
+end
+
+function Window:_buildTabBar(cfg)
+	cfg = type(cfg) == "table" and cfg or {}
+	local bar = setmetatable({
+		Window = self,
+		Position = edgeName(cfg.Position) or "Bottom",
+		Floating = cfg.Floating == true or cfg.Screen == true,
+		Screen = cfg.Screen == true, -- pinned to the screen edge instead of the window
+		Locked = cfg.Locked == true, -- no grip, can't be moved by the user
+		HideWithWindow = cfg.HideWithWindow == true, -- floating bars stay on screen otherwise
+		Align = alignName(cfg.Align) or "Center",
+		Labels = cfg.Labels ~= false,
+		Draggable = cfg.Draggable ~= false,
+		Grip = cfg.Grip,
+		Cycle = cfg.Cycle or CYCLE,
+		Gap = cfg.Gap or S.TabBarGap,
+		OnMoved = cfg.OnMoved or cfg.Callback,
+		Items = {},
+		Shown = false,
+	}, Bar)
+	if bar.Grip == nil then
+		bar.Grip = bar.Draggable
+	end
+	self.Bar = bar
+	bar:build()
+	-- a window with a pinned bar opens right next to it
+	if bar.Screen and not (typeof(self.Opts.Position) == "UDim2" or typeof(self.Opts.Position) == "Vector2") then
+		self.AtBar = true
+		local spot = bar:windowSpot(bar:target(bar.M))
+		bar.LastSpot = spot
+		self.Root.Position = UDim2.fromOffset(math.floor(spot.X), math.floor(spot.Y))
+	end
+	Util.track(RunService.RenderStepped:Connect(function()
+		bar:follow()
+	end))
+	return bar
+end
+
+-- sizes for the current orientation and the space available (or for another
+-- edge / floating state, to preview a snap)
+function Bar:metrics(pos, floating)
+	local w = self.Window
+	if floating == nil then
+		floating = self.Floating
+	end
+	local vert = isVertical(pos or self.Position)
+	local inset = S.TabBarInset
+	local thick = vert and (S.TabBarHeight + 8) or S.TabBarHeight
+	local short = thick - 2 * inset
+	local labels = self.Labels
+	local itemLen = vert and (S.TabBarHeight - 2 * inset) or (labels and S.TabBarItem or short)
+	local n = math.max(#w.Tabs, 1)
+	local grip = (self.Grip and not self.Locked) and short or 0
+	local avail
+	local sc = Library.ScaleObject.Scale
+	if floating then
+		local vs = camera.ViewportSize / sc
+		avail = (vert and vs.Y or vs.X) - 40
+	else
+		local ws = Vector2.new(w.Root.Size.X.Offset, w.Root.Size.Y.Offset)
+		avail = vert and (ws.Y - S.Header - 3 * S.WindowInset) or (ws.X - 4 * S.WindowInset)
+	end
+	local need = n * itemLen + grip + 2 * inset
+	if need > avail then
+		itemLen = math.max(36, math.floor((avail - grip - 2 * inset) / n))
+		if not vert and itemLen < 58 then
+			labels = false
+		end
+	end
+	local len = n * itemLen + grip + 2 * inset
+	return {
+		vert = vert,
+		inset = inset,
+		thick = thick,
+		short = short,
+		itemLen = itemLen,
+		labels = labels and (not vert or self.Labels),
+		grip = grip,
+		len = len,
+		size = vert and Vector2.new(thick, len) or Vector2.new(len, thick),
+		item = vert and Vector2.new(short, itemLen) or Vector2.new(itemLen, short),
+	}
+end
+
+-- where the bar rests: window-local when docked, screen when floating
+function Bar:target(m)
+	m = m or self:metrics()
+	local w = self.Window
+	local size = m.size
+	if self.Floating then
+		local vs = camera.ViewportSize / Library.ScaleObject.Scale
+		if self.Free then
+			return Vector2.new(math.clamp(self.Free.X, 4, vs.X - size.X - 4), math.clamp(self.Free.Y, 4, vs.Y - size.Y - 4))
+		end
+		if self.Screen then
+			return screenSpot(self.Position, self.Align, size)
+		end
+		local p = Motion.target(w.Root)
+		local ws = Vector2.new(w.Root.Size.X.Offset, w.Root.Size.Y.Offset)
+		local g = self.Gap
+		local t
+		if self.Position == "Bottom" then
+			t = Vector2.new(p.X + (ws.X - size.X) / 2, p.Y + ws.Y + g)
+		elseif self.Position == "Top" then
+			t = Vector2.new(p.X + (ws.X - size.X) / 2, p.Y - g - size.Y)
+		elseif self.Position == "Left" then
+			t = Vector2.new(p.X - g - size.X, p.Y + (ws.Y - size.Y) / 2)
+		else
+			t = Vector2.new(p.X + ws.X + g, p.Y + (ws.Y - size.Y) / 2)
+		end
+		return Vector2.new(math.clamp(t.X, 4, vs.X - size.X - 4), math.clamp(t.Y, 4, vs.Y - size.Y - 4))
+	end
+	local ws = Vector2.new(w.Root.Size.X.Offset, w.Root.Size.Y.Offset)
+	local inset = S.WindowInset
+	local contentTop = inset + S.Header
+	if self.Position == "Bottom" then
+		return Vector2.new((ws.X - size.X) / 2, ws.Y - inset - size.Y)
+	elseif self.Position == "Top" then
+		return Vector2.new((ws.X - size.X) / 2, contentTop)
+	elseif self.Position == "Left" then
+		return Vector2.new(inset, contentTop + (ws.Y - contentTop - inset - size.Y) / 2)
+	end
+	return Vector2.new(ws.X - inset - size.X, contentTop + (ws.Y - contentTop - inset - size.Y) / 2)
+end
+
+function Bar:makeItem(tab)
+	local item = new("Frame", { Name = "Tab_" .. tab.Title, BackgroundTransparency = 1, ZIndex = 9, Parent = self.Glass.Content })
+	tab.Button = item
+	tab.IconImage = Glass.icon({ Parent = item, Icon = tab.Icon or "circle", Size = 20, ZIndex = 10 })
+	tab.Label = Glass.text({ Parent = item, Text = tab.Title, Weight = Enum.FontWeight.SemiBold, TextSize = S.Caption, XAlign = Enum.TextXAlignment.Center, Truncate = true, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.new(1, -6, 0, 13), ZIndex = 10 })
+	tab:_paint(self.Window.ActiveTab == tab)
+	self.Items[tab] = item
+	return item
+end
+
+function Bar:build()
+	local w = self.Window
+	local m = self:metrics()
+	self.M = m
+	local floating = self.Floating
+	local g = Glass.new({
+		Kind = floating and "Surface" or "Card",
+		Name = "TabBar",
+		Parent = floating and Library.Gui or w.Body,
+		Radius = m.thick / 2,
+		Size = UDim2.fromOffset(m.size.X, m.size.Y),
+		ZIndex = floating and nextZ(5) or 20,
+		Shadow = floating and nil or 0.22,
+		SmallShadow = not floating,
+		BlurStart = 0,
+	})
+	g.Root.Active = true
+	self.Glass, self.Root = g, g.Root
+	table.clear(self.Items)
+
+	-- selection pill + selector over the items
+	local pill = Glass.new({ Kind = "Control", Name = "Selection", Parent = g.Content, Radius = m.short / 2, Size = UDim2.fromOffset(m.item.X, m.item.Y), Position = UDim2.fromOffset(m.inset, m.inset), Shadow = false, ZIndex = 8 })
+	pill.SetTint(WHITE, Theme.current.Name == "Light" and 0.35 or 0.88)
+	self.Pill = pill
+	local area = new("Frame", { Name = "Items", BackgroundTransparency = 1, Position = UDim2.fromOffset(m.inset, m.inset), ZIndex = 9, Parent = g.Content })
+	self.Area = area
+	local hit = hitbox(area, 30)
+	for _, tab in ipairs(w.Tabs) do
+		self:makeItem(tab)
+	end
+	local bar = self
+	self.Selector = Glass.selector({
+		Hit = hit,
+		Ref = g.Content,
+		Pill = pill,
+		Axis = m.vert and "Y" or "X",
+		Count = function()
+			return #w.Tabs
+		end,
+		Slot = function(i)
+			local mm = bar.M
+			if mm.vert then
+				return Vector2.new(mm.inset, mm.inset + (i - 1) * mm.itemLen)
+			end
+			return Vector2.new(mm.inset + (i - 1) * mm.itemLen, mm.inset)
+		end,
+		Items = function()
+			local t = {}
+			for i, tab in ipairs(w.Tabs) do
+				t[i] = tab.Button
+			end
+			return t
+		end,
+		Magnify = 1.12,
+		LensScale = 1.12,
+		Paint = function(i)
+			for j, tab in ipairs(w.Tabs) do
+				tab:_paint(j == i)
+			end
+		end,
+		OnSelect = function(i)
+			w:SelectTab(i)
+			bar:summon()
+		end,
+	})
+	w.TabSelector, w.TabPill = self.Selector, pill
+
+	-- grip: tap -> next edge, drag -> move
+	self.GripFrame = nil
+	if self.Grip and not self.Locked then
+		local gripFrame = new("Frame", { Name = "Grip", BackgroundTransparency = 1, ZIndex = 9, Parent = g.Content })
+		self.GripFrame = gripFrame
+		local gi = Glass.icon({ Parent = gripFrame, Icon = "move", Size = 16, Level = 2, ZIndex = 10 })
+		self.GripIcon = gi
+		local ghit = hitbox(gripFrame, 31)
+		local startPos, startPointer
+		Motion.drag(ghit, {
+			allow = function()
+				return bar.Draggable and not bar.Locked
+			end,
+			began = function(p)
+				startPos = Motion.target(g.Root)
+				startPointer = p
+				tween(g.Scale, 0.3, { Scale = 1.06 })
+				tween(gi, 0.2, { ImageTransparency = 0 })
+			end,
+			moved = function(p, d, moved)
+				if moved then
+					bar.Dragging = true
+					local sc = Library.ScaleObject.Scale
+					-- a docked bar moves in window space; snapping works in screen space
+					local off = bar.Floating and Vector2.zero or screenPos(w.Root) / sc
+					local at = startPos + d / sc + off
+					-- the screen edges push back softly instead of swallowing the bar
+					local vs = camera.ViewportSize / sc
+					local size = bar.M.size
+					at = V

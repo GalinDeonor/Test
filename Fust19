@@ -1,1322 +1,4 @@
-w({ Navigation = \"TabBar\" })")
-		return
-	end
-	cfg = cfg or {}
-	for _, k in ipairs({ "Labels", "Draggable", "Grip", "Cycle", "Gap", "OnMoved", "Locked", "HideWithWindow" }) do
-		if cfg[k] ~= nil then
-			bar[k] = cfg[k]
-		end
-	end
-	bar:setPosition(cfg.Position or bar.Position, { Floating = cfg.Floating, Screen = cfg.Screen, Align = cfg.Align, Force = true })
-end
-
-function Window:SetTabBarPosition(pos, floating)
-	if self.Bar then
-		self.Bar:setPosition(pos, { Floating = floating })
-	end
-end
-
-function Window:GetTabBar()
-	return self.Bar
-end
-
--- pin the bar to an edge of the screen (Bottom, Left, Top, Right), like a dock;
--- align puts it at the start, center or end of that edge: PinTabBar("Bottom",
--- "Left") lies in the bottom-left corner, PinTabBar("Left", "Bottom") stands there
-function Window:PinTabBar(edge, align)
-	if self.Bar then
-		self.Bar:setPosition(edge or self.Bar.Position, { Screen = true, Align = align })
-	end
-end
-
-function Window:UnpinTabBar()
-	if self.Bar then
-		self.Bar:setScreen(false)
-	end
-end
-
-function Window:LockTabBar(on)
-	if self.Bar then
-		self.Bar:setLocked(on ~= false)
-	end
-end
-
--- hide or show the bar itself; a hidden bar stays hidden with the window open
-function Window:SetTabBarVisible(on)
-	local bar = self.Bar
-	if bar then
-		bar.Hidden = on == false
-		bar:setShown(bar:wantShown())
-	end
-end
-
-function Window:DetachTabBar()
-	if self.Bar then
-		self.Bar:setFloating(true)
-	end
-end
-
-function Window:AttachTabBar()
-	if self.Bar then
-		self.Bar:setFloating(false)
-	end
-end
-
--- pages make room for a docked bar
-function Window:_layoutTabBar(instant)
-	local bar = self.Bar
-	local g = S.Gutter
-	local top = S.WindowInset + S.Header
-	local l, r, t, b = g - 4, g - 4, top, S.WindowInset
-	if bar and not bar.Floating then
-		local m = bar:metrics()
-		local room = S.WindowInset
-		if bar.Position == "Bottom" then
-			b = S.WindowInset + m.size.Y + room
-		elseif bar.Position == "Top" then
-			t = top + m.size.Y + room
-		elseif bar.Position == "Left" then
-			l = S.WindowInset + m.size.X + room
-		else
-			r = S.WindowInset + m.size.X + room
-		end
-	end
-	local pos, size = UDim2.fromOffset(l, t), UDim2.new(1, -(l + r), 1, -(t + b))
-	if instant then
-		self.Pages.Position, self.Pages.Size = pos, size
-	else
-		tween(self.Pages, 0.4, { Position = pos, Size = size })
-	end
-	if self.Search then
-		local wide = self.Root.Size.X.Offset >= 560
-		self.Search.Root.Visible = wide
-		self:_fitHeaderTitle(wide)
-	end
-	if bar and bar.Glass then
-		bar:relayout(instant)
-	end
-end
-
--- bars show and hide with their window (see Bar:wantShown), stay in front of
--- it, and unload with it
-do
-	local baseSetVisible = Window.SetVisible
-	function Window:SetVisible(on, silent)
-		baseSetVisible(self, on, silent)
-		if self.Bar then
-			self.Bar:setShown(self.Bar:wantShown())
-		end
-	end
-	local baseFocus = Window.Focus
-	function Window:Focus()
-		baseFocus(self)
-		local bar = self.Bar
-		if bar and bar.Floating and bar.Root and bar.Root.ZIndex <= self.Root.ZIndex then
-			bar.Root.ZIndex = nextZ(5)
-		end
-	end
-	local baseDestroy = Window.Destroy
-	function Window:Destroy()
-		if self.Bar and not self.Destroyed then
-			self.Bar:setShown(false)
-			local bar = self.Bar
-			task.delay(0.3, function()
-				bar:destroy()
-			end)
-		end
-		baseDestroy(self)
-	end
-end
-
----------------------------------------------------------------------------
--- Elements
--- Every element accepts LiquidGlass, Rayfield and Fluent style options:
---   Title/Name/Text, Description/Desc/Content, Icon, IconColor, Flag, Callback,
---   Tooltip, Disabled, Visible; plus AddX("Flag", {...}) and AddX("Title", fn).
--- Every element has :SetTitle :SetDescription :SetVisible :SetDisabled
--- :Destroy :OnChanged, value elements also :Set/:SetValue :Get/:GetValue .Value
----------------------------------------------------------------------------
-local Element = {}
-Element.__index = Element
-Library._classes.Element = Element
-
-local function normalize(a, b)
-	if type(a) == "string" and type(b) == "table" then
-		b.Flag = b.Flag or a
-		return b
-	elseif type(a) == "string" then
-		return { Title = a, Callback = type(b) == "function" and b or nil }
-	end
-	return a or {}
-end
-
-function Section:_element(o, kind, rowOpts)
-	local el = setmetatable({
-		Section = self,
-		Type = kind,
-		Opts = o,
-		TitleText = opt(o, "", "Title", "Name", "Text"),
-		DescText = opt(o, nil, "Description", "Desc", "SubText"),
-		Callback = opt(o, nil, "Callback", "Func", "Function"),
-		Flag = opt(o, nil, "Flag", "Id", "Idx"),
-		Listeners = {},
-	}, Element)
-	if rowOpts ~= false then
-		rowOpts = rowOpts or {}
-		rowOpts.Title = rowOpts.Title or el.TitleText
-		rowOpts.Description = rowOpts.Description or el.DescText
-		rowOpts.Icon = rowOpts.Icon == nil and opt(o, nil, "Icon", "Image") or rowOpts.Icon or nil
-		rowOpts.IconColor = rowOpts.IconColor or opt(o, nil, "IconColor", "BadgeColor")
-		rowOpts.MinHeight = opt(o, rowOpts.MinHeight, "RowHeight")
-		el.Row = self:_row(rowOpts)
-		el:_style(o)
-	end
-	table.insert(self.Elements, el)
-	table.insert(self.Tab.Elements, el)
-	if el.Flag then
-		Library.Options[el.Flag] = el
-		Library.Flags[el.Flag] = el
-	end
-	local tip = opt(o, nil, "Tooltip", "Hint")
-	if tip and el.Row then
-		Overlay.attachTooltip(el.Row.Frame, function()
-			return el.TooltipText or tip
-		end)
-		el.TooltipText = tip
-	end
-	if o.Visible == false then
-		el._hidden = true
-		el:_updateVisible()
-	end
-	if opt(o, false, "Disabled", "Locked") then
-		task.defer(function()
-			el:SetDisabled(true)
-		end)
-	end
-	self:_refresh()
-	return el
-end
-
--- per-element text styling: TitleSize, DescriptionSize, TitleColor, DescriptionColor,
--- Font (any font), TitleWeight / DescriptionWeight (Enum.FontWeight or its name)
-local function weightOf(v, default)
-	if typeof(v) == "EnumItem" then
-		return v
-	end
-	if type(v) == "string" then
-		local ok, w = pcall(function()
-			return Enum.FontWeight[v]
-		end)
-		if ok and w then
-			return w
-		end
-	end
-	return default
-end
-
-function Element:_style(o)
-	local row = self.Row
-	if not row then
-		return
-	end
-	local fam = Util.fontFamily(opt(o, nil, "Font", "FontFace", "FontFamily"))
-	local function apply(label, size, color, weight)
-		if size then
-			label.TextSize = size
-		end
-		if color then
-			Theme.bind(label, { TextColor3 = color })
-		end
-		if fam or weight then
-			label.FontFace = Font.new(fam or label.FontFace.Family, weightOf(weight, label.FontFace.Weight))
-		end
-	end
-	apply(row.Title, opt(o, nil, "TitleSize", "TextSize"), opt(o, nil, "TitleColor"), opt(o, nil, "TitleWeight", "Weight"))
-	apply(row.Desc, opt(o, nil, "DescriptionSize", "DescSize"), opt(o, nil, "DescriptionColor", "DescColor"), opt(o, nil, "DescriptionWeight"))
-end
-
--- size variant of a control: "Small" | "Regular" | "Large" or a number factor
-local VARIANT = { small = 0.82, regular = 1, large = 1.18 }
-local function sizeFactor(o)
-	local v = opt(o, nil, "Size", "ControlSize")
-	if type(v) == "number" then
-		return math.clamp(v, 0.5, 2)
-	end
-	if type(v) == "string" then
-		return VARIANT[v:lower()] or 1
-	end
-	return 1
-end
-Library._sizeFactor = sizeFactor
-
-function Element:_updateVisible()
-	if self.Row then
-		self.Row.Frame.Visible = not self._hidden and not self._filtered
-	end
-	self.Section:_refresh()
-end
-
-function Element:SetVisible(on)
-	self._hidden = not on
-	self:_updateVisible()
-end
-
-function Element:SetTitle(t)
-	self.TitleText = t or ""
-	if self.Row then
-		self.Row.Title.Text = self.TitleText
-		self.Row.Title.Visible = self.TitleText ~= ""
-	end
-end
-Element.SetName = Element.SetTitle
-
-function Element:SetDescription(d)
-	self.DescText = d
-	if self.Row then
-		self.Row.Desc.Text = d or ""
-		self.Row.Desc.Visible = (d or "") ~= ""
-	end
-end
-Element.SetDesc = Element.SetDescription
-
-function Element:SetTooltip(t)
-	self.TooltipText = t
-end
-
-function Element:SetDisabled(on)
-	self.Disabled = on and true or false
-	if self.Row then
-		self.Row.SetLocked(self.Disabled)
-	end
-end
-function Element:Lock()
-	self:SetDisabled(true)
-end
-function Element:Unlock()
-	self:SetDisabled(false)
-end
-
-function Element:OnChanged(fn)
-	table.insert(self.Listeners, fn)
-	if self.Value ~= nil then
-		Util.fire(fn, self.Value)
-	end
-	return {
-		Disconnect = function()
-			local i = table.find(self.Listeners, fn)
-			if i then
-				table.remove(self.Listeners, i)
-			end
-		end,
-	}
-end
-
-function Element:_emit(...)
-	Util.fire(self.Callback, ...)
-	for _, fn in ipairs(self.Listeners) do
-		Util.fire(fn, ...)
-	end
-end
-
-function Element:_store(v)
-	self.Value = v
-	self.CurrentValue = v
-	self.CurrentOption = v
-	self.CurrentKeybind = v
-	self.Color = v
-end
-
-function Element:SetValue(...)
-	if self.Set then
-		return self:Set(...)
-	end
-end
-
-function Element:GetValue()
-	return self.Value
-end
-Element.Get = Element.GetValue
-
-function Element:Destroy()
-	if self.Row then
-		self.Row.Frame:Destroy()
-	end
-	local list = self.Section.Elements
-	local i = table.find(list, self)
-	if i then
-		table.remove(list, i)
-	end
-	i = table.find(self.Section.Tab.Elements, self)
-	if i then
-		table.remove(self.Section.Tab.Elements, i)
-	end
-	if self.Flag and Library.Options[self.Flag] == self then
-		Library.Options[self.Flag] = nil
-		Library.Flags[self.Flag] = nil
-	end
-	if self._cleanup then
-		self._cleanup()
-	end
-	self.Section:_refresh()
-end
-
----------------------------------------------------------------------------
--- Button
----------------------------------------------------------------------------
-local CAPSULE_STYLES = {
-	primary = { kind = "Tinted", tint = "Accent", text = "OnAccent" },
-	destructive = { kind = "Tinted", tint = "Danger", text = "OnAccent" },
-	danger = { kind = "Tinted", tint = "Danger", text = "OnAccent" },
-	success = { kind = "Tinted", tint = "Success", text = "OnAccent" },
-	secondary = { kind = "Control", text = "Text" },
-	glass = { kind = "Control", text = "Text" },
-}
-
--- height, text size, icon size and gap of each capsule size
--- height, text size, icon size and gap of each capsule size (read live: density aware)
-local function capsuleSize(variant)
-	local v = type(variant) == "string" and variant:lower() or "regular"
-	if v == "small" then
-		return { S.ButtonSmall, S.Subhead, math.floor(S.ButtonSmall * 0.46), 6 }
-	elseif v == "large" then
-		return { S.ButtonLarge, S.Body, math.floor(S.ButtonLarge * 0.42), 8 }
-	end
-	return { S.Button, S.Body, math.floor(S.Button * 0.44), 7 }
-end
-
--- o.Width: UDim (default: fill); o.Variant: "Small" | "Regular" | "Large"
-local function capsule(parent, o, style, onClick)
-	local st = CAPSULE_STYLES[(style or "glass"):lower()] or CAPSULE_STYLES.glass
-	local sz = capsuleSize(o.Variant)
-	local h = sz[1]
-	local width = o.Width or UDim.new(1, 0)
-	local g = Glass.new({
-		Kind = st.kind,
-		Name = "Capsule",
-		Parent = parent,
-		Radius = h / 2,
-		Size = UDim2.new(width.Scale, width.Offset, 0, h),
-		Tint = st.tint,
-		Shadow = st.kind == "Tinted" and 0.25 or false,
-		SmallShadow = true,
-		ZIndex = 7,
-		LayoutOrder = o.LayoutOrder,
-	})
-	local holder = new("Frame", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(0, h), ZIndex = 8, Parent = g.Content }, {
-		Util.list(Enum.FillDirection.Horizontal, sz[4], { VerticalAlignment = Enum.VerticalAlignment.Center }),
-	})
-	new("UISizeConstraint", { MaxSize = Vector2.new(math.huge, h), Parent = holder })
-	local icon = opt(o, nil, "Icon", "Image")
-	if icon then
-		Glass.icon({ Parent = holder, Icon = icon, Size = sz[3], Color = st.text, Position = UDim2.new(), AnchorPoint = Vector2.zero, LayoutOrder = 1, ZIndex = 8 })
-	end
-	local label = Glass.text({ Parent = holder, Text = opt(o, "Button", "Title", "Name", "Text"), Weight = Enum.FontWeight.SemiBold, TextSize = opt(o, sz[2], "TextSize", "TitleSize"), Color = st.text, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, h), LayoutOrder = 2, ZIndex = 8 })
-	g.Label = label
-	if o.Auto then
-		-- hug the label: side padding = half the height, like an iOS capsule
-		local function fit()
-			local sc = Library.ScaleObject.Scale
-			g.Root.Size = UDim2.fromOffset(math.ceil(holder.AbsoluteSize.X / sc) + h, h)
-		end
-		holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
-		task.defer(fit)
-	end
-	g.Hit = Glass.pressable(g, { Grow = 1.04, OnClick = onClick, Disabled = o.IsDisabled })
-	return g
-end
-
-function Section:AddButton(a, b)
-	local o = normalize(a, b)
-	local style = opt(o, nil, "Style", "Variant", "Type")
-	local variant = opt(o, nil, "Size", "ButtonSize")
-	if type(variant) ~= "string" then
-		variant = nil
-	end
-	if not style and (variant or opt(o, nil, "Width", "ButtonWidth")) then
-		style = "Glass"
-	end
-	if style and style:lower() ~= "row" then
-		local sz = capsuleSize(variant)
-		local rowH = math.max(S.RowMin, sz[1] + 12)
-		local pad = (rowH - sz[1]) / 2
-		local el = self:_element(o, "Button", { Title = "", Description = "", Icon = false, MinHeight = rowH })
-		el.Row.Body.Visible = false
-		-- a fixed height: the capsule's drop shadow must not grow the row
-		el.Row.Frame.AutomaticSize = Enum.AutomaticSize.None
-		el.Row.Frame.Size = UDim2.new(1, 0, 0, rowH)
-		-- Width: "Fill" (default), "Auto" (hugs the label) or px; Align for the narrower ones
-		local width = opt(o, "Fill", "Width", "ButtonWidth")
-		local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, rowH), ZIndex = 7, Parent = el.Row.Frame }, { Util.pad(pad, pad, pad, pad) })
-		local co = table.clone(o)
-		co.Variant = variant
-		if width ~= "Fill" then
-			local align = opt(o, "Center", "Align")
-			new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, HorizontalAlignment = Enum.HorizontalAlignment[align] or Enum.HorizontalAlignment.Center, Parent = holder })
-			if type(width) == "number" then
-				co.Width = UDim.new(0, width)
-			else
-				co.Width = UDim.new(0, sz[1] * 3)
-				co.Auto = true
-			end
-		end
-		el.Capsule = capsule(holder, co, style, function()
-			el:_emit()
-		end)
-		el.NoSeparator = true
-		function el:SetTitle(t)
-			self.TitleText = t
-			self.Capsule.Label.Text = t
-		end
-		function el:Fire()
-			self:_emit()
-		end
-		self:_refresh()
-		return el
-	end
-
-	local accessory = opt(o, nil, "Accessory", "Value")
-	local el = self:_element(o, "Button", { Right = accessory and 120 or S.Chevron })
-	local row = el.Row
-	if accessory then
-		el.AccessoryLabel = Glass.text({ Parent = row.Right, Text = tostring(accessory), Level = 2, TextSize = S.Body, XAlign = Enum.TextXAlignment.Right, Truncate = true, Size = UDim2.new(1, -(S.Chevron + 8), 1, 0), ZIndex = 8 })
-	end
-	Glass.icon({ Parent = row.Right, Icon = "chevron-right", Size = S.Chevron, Level = 3, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), ZIndex = 8 })
-	local color = opt(o, nil, "Color", "TextColor")
-	if opt(o, false, "Destructive", "Danger") then
-		color = "Danger"
-	end
-	if color then
-		Theme.bind(row.Title, { TextColor3 = color })
-	end
-	row.Interactive(function()
-		Sound.play("click")
-		el:_emit()
-	end)
-	function el:Fire()
-		self:_emit()
-	end
-	function el:SetAccessory(t)
-		if self.AccessoryLabel then
-			self.AccessoryLabel.Text = tostring(t)
-		end
-	end
-	return el
-end
-
--- a row of capsule buttons sharing the width
--- o: Size ("Small" | "Regular" | "Large") for every capsule in the row
-function Section:AddButtons(list, o)
-	o = o or {}
-	local el = self:_element({ Title = "" }, "Buttons", { Title = "", Description = "" })
-	el.Row.Body.Visible = false
-	el.NoSeparator = true
-	el.Row.Frame.AutomaticSize = Enum.AutomaticSize.None
-	el.Row.Frame.Size = UDim2.new(1, 0, 0, S.RowMin)
-	local pad = (S.RowMin - S.Button) / 2
-	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, S.RowMin), ZIndex = 7, Parent = el.Row.Frame }, {
-		Util.pad(pad, pad, pad, pad),
-		Util.list(Enum.FillDirection.Horizontal, pad, { HorizontalFlex = Enum.UIFlexAlignment.Fill }),
-	})
-	el.Buttons = {}
-	for i, b in ipairs(list or {}) do
-		local c = capsule(holder, { Title = b.Title or b.Name, Icon = b.Icon, LayoutOrder = i, Width = UDim.new(0, 40), Variant = b.Size or o.Size }, b.Style or "glass", function()
-			Util.fire(b.Callback)
-		end)
-		el.Buttons[i] = c
-	end
-	self:_refresh()
-	return el
-end
-
----------------------------------------------------------------------------
--- Toggle (iOS switch: tap, or drag the knob; it becomes a glass lens while held)
----------------------------------------------------------------------------
-function Glass.switch(parent, on, onChange, factor)
-	factor = factor or 1
-	local SW, SH = math.floor(S.SwitchW * factor + 0.5), math.floor(S.SwitchH * factor + 0.5)
-	local KW, KH = math.floor(S.KnobW * factor + 0.5), math.floor(S.KnobH * factor + 0.5)
-	KH = math.min(KH, SH - 4)
-	local inset = (SH - KH) / 2
-	local OFF_X, ON_X = inset, SW - KW - inset
-	local KNOB = { Base = Vector2.new(KW, KH), Rest = UDim2.fromOffset(KW, KH), Axis = "X" }
-	local trackFrame = new("Frame", { Name = "Switch", BorderSizePixel = 0, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(SW, SH), ZIndex = 8, Parent = parent }, { Util.corner(SH / 2) })
-	local knob = Glass.new({ Kind = "Solid", Name = "Knob", Parent = trackFrame, Radius = KH / 2, Size = KNOB.Rest, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, on and ON_X or OFF_X, 0.5, 0), ZIndex = 9 })
-	local ctl = { State = on, Root = trackFrame, OffX = OFF_X, OnX = ON_X, KnobSize = KNOB.Rest }
-	local function paint(f, time)
-		f = math.clamp(f, 0, 1)
-		local t = Theme.current
-		local col = t.Track:Lerp(Theme.value("Switch"), f)
-		local tr = t.TrackT * (1 - f)
-		if time then
-			tween(trackFrame, time, { BackgroundColor3 = col, BackgroundTransparency = tr })
-		else
-			trackFrame.BackgroundColor3, trackFrame.BackgroundTransparency = col, tr
-		end
-	end
-	paint(on and 1 or 0)
-	Theme.onChange(function()
-		paint(ctl.State and 1 or 0)
-	end)
-	local function lens(held)
-		tween(knob.Scale, held and 0.3 or 0.5, { Scale = held and 1.32 or 1 }, held and Enum.EasingStyle.Quint or Enum.EasingStyle.Back)
-		tween(knob.Fill, 0.3, { BackgroundTransparency = held and 0.82 or 0 })
-		if knob.Rim and knob.Rim:IsA("ImageLabel") then
-			tween(knob.Rim, 0.3, { ImageTransparency = held and 0 or 1 })
-		end
-	end
-	function ctl.Set(v, silent)
-		v = v and true or false
-		local changed = v ~= ctl.State
-		ctl.State = v
-		Motion.spring(knob.Root, Vector2.new(v and ON_X or OFF_X, 0), 26, 0.55, KNOB)
-		paint(v and 1 or 0, 0.35)
-		if changed and not silent then
-			Sound.play(v and "toggle_on" or "toggle_off")
-			onChange(v)
-		end
-	end
-	local hit = hitbox(trackFrame, 12, { Size = UDim2.new(1, 16, 1, 16), Position = UDim2.fromOffset(-8, -8) })
-	local startX
-	Motion.drag(hit, {
-		allow = function()
-			return not (ctl.Disabled and ctl.Disabled())
-		end,
-		began = function()
-			startX = Motion.target(knob.Root).X
-			lens(true)
-		end,
-		moved = function(_, delta, moved)
-			if moved then
-				local x = Motion.rubber(startX + delta.X / Library.ScaleObject.Scale, OFF_X, ON_X, 5)
-				Motion.spring(knob.Root, Vector2.new(x, 0), 45, 1, KNOB)
-				paint((x - OFF_X) / (ON_X - OFF_X))
-			end
-		end,
-		ended = function(_, moved)
-			local v
-			if moved then
-				v = Motion.target(knob.Root).X > (OFF_X + ON_X) / 2
-			else
-				v = not ctl.State
-			end
-			lens(false)
-			if v == ctl.State then
-				Motion.spring(knob.Root, Vector2.new(v and ON_X or OFF_X, 0), 26, 0.55, KNOB)
-				paint(v and 1 or 0, 0.3)
-			end
-			ctl.Set(v)
-		end,
-	})
-	ctl.Hit = hit
-	return ctl
-end
-
-function Section:AddToggle(a, b)
-	local o = normalize(a, b)
-	local factor = sizeFactor(o)
-	local el = self:_element(o, "Toggle", { Right = math.floor(S.SwitchW * factor + 0.5) })
-	local initial = opt(o, false, "Default", "Value", "CurrentValue", "State") and true or false
-	el:_store(initial)
-	el.Switch = Glass.switch(el.Row.Right, initial, function(v)
-		el:_store(v)
-		el:_emit(v)
-	end, factor)
-	el.Switch.Disabled = function()
-		return el.Disabled
-	end
-	el.Row.Interactive(function()
-		el.Switch.Set(not el.Switch.State)
-	end, { HoverSound = false })
-	function el:Set(v, silent)
-		v = v and true or false
-		self:_store(v)
-		self.Switch.Set(v, true)
-		if not silent then
-			Sound.play(v and "toggle_on" or "toggle_off")
-			self:_emit(v)
-		end
-	end
-	function el:Toggle()
-		self:Set(not self.Value)
-	end
-	if initial then
-		task.defer(function()
-			el:_emit(true)
-		end)
-	end
-	return el
-end
-
----------------------------------------------------------------------------
--- Slider
----------------------------------------------------------------------------
-function Section:AddSlider(a, b)
-	local o = normalize(a, b)
-	local range = opt(o, nil, "Range")
-	local min = opt(o, range and range[1] or 0, "Min", "Minimum")
-	local max = opt(o, range and range[2] or 100, "Max", "Maximum")
-	local step = opt(o, nil, "Step", "Increment", "Interval")
-	local rounding = opt(o, nil, "Rounding", "Decimals")
-	if not step then
-		step = rounding and 10 ^ -rounding or (max - min <= 1 and 0.01 or 1)
-	end
-	local decimals = rounding or Util.decimals(step)
-	local prefix, suffix = opt(o, "", "Prefix"), opt(o, "", "Suffix")
-	if suffix ~= "" and not suffix:match("^[%%x]") and not suffix:match("^%s") and not suffix:match("^°") and not suffix:match("^×") then
-		suffix = " " .. suffix
-	end
-	local factor = sizeFactor(o)
-	local KW, KH = math.floor(S.KnobW * factor + 0.5), math.floor(S.KnobH * factor + 0.5)
-	local TRACK = opt(o, math.max(4, math.floor(6 * factor + 0.5)), "TrackHeight", "TrackThickness")
-	local el = self:_element(o, "Slider", { PadY = S.RowPadY + 2 })
-	local row = el.Row
-	row.TopIcon()
-	new("UIPadding", { PaddingRight = UDim.new(0, 80), Parent = row.Title })
-
-	local valueBox = new("TextBox", {
-		Name = "Value",
-		BackgroundTransparency = 1,
-		ClearTextOnFocus = false,
-		TextEditable = true,
-		FontFace = Util.font(Enum.FontWeight.Regular),
-		TextSize = S.Body,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		-- top-aligned at the title's top: both use the same font size
-		TextYAlignment = Enum.TextYAlignment.Top,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -S.RowInset, 0, S.RowPadY + 2),
-		Size = UDim2.fromOffset(80, 19),
-		ZIndex = 9,
-		Parent = row.Frame,
-	})
-	Theme.bind(valueBox, { TextColor3 = "Text", TextTransparency = "Text2T" })
-
-	-- the knob travels inside the track's ends: half a knob of padding each side
-	local holder = new("Frame", { Name = "Slider", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, KH + 8), LayoutOrder = 3, ZIndex = 7, Parent = row.Body })
-	local trackFrame = new("Frame", { Name = "Track", BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.new(1, 0, 0, TRACK), ZIndex = 7, Parent = holder }, { Util.corner(TRACK / 2) })
-	Theme.bind(trackFrame, { BackgroundColor3 = "Track", BackgroundTransparency = "TrackT" })
-	local fill = new("Frame", { Name = "Fill", BorderSizePixel = 0, Size = UDim2.fromScale(0, 1), ZIndex = 8, Parent = trackFrame }, { Util.corner(TRACK / 2) })
-	Theme.bind(fill, { BackgroundColor3 = "Accent" })
-	local knob = Glass.new({ Kind = "Solid", Name = "Knob", Parent = holder, Radius = KH / 2, Size = UDim2.fromOffset(KW, KH), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), ZIndex = 9 })
-
-	local value
-	local function frac(v)
-		return max == min and 0 or (v - min) / (max - min)
-	end
-	-- the track spans the full width; the knob's center travels between its ends
-	-- inset by half a knob, and the fill always reaches the knob's center
-	local function show(v)
-		local f = frac(v)
-		local off = KW * (0.5 - f)
-		fill.Size = UDim2.new(f, off, 1, 0)
-		knob.Root.Position = UDim2.new(f, off, 0.5, 0)
-		if not valueBox:IsFocused() then
-			valueBox.Text = prefix .. Util.format(v, decimals) .. suffix
-		end
-	end
-	local function set(v, silent, fromDrag)
-		v = math.clamp(Util.snap(v, min, step), min, max)
-		v = tonumber(Util.format(v, decimals)) or v
-		local changed = v ~= value
-		value = v
-		el:_store(v)
-		show(v)
-		if changed then
-			if fromDrag then
-				Sound.play("tick")
-			end
-			if not silent then
-				el:_emit(v)
-			end
-		end
-	end
-	set(opt(o, min, "Default", "Value", "CurrentValue"), true)
-
-	local hit = hitbox(holder, 12, { Size = UDim2.new(1, 12, 1, 12), Position = UDim2.fromOffset(-6, -6) })
-	local function fromPointer(p)
-		local sc = Library.ScaleObject.Scale
-		local half = KW / 2 * sc
-		local left = screenPos(trackFrame).X + half
-		local w = trackFrame.AbsoluteSize.X - 2 * half
-		return min + math.clamp((p.X - left) / math.max(w, 1), 0, 1) * (max - min)
-	end
-	Motion.drag(hit, {
-		allow = function()
-			return not el.Disabled
-		end,
-		began = function(p)
-			set(fromPointer(p), false, true)
-			tween(knob.Scale, 0.3, { Scale = 1.35 }, Enum.EasingStyle.Quint)
-			tween(knob.Fill, 0.25, { BackgroundTransparency = 0.85 })
-			if knob.Rim and knob.Rim:IsA("ImageLabel") then
-				tween(knob.Rim, 0.25, { ImageTransparency = 0 })
-			end
-		end,
-		moved = function(p)
-			set(fromPointer(p), false, true)
-		end,
-		ended = function()
-			tween(knob.Scale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
-			tween(knob.Fill, 0.35, { BackgroundTransparency = 0 })
-			if knob.Rim and knob.Rim:IsA("ImageLabel") then
-				tween(knob.Rim, 0.35, { ImageTransparency = 1 })
-			end
-			Util.fire(opt(o, nil, "Released", "ChangedCallback", "OnRelease"), value)
-		end,
-	})
-	valueBox.Focused:Connect(function()
-		valueBox.Text = Util.format(value, decimals)
-	end)
-	valueBox.FocusLost:Connect(function()
-		local n = tonumber((valueBox.Text:gsub("[^%d%.%-]", "")))
-		valueBox.Text = ""
-		if n then
-			set(n)
-		end
-		show(value)
-	end)
-	function el:Set(v, silent)
-		set(tonumber(v) or value, silent)
-	end
-	function el:SetRange(a2, b2)
-		min, max = a2, b2
-		set(value, true)
-	end
-	function el:SetMin(v)
-		self:SetRange(v, max)
-	end
-	function el:SetMax(v)
-		self:SetRange(min, v)
-	end
-	return el
-end
-
----------------------------------------------------------------------------
--- Dropdown
----------------------------------------------------------------------------
-function Section:AddDropdown(a, b)
-	local o = normalize(a, b)
-	local options = table.clone(opt(o, {}, "Options", "Values", "List", "Items"))
-	local multi = opt(o, false, "Multi", "MultipleOptions", "Multiple", "MultiSelect")
-	local placeholder = opt(o, multi and "None" or "Select", "Placeholder", "PlaceholderText")
-	local allowNull = opt(o, multi, "AllowNull", "AllowEmpty")
-	local el = self:_element(o, "Dropdown", { Right = opt(o, 160, "Width", "ValueWidth") })
-	local row = el.Row
-	local valueLabel = Glass.text({ Parent = row.Right, Text = "", Level = 2, TextSize = S.Body, XAlign = Enum.TextXAlignment.Right, Truncate = true, Size = UDim2.new(1, -(S.Chevron + 8), 1, 0), ZIndex = 8 })
-	local chevron = Glass.icon({ Parent = row.Right, Icon = "chevron-down", Size = S.Chevron, Level = 3, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), ZIndex = 8 })
-
-	local selected = {} -- set
-	local order = {}
-	local function label(v)
-		return tostring(v)
-	end
-	local function current()
-		if multi then
-			local out = {}
-			for _, v in ipairs(options) do
-				if selected[v] then
-					table.insert(out, v)
-				end
-			end
-			return out
-		end
-		return order[1]
-	end
-	local function refreshText()
-		local v = current()
-		if multi then
-			if #v == 0 then
-				valueLabel.Text = placeholder
-			elseif #v <= 2 then
-				local parts = {}
-				for _, x in ipairs(v) do
-					table.insert(parts, label(x))
-				end
-				valueLabel.Text = table.concat(parts, ", ")
-			else
-				valueLabel.Text = #v .. " selected"
-			end
-		else
-			valueLabel.Text = v ~= nil and label(v) or placeholder
-		end
-	end
-	local function commit(silent)
-		local v = current()
-		el:_store(v)
-		refreshText()
-		if el.Menu then
-			el.Menu.SetSelected(selected)
-		end
-		if not silent then
-			el:_emit(v)
-		end
-	end
-	local function setValue(v)
-		table.clear(selected)
-		table.clear(order)
-		if type(v) == "number" and options[v] ~= nil and not table.find(options, v) then
-			v = options[v] -- Fluent: default given as an index
-		end
-		if type(v) == "table" then
-			local list = v
-			if #v == 0 then
-				list = {}
-				for k, on in pairs(v) do
-					if on then
-						table.insert(list, k)
-					end
-				end
-			end
-			for _, x in ipairs(list) do
-				if table.find(options, x) ~= nil then
-					selected[x] = true
-					table.insert(order, x)
-					if not multi then
-						break
-					end
-				end
-			end
-		elseif v ~= nil and table.find(options, v) then
-			selected[v] = true
-			table.insert(order, v)
-		end
-	end
-	setValue(opt(o, nil, "Default", "CurrentOption", "Value", "Selected"))
-	commit(true)
-
-	local function pick(v)
-		if multi then
-			selected[v] = not selected[v] or nil
-		else
-			if selected[v] and allowNull then
-				table.clear(selected)
-				table.clear(order)
-			else
-				table.clear(selected)
-				table.clear(order)
-				selected[v] = true
-				order[1] = v
-			end
-		end
-		commit()
-	end
-
-	row.Interactive(function()
-		if el.Menu then
-			el.Menu.Close()
-			return
-		end
-		Sound.play("popup")
-		tween(chevron, 0.3, { Rotation = 180 })
-		el.Menu = Overlay.menu({
-			Anchor = row.Frame,
-			Align = "Right",
-			Width = math.clamp(row.Frame.AbsoluteSize.X * 0.5, 200, 280),
-			Options = options,
-			Selected = selected,
-			Multi = multi,
-			Search = opt(o, #options > 8, "Searchable", "Search"),
-			Label = label,
-			OnPick = function(v)
-				pick(v)
-				return multi
-			end,
-			OnClose = function()
-				el.Menu = nil
-				tween(chevron, 0.3, { Rotation = 0 })
-			end,
-		})
-	end)
-
-	function el:Set(v, silent)
-		setValue(v)
-		commit(silent)
-	end
-	function el:SetOptions(list, keep)
-		options = table.clone(list or {})
-		if keep then
-			for k in pairs(selected) do
-				if not table.find(options, k) then
-					selected[k] = nil
-				end
-			end
-			for i = #order, 1, -1 do
-				if not selected[order[i]] then
-					table.remove(order, i)
-				end
-			end
-		else
-			table.clear(selected)
-			table.clear(order)
-		end
-		self.Options = options
-		self.Values = options
-		if self.Menu then
-			self.Menu.Close()
-		end
-		commit(true)
-	end
-	function el:Refresh(list, keep)
-		self:SetOptions(list, keep == nil and true or keep)
-	end
-	el.SetValues = el.SetOptions
-	function el:Add(v)
-		table.insert(options, v)
-		self:SetOptions(options, true)
-	end
-	function el:Remove(v)
-		local i = table.find(options, v)
-		if i then
-			table.remove(options, i)
-		end
-		self:SetOptions(options, true)
-	end
-	function el:Clear()
-		table.clear(selected)
-		table.clear(order)
-		commit()
-	end
-	el.Options, el.Values = options, options
-	el._cleanup = function()
-		if el.Menu then
-			el.Menu.Close()
-		end
-	end
-	return el
-end
-
----------------------------------------------------------------------------
--- Input
----------------------------------------------------------------------------
-function Glass.field(parent, o)
-	local h = o.Height or S.Control
-	local radius = o.Multiline and 12 or h / 2
-	local g = Glass.new({ Kind = "Control", Name = "Field", Parent = parent, Radius = radius, Size = o.Size or UDim2.new(1, 0, 0, h), Position = o.Position, AnchorPoint = o.AnchorPoint, Shadow = false, ZIndex = 8 })
-	local tx = o.Multiline and 12 or math.max(radius - 2, 10)
-	local stroke = new("UIStroke", { Thickness = 1.5, Transparency = 1, Parent = g.Fill })
-	Theme.bind(stroke, { Color = "Accent" })
-	local box = new("TextBox", {
-		BackgroundTransparency = 1,
-		Text = o.Text or "",
-		PlaceholderText = o.Placeholder or "",
-		ClearTextOnFocus = o.ClearOnFocus or false,
-		MultiLine = o.Multiline or false,
-		TextWrapped = o.Multiline or false,
-		FontFace = o.Font or Util.font(Enum.FontWeight.Regular),
-		TextSize = o.TextSize or S.Callout,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = o.Multiline and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center,
-		ClipsDescendants = true,
-		Size = UDim2.new(1, -2 * tx, 1, o.Multiline and -16 or 0),
-		Position = UDim2.fromOffset(tx, o.Multiline and 8 or 0),
-		ZIndex = 9,
-		Parent = g.Content,
-	})
-	Theme.bind(box, { TextColor3 = "Text", PlaceholderColor3 = "Text", TextTransparency = function()
-		return 0
-	end })
-	box.Focused:Connect(function()
-		tween(stroke, 0.2, { Transparency = 0.25 })
-		tween(g.Scale, 0.3, { Scale = 1.02 })
-	end)
-	box.FocusLost:Connect(function()
-		tween(stroke, 0.3, { Transparency = 1 })
-		tween(g.Scale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
-	end)
-	local last = box.Text
-	box:GetPropertyChangedSignal("Text"):Connect(function()
-		if box:IsFocused() and #box.Text > #last then
-			Sound.play("type")
-		end
-		last = box.Text
-	end)
-	g.Box = box
-	return g
-end
-
-function Section:AddInput(a, b)
-	local o = normalize(a, b)
-	local multiline = opt(o, false, "Multiline", "MultiLine")
-	local numeric = opt(o, false, "Numeric", "Number", "NumbersOnly")
-	local maxLength = opt(o, nil, "MaxLength", "CharacterLimit")
-	local finished = opt(o, nil, "Finished", "OnEnter")
-	local clearAfter = opt(o, false, "RemoveTextAfterFocusLost", "ClearOnLost")
-	local fieldW = opt(o, S.Field, "Width", "FieldWidth")
-	local el = self:_element(o, "Input", { Right = multiline and 0 or fieldW })
-	local row = el.Row
-	if multiline then
-		row.TopIcon()
-	end
-	local parent, size = row.Right, UDim2.fromScale(1, 1)
-	if multiline then
-		local height = opt(o, 84, "Height")
-		local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, height + 6), LayoutOrder = 3, ZIndex = 7, Parent = row.Body }, { Util.pad(6, 0, 0, 0) })
-		parent = holder
-		size = UDim2.new(1, 0, 0, height)
-	end
-	local field = Glass.field(parent, {
-		Text = tostring(opt(o, "", "Default", "Text", "Value", "CurrentValue")),
-		Placeholder = opt(o, "Type here", "Placeholder", "PlaceholderText"),
-		ClearOnFocus = opt(o, false, "ClearOnFocus", "ClearTextOnFocus"),
-		Multiline = multiline,
-		Size = size,
-	})
-	el.Field, el.Box = field, field.Box
-	local box = field.Box
-	el:_store(box.Text)
-	local changed = opt(o, nil, "Changed", "OnChanged")
-	box:GetPropertyChangedSignal("Text"):Connect(function()
-		local t = box.Text
-		if numeric then
-			local filtered = t:gsub("[^%d%.%-]", "")
-			if filtered ~= t then
-				box.Text = filtered
-				return
-			end
-		end
-		if maxLength and #t > maxLength then
-			box.Text = t:sub(1, maxLength)
-			return
-		end
-		el:_store(t)
-		Util.fire(changed, t)
-		if finished == false then
-			el:_emit(t)
-		end
-	end)
-	box.FocusLost:Connect(function(enter)
-		local t = box.Text
-		if finished == false then
-			return
-		end
-		if finished == true and not enter then
-			return
-		end
-		el:_emit(numeric and (tonumber(t) or t) or t)
-		if clearAfter then
-			box.Text = ""
-		end
-	end)
-	function el:Set(v, silent)
-		box.Text = tostring(v or "")
-		self:_store(box.Text)
-		if not silent then
-			self:_emit(box.Text)
-		end
-	end
-	function el:Focus()
-		box:CaptureFocus()
-	end
-	function el:SetPlaceholder(t)
-		box.PlaceholderText = t
-	end
-	return el
-end
-Section.AddTextbox = Section.AddInput
-Section.AddTextBox = Section.AddInput
-
----------------------------------------------------------------------------
--- Keybind
----------------------------------------------------------------------------
-function Section:AddKeybind(a, b)
-	local o = normalize(a, b)
-	local mode = opt(o, "Toggle", "Mode")
-	if opt(o, false, "HoldToInteract", "Hold") then
-		mode = "Hold"
-	end
-	local el = self:_element(o, "Keybind", { Right = 120 })
-	local row = el.Row
-	local pill = Glass.new({ Kind = "Control", Name = "Key", Parent = row.Right, Radius = S.Control / 2, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(48, S.Control), Shadow = false, ZIndex = 8 })
-	local keyLabel = Glass.text({ Parent = pill.Content, Text = "None", Weight = Enum.FontWeight.SemiBold, TextSize = S.Subhead, XAlign = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), ZIndex = 9 })
-	-- the capsule hugs its label: 12 px each side, never narrower than it is tall + 18
-	local function fit()
-		local w = math.max(math.ceil(keyLabel.TextBounds.X / Library.ScaleObject.Scale) + 24, S.Control + 18)
-		tween(pill.Root, 0.25, { Size = UDim2.fromOffset(w, S.Control) })
-	end
-	keyLabel:GetPropertyChangedSignal("TextBounds"):Connect(fit)
-	task.defer(fit)
-
-	local key = Util.toKey(opt(o, nil, "Default", "CurrentKeybind", "Value", "Key"))
-	local listening = false
-	local state = false
-	local onClick, onChange = {}, opt(o, nil, "ChangedCallback", "OnChanged", "Changed")
-	local function paint()
-		keyLabel.Text = listening and "Press a key…" or Util.keyName(key)
-		if listening then
-			pill.SetTint(Theme.value("Accent"), 0.55, 0.2)
-		else
-			pill.BindTint({ BackgroundColor3 = "Control", BackgroundTransparency = "ControlT" })
-		end
-	end
-	el:_store(key and key.Name or "None")
-	paint()
-	local function setKey(k, silent)
-		key = k
-		el:_store(k and k.Name or "None")
-		paint()
-		if not silent then
-			Util.fire(onChange, k)
-		end
-	end
-	local listenedAt = 0
-	local function listen()
-		if el.Disabled or listening then
-			return
-		end
-		listenedAt = os.clock()
-		listening = true
-		Library._capturingKey = true
-		Sound.play("click")
-		paint()
-	end
-	row.Interactive(listen)
-	local skipRelease = false
-	Util.track(UserInputService.InputBegan:Connect(function(input, processed)
-		if Library.Unloaded then
-			return
-		end
-		if listening then
-			local k
-			if input.UserInputType == Enum.UserInputType.Keyboard then
-				k = input.KeyCode
-			elseif input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
-				k = input.UserInputType
-			elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				-- the click that started listening is ignored; a later click elsewhere cancels
-				if os.clock() - listenedAt > 0.2 then
-					listening = false
-					task.defer(function()
-						Library._capturingKey = false
-					end)
-					paint()
-				end
-				return
-			end
-			if not k then
-				return
-			end
-			listening = false
-			task.defer(function()
-				Library._capturingKey = false
-			end)
-			if k == Enum.KeyCode.Escape then
-				paint()
-			elseif k == Enum.KeyCode.Backspace or k == Enum.KeyCode.Delete then
-				setKey(nil)
-			else
-				setKey(k)
-			end
-			Sound.play("success")
-			skipRelease = true
-			return
-		end
-		if not key or typing() then
-			return
-		end
-		if input.KeyCode == key or input.UserInputType == key then
-			if mode == "Hold" then
-				state = true
-				el:_emit(true)
-			elseif mode == "Always" then
-				el:_emit(true)
-			else
-				state = not state
-				el:_emit(state)
-			end
-			for _, fn in ipairs(onClick) do
-				Util.fire(fn, state)
-			end
-		end
-	end))
-	Util.track(UserInputService.InputEnded:Connect(function(input)
-		if skipRelease then
-			skipRelease = false
-			return
-		end
-		if mode == "Hold" and key and state and (input.KeyCode == key or input.UserInputType == key) then
-			state = false
-			el:_emit(false)
-		end
-	end))
-	function el:Set(k, silent)
-		setKey(Util.toKey(k), silent)
-	end
-	function el:GetState()
-		if mode == "Hold" and key then
-			if key.EnumType == Enum.UserInputType then
-				return UserInputService:IsMouseButtonPressed(key)
-			end
-			return UserInputService:IsKeyDown(key)
-		end
-		return state
-	end
-	function el:OnClick(fn)
-		table.insert(onClick, fn)
-	end
-	function el:SetMode(m)
-		mode = m
-	end
-	el.Mode = mode
-	return el
-end
-Section.AddBind = Section.AddKeybind
-
----------------------------------------------------------------------------
--- Color picker
----------------------------------------------------------------------------
-function Section:AddColorPicker(a, b)
-	local o = normalize(a, b)
-	local color = opt(o, Color3.fromRGB(10, 132, 255), "Default", "Color", "Value")
-	if type(color) == "string" then
-		color = Util.fromHex(color) or WHITE
-	end
-	local alpha = opt(o, nil, "Transparency", "Alpha")
-	local SW = S.Badge
-	local el = self:_element(o, "ColorPicker", { Right = 100 })
-	local row = el.Row
-	local hex = Glass.text({ Parent = row.Right, Text = Util.toHex(color), Level = 2, TextSize = S.Subhead, Font = MONO, XAlign = Enum.TextXAlignment.Right, Size = UDim2.new(1, -(SW + 10), 1, 0), ZIndex = 8 })
-	local swatchHolder = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(SW, SW), ZIndex = 8, Parent = row.Right }, { Util.corner(SW / 2) })
-	local checker = Assets.get("checker.png")
-	if checker then
-		new("ImageLabel", { BackgroundTransparency = 1, Image = checker, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(12, 12), Size = UDim2.fromScale(1, 1), ZIndex = 8, Parent = swatchHolder }, { Util.corner(SW / 2) })
-	end
-	local swatch = new("Frame", { BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 9, Parent = swatchHolder }, { Util.corner(SW / 2) })
-	local rimId, slice, sc = rimFor(SW / 2)
-	if rimId then
-		new("ImageLabel", { BackgroundTransparency = 1, Image = rimId, ScaleType = Enum.ScaleType.Slice, SliceCenter = slice, SliceScale = sc, Size = UDim2.fromScale(1, 1), ZIndex = 10, Parent = swatchHolder })
-	end
-	local function show()
-		swatch.BackgroundColor3 = color
-		swatch.BackgroundTransparency = alpha or 0
-		hex.Text = Util.toHex(color)
-	end
-	show()
-	el:_store(color)
-	el.Transparency = alpha
-	local function set(c, t, silent)
-		color = c
-		alpha = t
-		el:_store(c)
-		el.Transparency = t
-		show()
-		if not silent then
-			el:_emit(c, t)
-		end
-	end
-	row.Interactive(function()
-		if el.Picker then
-			el.Picker.Close()
-			return
-		end
-		Sound.play("popup")
-		el.Picker = Overlay.colorPicker({
-			Anchor = row.Frame,
-			Color = color,
-			Transparency = alpha,
-			OnChange = function(c, t)
-				set(c, t)
-			end,
-			OnClose = function()
+function()
 				el.Picker = nil
 			end,
 		})
@@ -1651,4 +333,1108 @@ function Section:AddDivider()
 	el.Row.Separator.Position = UDim2.new(0, S.RowInset, 0.5, 0)
 	el.Row.Separator.Size = UDim2.new(1, -2 * S.RowInset, 0, 1)
 	el.NoSeparator = true
-	self:_refre
+	self:_refresh()
+	return el
+end
+
+function Section:AddSpacer(h)
+	local el = self:_element({ Title = "" }, "Spacer", { MinHeight = h or 12, PadY = 0, Title = "" })
+	el.Row.Body.Visible = false
+	el.NoSeparator = true
+	self:_refresh()
+	return el
+end
+
+-- anything else: Build(container, element) receives a frame inside the card
+function Section:AddCustom(a, b)
+	local o = type(a) == "function" and { Build = a } or (a or {})
+	local build = b or opt(o, nil, "Build", "Callback", "Create")
+	o.Callback = nil
+	local el = self:_element(o, "Custom", { PadY = opt(o, S.RowPadY + 2, "Padding"), MinHeight = opt(o, 0, "MinHeight") })
+	el.Row.TopIcon()
+	local container = new("Frame", { Name = "Custom", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, opt(o, 0, "Height")), AutomaticSize = opt(o, nil, "Height") and Enum.AutomaticSize.None or Enum.AutomaticSize.Y, LayoutOrder = 3, ZIndex = 7, Parent = el.Row.Body })
+	if el.TitleText == "" then
+		el.Row.Title.Visible = false
+	end
+	el.Container = container
+	if build then
+		local ok, err = pcall(build, container, el, Library)
+		if not ok then
+			warn("[LiquidGlass] custom element: " .. tostring(err))
+		end
+	end
+	return el
+end
+
+---------------------------------------------------------------------------
+-- Tabs forward every element constructor to their current section
+---------------------------------------------------------------------------
+local ALIASES = {
+	CreateButton = "AddButton", CreateToggle = "AddToggle", CreateSlider = "AddSlider",
+	CreateDropdown = "AddDropdown", CreateInput = "AddInput", CreateKeybind = "AddKeybind",
+	CreateColorPicker = "AddColorPicker", CreateLabel = "AddLabel", CreateParagraph = "AddParagraph",
+	CreateDivider = "AddDivider", CreateImage = "AddImage", AddCheckbox = "AddToggle", AddSwitch = "AddToggle",
+	AddList = "AddDropdown", AddSelect = "AddDropdown", AddTextLabel = "AddLabel", AddText = "AddLabel",
+	AddSeparator = "AddDivider", AddPicture = "AddImage", AddProgressbar = "AddProgress",
+}
+for alias, target in pairs(ALIASES) do
+	Section[alias] = Section[target]
+end
+for name, fn in pairs(Section) do
+	if type(fn) == "function" and (name:sub(1, 3) == "Add" or name:sub(1, 6) == "Create") and not Tab[name] and name ~= "AddSection" then
+		Tab[name] = function(self, ...)
+			local s = self:_section()
+			return fn(s, ...)
+		end
+	end
+end
+
+---------------------------------------------------------------------------
+-- Popovers: one at a time, anchored to a GuiObject, closed by an outside click,
+-- Escape, or the anchor moving away. They grow out of their anchor corner.
+---------------------------------------------------------------------------
+local function anchorRect(anchor)
+	local s = Library.ScaleObject.Scale
+	return screenPos(anchor) / s, anchor.AbsoluteSize / s
+end
+
+function Overlay.popover(o)
+	if Overlay.active then
+		Overlay.active.Close()
+	end
+	local s = Library.ScaleObject.Scale
+	local vs = camera.ViewportSize / s
+	local width, height = o.Width or 240, o.Height or 200
+	local aPos, aSize = anchorRect(o.Anchor)
+	local below = aPos.Y + aSize.Y + 6 + height < vs.Y - 10
+	local x = o.Align == "Left" and aPos.X + 8 or (o.Align == "Center" and aPos.X + aSize.X / 2 or aPos.X + aSize.X - 8)
+	local ax = o.Align == "Left" and 0 or (o.Align == "Center" and 0.5 or 1)
+	local y = below and (aPos.Y + aSize.Y + 4) or (aPos.Y - 4)
+	x = math.clamp(x, width * ax + 8, vs.X - width * (1 - ax) - 8)
+
+	local catcher = new("TextButton", { Name = "PopoverCatcher", BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Size = UDim2.fromScale(1, 1), ZIndex = nextZ(), Parent = Library.Gui })
+	local g = Glass.new({
+		Kind = "Surface",
+		Dense = true,
+		Name = o.Name or "Popover",
+		Parent = Library.Gui,
+		Radius = o.Radius or S.PopoverRadius,
+		AnchorPoint = Vector2.new(ax, below and 0 or 1),
+		Position = UDim2.fromOffset(x, y),
+		Size = UDim2.fromOffset(width, height),
+		ZIndex = nextZ(5),
+		BlurStart = 0,
+	})
+	g.Root.Active = true
+	local pop = { Glass = g, Root = g.Root, Content = g.Content, Closed = false }
+	g.Scale.Scale = 0.82
+	Glass.surfaceFade(g, false, 0)
+	Glass.surfaceFade(g, true, 0.2)
+	tween(g.Scale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
+	g.BlurRegion:SetTarget(1, 16)
+	local startPos = screenPos(o.Anchor)
+	local follow
+	function pop.Close()
+		if pop.Closed then
+			return
+		end
+		pop.Closed = true
+		if Overlay.active == pop then
+			Overlay.active = nil
+		end
+		catcher:Destroy()
+		if follow then
+			follow:Disconnect()
+		end
+		tween(g.Scale, 0.2, { Scale = 0.9 }, Enum.EasingStyle.Quad)
+		Glass.surfaceFade(g, false, 0.18)
+		g.BlurRegion:SetTarget(0, 18)
+		Motion.groupFade(g.Content.Parent and g.Content or g.Root, 0, 1, 0.18)
+		task.delay(0.25, function()
+			g.Root:Destroy()
+		end)
+		Util.fire(o.OnClose)
+	end
+	catcher.Activated:Connect(pop.Close)
+	catcher.MouseButton2Click:Connect(pop.Close)
+	follow = RunService.RenderStepped:Connect(function()
+		if not o.Anchor.Parent or (screenPos(o.Anchor) - startPos).Magnitude > 3 then
+			pop.Close()
+		end
+	end)
+	Overlay.active = pop
+	return pop
+end
+
+-- Escape always reaches Roblox's own menu too (core bindings can't be sunk),
+-- so overlays close on Escape and whenever that menu opens.
+local function dismissOverlays()
+	if Overlay.active then
+		Overlay.active.Close()
+	elseif Overlay.dialog then
+		Overlay.dialog.Cancel()
+	end
+end
+Util.track(UserInputService.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.Escape then
+		dismissOverlays()
+	end
+end))
+Util.track(GuiService.MenuOpened:Connect(function()
+	if Overlay.active then
+		Overlay.active.Close()
+	end
+end))
+
+---------------------------------------------------------------------------
+-- Menu (dropdowns, context menus)
+---------------------------------------------------------------------------
+
+-- o: Anchor, Options, Selected (set), Multi, Search, Label(v), OnPick(v) -> keepOpen, Width, OnClose
+function Overlay.menu(o)
+	local options = o.Options or {}
+	local search = o.Search
+	local visibleRows = math.clamp(#options, 1, 7)
+	local inset = S.MenuInset
+	local fieldH = S.Control + 2
+	local top = search and (8 + fieldH + 4) or inset
+	local height = top + visibleRows * S.MenuItem + inset
+	local pop = Overlay.popover({ Anchor = o.Anchor, Width = o.Width or 220, Height = height, Align = o.Align or "Right", OnClose = o.OnClose, Name = "Menu" })
+	local c = pop.Content
+	local box
+	if search then
+		local f = Glass.field(c, { Placeholder = "Search", Height = fieldH, Size = UDim2.new(1, -16, 0, fieldH), Position = UDim2.fromOffset(8, 8) })
+		box = f.Box
+	end
+	local list = new("ScrollingFrame", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, top),
+		Size = UDim2.new(1, 0, 1, -top - inset),
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ZIndex = 8,
+		Parent = c,
+	}, { Util.list(nil, 0), Util.pad(0, inset, 0, inset) })
+	Glass.scroller(list, { IndicatorParent = c, Priority = function()
+		return pop.Root.ZIndex
+	end })
+	local selected = o.Selected or {}
+	local rows = {}
+	local function paintRow(r)
+		r.Check.Visible = selected[r.Value] and true or false
+	end
+	for i, v in ipairs(options) do
+		local b = new("TextButton", { Name = "Item", BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Size = UDim2.new(1, 0, 0, S.MenuItem), LayoutOrder = i, ZIndex = 9, Parent = list })
+		local hl = new("Frame", { BorderSizePixel = 0, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 9, Parent = b }, { Util.corner(S.PopoverRadius - inset) })
+		Theme.bind(hl, { BackgroundColor3 = "Highlight" })
+		local check = Glass.icon({ Parent = b, Icon = "check", Size = 14, Color = "Accent", Position = UDim2.fromOffset(20, S.MenuItem / 2), ZIndex = 10 })
+		local text = Glass.text({ Parent = b, Text = (o.Label or tostring)(v), TextSize = S.Body, Truncate = true, Position = UDim2.fromOffset(38, 0), Size = UDim2.new(1, -38 - 14, 1, 0), ZIndex = 10 })
+		local r = { Button = b, Check = check, Value = v, Text = text, Highlight = hl }
+		rows[i] = r
+		paintRow(r)
+		b.MouseEnter:Connect(function()
+			tween(hl, 0.15, { BackgroundTransparency = Theme.current.HighlightT - 0.02 })
+			Sound.play("hover")
+		end)
+		b.MouseLeave:Connect(function()
+			tween(hl, 0.25, { BackgroundTransparency = 1 })
+		end)
+		b.Activated:Connect(function()
+			Sound.play("click")
+			local keep = o.OnPick and o.OnPick(v)
+			for _, rr in ipairs(rows) do
+				paintRow(rr)
+			end
+			if not keep then
+				pop.Close()
+			end
+		end)
+	end
+	if #options == 0 then
+		Glass.text({ Parent = list, Text = "No options", Level = 3, TextSize = S.Body, XAlign = Enum.TextXAlignment.Center, Size = UDim2.new(1, 0, 0, S.MenuItem), ZIndex = 10 })
+	end
+	if box then
+		box:GetPropertyChangedSignal("Text"):Connect(function()
+			local q = box.Text:lower()
+			for _, r in ipairs(rows) do
+				r.Button.Visible = q == "" or r.Text.Text:lower():find(q, 1, true) ~= nil
+			end
+		end)
+		task.defer(function()
+			if not pop.Closed then
+				box:CaptureFocus()
+			end
+		end)
+	end
+	function pop.SetSelected(set)
+		selected = set
+		for _, r in ipairs(rows) do
+			paintRow(r)
+		end
+	end
+	return pop
+end
+
+-- context menu at the pointer: items = { {Title, Icon, Callback, Destructive}, ... }
+function Library:Menu(anchor, items)
+	local labels, map = {}, {}
+	for i, it in ipairs(items) do
+		labels[i] = it.Title or it.Name
+		map[labels[i]] = it
+	end
+	return Overlay.menu({
+		Anchor = anchor,
+		Options = labels,
+		Width = 220,
+		OnPick = function(v)
+			Util.fire(map[v] and map[v].Callback)
+			return false
+		end,
+	})
+end
+
+---------------------------------------------------------------------------
+-- Color picker popover
+---------------------------------------------------------------------------
+local PRESETS = {
+	Color3.fromRGB(255, 59, 48), Color3.fromRGB(255, 149, 0), Color3.fromRGB(255, 204, 0), Color3.fromRGB(52, 199, 89),
+	Color3.fromRGB(0, 199, 190), Color3.fromRGB(10, 132, 255), Color3.fromRGB(94, 92, 230), Color3.fromRGB(255, 45, 85),
+}
+
+function Overlay.colorPicker(o)
+	local hasAlpha = o.Transparency ~= nil
+	local h, sat, val = (o.Color or WHITE):ToHSV()
+	local alpha = o.Transparency or 0
+	local M, R = 14, 24
+	local IR = R - M
+	local BAR, PITCH = 16, 30
+	local height = M + 150 + M + PITCH * (hasAlpha and 2 or 1) + S.Control + 12 + 26 + M
+	local pop = Overlay.popover({ Anchor = o.Anchor, Width = 270, Height = height, Align = "Right", OnClose = o.OnClose, Name = "ColorPicker", Radius = R })
+	local c = pop.Content
+	local y = M
+
+	local sv = new("Frame", { Name = "SV", BorderSizePixel = 0, Position = UDim2.fromOffset(M, y), Size = UDim2.new(1, -2 * M, 0, 150), ZIndex = 8, Parent = c }, { Util.corner(IR) })
+	local white = new("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, Size = UDim2.fromScale(1, 1), ZIndex = 9, Parent = sv }, { Util.corner(IR) })
+	new("UIGradient", { Transparency = NumberSequence.new(0, 1), Parent = white })
+	local black = new("Frame", { BorderSizePixel = 0, BackgroundColor3 = BLACK, Size = UDim2.fromScale(1, 1), ZIndex = 10, Parent = sv }, { Util.corner(IR) })
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(1, 0), Parent = black })
+	local rimId, slice, sc = rimFor(IR)
+	if rimId then
+		new("ImageLabel", { BackgroundTransparency = 1, Image = rimId, ScaleType = Enum.ScaleType.Slice, SliceCenter = slice, SliceScale = sc, ImageTransparency = 0.4, Size = UDim2.fromScale(1, 1), ZIndex = 11, Parent = sv })
+	end
+	local cursor = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(20, 20), ZIndex = 12, Parent = sv }, { Util.corner(10) })
+	new("UIStroke", { Color = WHITE, Thickness = 2.5, Parent = cursor })
+	local cursorDot = new("Frame", { BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(14, 14), ZIndex = 12, Parent = cursor }, { Util.corner(7) })
+	y += 150 + M
+
+	local function bar(name)
+		local b = new("Frame", { Name = name, BorderSizePixel = 0, BackgroundColor3 = WHITE, Position = UDim2.fromOffset(M, y), Size = UDim2.new(1, -2 * M, 0, BAR), ZIndex = 8, Parent = c }, { Util.corner(BAR / 2) })
+		local knob = Glass.new({ Kind = "Solid", Parent = b, Radius = 11, Size = UDim2.fromOffset(22, 22), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), ZIndex = 10 })
+		y += PITCH
+		return b, knob
+	end
+	local hue, hueKnob = bar("Hue")
+	local keys = {}
+	for i = 0, 6 do
+		keys[#keys + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV((i / 6) % 1, 1, 1))
+	end
+	new("UIGradient", { Color = ColorSequence.new(keys), Parent = hue })
+	local alphaBar, alphaKnob, alphaGrad
+	if hasAlpha then
+		alphaBar, alphaKnob = bar("Alpha")
+		local checker = Assets.get("checker.png")
+		if checker then
+			new("ImageLabel", { BackgroundTransparency = 1, Image = checker, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(12, 12), Size = UDim2.fromScale(1, 1), ZIndex = 8, Parent = alphaBar }, { Util.corner(8) })
+		end
+		local overlayBar = new("Frame", { BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 9, Parent = alphaBar }, { Util.corner(8) })
+		alphaGrad = new("UIGradient", { Transparency = NumberSequence.new(1, 0), Parent = overlayBar })
+		alphaBar.BackgroundTransparency = 1
+		alphaGrad.Parent = overlayBar
+		alphaBar:SetAttribute("Overlay", true)
+		pop.AlphaOverlay = overlayBar
+	end
+	y -= PITCH - BAR - M
+
+	-- hex field and preview share one row, then the presets
+	local half = (270 - 2 * M - 10) / 2
+	local field = Glass.field(c, { Placeholder = "#RRGGBB", Size = UDim2.fromOffset(half, S.Control), Position = UDim2.fromOffset(M, y), Font = MONO, TextSize = S.Subhead })
+	local preview = new("Frame", { BorderSizePixel = 0, Position = UDim2.fromOffset(M + half + 10, y), Size = UDim2.fromOffset(half, S.Control), ZIndex = 8, Parent = c }, { Util.corner(S.Control / 2) })
+	if rimId then
+		local r2, s2, sc2 = rimFor(S.Control / 2)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = r2, ScaleType = Enum.ScaleType.Slice, SliceCenter = s2, SliceScale = sc2, ImageTransparency = 0.3, Size = UDim2.fromScale(1, 1), ZIndex = 9, Parent = preview })
+	end
+	y += S.Control + 12
+	local presetRow = new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(M, y), Size = UDim2.new(1, -2 * M, 0, 26), ZIndex = 8, Parent = c }, {
+		Util.list(Enum.FillDirection.Horizontal, 0, { HorizontalFlex = Enum.UIFlexAlignment.SpaceBetween }),
+	})
+
+	local function color()
+		return Color3.fromHSV(h, sat, val)
+	end
+	local function render(fromField)
+		local col = color()
+		sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+		cursor.Position = UDim2.fromScale(sat, 1 - val)
+		cursorDot.BackgroundColor3 = col
+		hueKnob.Root.Position = UDim2.fromScale(h, 0.5)
+		hueKnob.SetTint(Color3.fromHSV(h, 1, 1), 0)
+		preview.BackgroundColor3 = col
+		preview.BackgroundTransparency = alpha
+		if hasAlpha then
+			pop.AlphaOverlay.BackgroundColor3 = col
+			alphaKnob.Root.Position = UDim2.fromScale(1 - alpha, 0.5)
+		end
+		if not fromField and not field.Box:IsFocused() then
+			field.Box.Text = Util.toHex(col)
+		end
+	end
+	local function changed(fromField)
+		render(fromField)
+		Util.fire(o.OnChange, color(), hasAlpha and alpha or nil)
+	end
+	for _, pc in ipairs(PRESETS) do
+		local dot = new("TextButton", { BorderSizePixel = 0, BackgroundColor3 = pc, Text = "", AutoButtonColor = false, Size = UDim2.fromOffset(26, 26), ZIndex = 9, Parent = presetRow }, { Util.corner(13) })
+		if rimId then
+			local r3, s3, sc3 = rimFor(13)
+			new("ImageLabel", { BackgroundTransparency = 1, Image = r3, ScaleType = Enum.ScaleType.Slice, SliceCenter = s3, SliceScale = sc3, ImageTransparency = 0.25, Size = UDim2.fromScale(1, 1), ZIndex = 10, Parent = dot })
+		end
+		dot.Activated:Connect(function()
+			h, sat, val = pc:ToHSV()
+			Sound.play("click")
+			changed()
+		end)
+	end
+
+	local function dragArea(frame, onMove)
+		local hit = hitbox(frame, 30, { Size = UDim2.new(1, 12, 1, 12), Position = UDim2.fromOffset(-6, -6) })
+		Motion.drag(hit, {
+			began = function(p)
+				onMove(p)
+			end,
+			moved = function(p)
+				onMove(p)
+			end,
+		})
+	end
+	local function rel(frame, p)
+		local pos, size = screenPos(frame), frame.AbsoluteSize
+		return Vector2.new(math.clamp((p.X - pos.X) / size.X, 0, 1), math.clamp((p.Y - pos.Y) / size.Y, 0, 1))
+	end
+	dragArea(sv, function(p)
+		local r = rel(sv, p)
+		sat, val = r.X, 1 - r.Y
+		changed()
+	end)
+	dragArea(hue, function(p)
+		h = math.min(rel(hue, p).X, 0.9999)
+		Sound.play("tick")
+		changed()
+	end)
+	if hasAlpha then
+		dragArea(alphaBar, function(p)
+			alpha = 1 - rel(alphaBar, p).X
+			changed()
+		end)
+	end
+	field.Box.FocusLost:Connect(function()
+		local col = Util.fromHex(field.Box.Text)
+		if col then
+			h, sat, val = col:ToHSV()
+			changed(true)
+		end
+		render()
+	end)
+	render()
+	return pop
+end
+
+---------------------------------------------------------------------------
+-- Tooltips
+---------------------------------------------------------------------------
+local tooltipTargets = setmetatable({}, { __mode = "k" })
+local tooltip, tipTarget, tipSince
+
+function Overlay.attachTooltip(frame, getText)
+	tooltipTargets[frame] = getText
+end
+
+local function showTooltip(text)
+	if not tooltip then
+		local g = Glass.new({ Kind = "Surface", Name = "Tooltip", Parent = Library.Gui, Radius = 12, AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.fromOffset(0, 0), Blur = false, Shadow = 0.3, ZIndex = 9000 })
+		g.Content.AutomaticSize = Enum.AutomaticSize.XY
+		g.Content.Size = UDim2.fromOffset(0, 0)
+		Theme.bind(g.Dim, { BackgroundTransparency = function(t)
+			return t.Name == "Light" and 0.15 or 0.2
+		end })
+		g.Label = Glass.text({ Parent = g.Content, Text = "", TextSize = S.Footnote, Weight = Enum.FontWeight.Medium, AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.fromOffset(0, 0), Wrap = false, ZIndex = 9001 })
+		new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), Parent = g.Label })
+		new("UISizeConstraint", { MaxSize = Vector2.new(260, 200), Parent = g.Label })
+		tooltip = g
+	end
+	tooltip.Label.Text = text
+	tooltip.Label.TextWrapped = #text > 40
+	tooltip.Root.Visible = true
+	tooltip.Root.ZIndex = nextZ(1000)
+	tooltip.Scale.Scale = 0.9
+	tween(tooltip.Scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	Glass.surfaceFade(tooltip, true, 0.15)
+end
+
+local function hideTooltip()
+	if tooltip and tooltip.Root.Visible then
+		tooltip.Root.Visible = false
+	end
+end
+
+Util.track(RunService.RenderStepped:Connect(function()
+	local p = pointer()
+	local hovered
+	-- no tooltips while something is held or dragged
+	local held = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+	for frame in pairs(held and {} or tooltipTargets) do
+		if frame.Parent and frame.Visible and Motion.inside(frame, p) then
+			local o, visible = frame, true
+			while o and o ~= Library.Gui do
+				if o:IsA("GuiObject") and not o.Visible then
+					visible = false
+					break
+				end
+				o = o.Parent
+			end
+			if visible then
+				hovered = frame
+				break
+			end
+		end
+	end
+	if hovered ~= tipTarget then
+		tipTarget, tipSince = hovered, os.clock()
+		hideTooltip()
+	elseif hovered and (not tooltip or not tooltip.Root.Visible) and os.clock() - tipSince > 0.6 then
+		local text = tooltipTargets[hovered]()
+		if text and text ~= "" then
+			showTooltip(text)
+		end
+	end
+	if tooltip and tooltip.Root.Visible then
+		local s = Library.ScaleObject.Scale
+		tooltip.Root.Position = UDim2.fromOffset(p.X / s + 14, p.Y / s + 18)
+	end
+end))
+
+---------------------------------------------------------------------------
+-- Notifications
+---------------------------------------------------------------------------
+local notifications = {}
+local notifyHolder = new("Frame", { Name = "Notifications", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = Library.Gui })
+
+local TYPES = {
+	info = { icon = "info", color = "Accent", sound = "notify" },
+	success = { icon = "check-circle", color = "Success", sound = "success" },
+	warning = { icon = "warning", color = "Warning", sound = "notify" },
+	error = { icon = "error", color = "Danger", sound = "error" },
+}
+
+local function layoutNotifications()
+	local s = Library.ScaleObject.Scale
+	local vs = camera.ViewportSize / s
+	local pos = (Library.NotifyPosition or "TopRight"):lower()
+	local right = not pos:find("left")
+	local bottom = pos:find("bottom") ~= nil
+	local x = right and (vs.X - S.Notify - 16) or 16
+	if pos:find("center") then
+		x = (vs.X - S.Notify) / 2
+	end
+	local y = bottom and (vs.Y - 16) or (GuiService:GetGuiInset().Y / s + 12)
+	for _, n in ipairs(notifications) do
+		local h = n.Glass.Root.AbsoluteSize.Y / s
+		if bottom then
+			y -= h
+		end
+		local target = Vector2.new(x + (n.Offset or 0), y)
+		if not n.Placed then
+			n.Placed = true
+			n.Glass.Root.Position = UDim2.fromOffset(target.X + (right and 60 or -60), target.Y)
+		end
+		if not n.Dragging then
+			Motion.spring(n.Glass.Root, target, n.Closing and 18 or 20, n.Closing and 1 or 0.75)
+		end
+		n.Rest = target
+		y = bottom and (y - 10) or (y + h + 10)
+	end
+end
+
+Overlay.layoutNotifications = function()
+	for _, n in ipairs(notifications) do
+		n.Placed = false
+	end
+	layoutNotifications()
+end
+
+function Library:Notify(o)
+	if type(o) == "string" then
+		o = { Title = o }
+	end
+	o = o or {}
+	local kind = TYPES[(opt(o, "info", "Type", "Kind", "Level")):lower()] or TYPES.info
+	local duration = opt(o, 5, "Duration", "Time", "Delay")
+	local n = {}
+	local g = Glass.new({ Kind = "Surface", Name = "Notification", Parent = notifyHolder, Radius = S.NotifyRadius, Size = UDim2.fromOffset(S.Notify, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = nextZ(400), BlurStart = 0 })
+	g.Root.Active = true
+	n.Glass = g
+	local body = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 6, Parent = g.Content }, { Util.pad(S.NotifyPad, S.NotifyPad, S.NotifyPad, S.NotifyPad) })
+	local strut = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(0, S.NotifyBadge), Parent = body })
+	local _ = strut
+	-- icon or image
+	local image = opt(o, nil, "Image", "Icon")
+	local iconHolder
+	if image and not Assets.isIcon(image) then
+		iconHolder = new("ImageLabel", { BackgroundTransparency = 0.9, BackgroundColor3 = WHITE, Size = UDim2.fromOffset(S.NotifyBadge, S.NotifyBadge), ScaleType = Enum.ScaleType.Crop, ZIndex = 7, Parent = body }, { Util.corner(S.NotifyRadius - S.NotifyPad) })
+		Assets.apply(iconHolder, image)
+	else
+		local badge = Glass.new({ Kind = "Tinted", Parent = body, Radius = S.NotifyRadius - S.NotifyPad, Size = UDim2.fromOffset(S.NotifyBadge, S.NotifyBadge), Tint = kind.color, Shadow = false, ZIndex = 7 })
+		Glass.icon({ Parent = badge.Content, Icon = image or kind.icon, Size = 18, Color = "OnAccent" })
+		iconHolder = badge.Root
+	end
+	local TX = S.NotifyBadge + 12
+	local text = new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(TX, 0), Size = UDim2.new(1, -TX, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 7, Parent = body }, { Util.list(nil, S.RowGap) })
+	-- with one line of content the text block is as tall as the badge
+	new("UISizeConstraint", { MinSize = Vector2.new(0, S.NotifyBadge), Parent = text })
+	local titleRow = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 19), LayoutOrder = 1, ZIndex = 7, Parent = text })
+	Glass.text({ Parent = titleRow, Text = opt(o, "Notification", "Title", "Name"), Weight = Enum.FontWeight.SemiBold, TextSize = S.Body, Truncate = true, Size = UDim2.new(1, -40, 1, 0) })
+	Glass.text({ Parent = titleRow, Text = "now", TextSize = S.Footnote, Level = 3, XAlign = Enum.TextXAlignment.Right, Size = UDim2.new(1, 0, 1, 0) })
+	local content = opt(o, nil, "Content", "Description", "Text", "Desc")
+	if content then
+		Glass.text({ Parent = text, Text = tostring(content), TextSize = S.Subhead, Level = 2, Wrap = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 2 })
+	end
+	local sub = opt(o, nil, "SubContent", "Footer")
+	if sub then
+		Glass.text({ Parent = text, Text = tostring(sub), TextSize = S.Footnote, Level = 3, Wrap = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 3 })
+	end
+	-- actions (list or Rayfield-style dictionary)
+	local actions = opt(o, nil, "Actions", "Buttons")
+	local list = {}
+	if type(actions) == "table" then
+		for k, v in pairs(actions) do
+			if type(v) == "table" then
+				table.insert(list, { Title = v.Title or v.Name or tostring(k), Callback = v.Callback, Style = v.Style, Order = type(k) == "number" and k or 99 })
+			end
+		end
+		table.sort(list, function(a2, b2)
+			return a2.Order < b2.Order
+		end)
+	end
+	if #list > 0 then
+		local row = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, S.ButtonSmall + 10), LayoutOrder = 4, ZIndex = 7, Parent = text }, {
+			Util.pad(10, 0, 0, 0),
+			Util.list(Enum.FillDirection.Horizontal, 8, { HorizontalFlex = Enum.UIFlexAlignment.Fill }),
+		})
+		for i, a in ipairs(list) do
+			capsule(row, { Title = a.Title, LayoutOrder = i, Width = UDim.new(0, 40), Variant = "Small" }, a.Style or (i == 1 and "primary" or "glass"), function()
+				Util.fire(a.Callback)
+				n.Close()
+			end)
+		end
+	end
+	-- remaining-time line
+	local line = new("Frame", { BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, S.NotifyRadius, 1, -1), Size = UDim2.new(1, -2 * S.NotifyRadius, 0, 2), BackgroundTransparency = 0.5, ZIndex = 8, Parent = g.Content }, { Util.corner(1) })
+	Theme.bind(line, { BackgroundColor3 = kind.color })
+
+	table.insert(notifications, 1, n)
+	Glass.surfaceFade(g, false, 0)
+	g.Scale.Scale = 0.94
+	task.defer(function()
+		Glass.surfaceFade(g, true, 0.3)
+		tween(g.Scale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+		g.BlurRegion:SetTarget(1, 10)
+		Motion.groupFade(g.Content, 1, 0, 0.3)
+		layoutNotifications()
+	end)
+	if opt(o, true, "Sound") ~= false then
+		Sound.play(kind.sound)
+	end
+
+	local remaining = duration
+	local hovered = false
+	function n.Close()
+		if n.Closed then
+			return
+		end
+		n.Closed = true
+		n.Closing = true
+		local i = table.find(notifications, n)
+		if i then
+			table.remove(notifications, i)
+		end
+		local s = Library.ScaleObject.Scale
+		local vs = camera.ViewportSize / s
+		local right = not (Library.NotifyPosition or ""):lower():find("left")
+		Motion.spring(g.Root, Vector2.new(right and vs.X + 20 or -S.Notify - 20, g.Root.Position.Y.Offset), 16, 1)
+		Glass.surfaceFade(g, false, 0.3)
+		g.BlurRegion:SetTarget(0, 10)
+		task.delay(0.45, function()
+			g.Root:Destroy()
+		end)
+		layoutNotifications()
+		Util.fire(o.OnClose)
+	end
+	n.Dismiss = n.Close
+
+	local hit = hitbox(g.Root, 4)
+	hit.MouseEnter:Connect(function()
+		hovered = true
+	end)
+	hit.MouseLeave:Connect(function()
+		hovered = false
+	end)
+	local startX
+	Motion.drag(hit, {
+		began = function()
+			startX = Motion.target(g.Root).X
+			n.Dragging = true
+		end,
+		moved = function(_, d, moved)
+			if moved then
+				local rest = n.Rest or Motion.target(g.Root)
+				Motion.spring(g.Root, Vector2.new(startX + Motion.rubber(d.X, -6, 400, 20), rest.Y), 40, 1)
+			end
+		end,
+		ended = function(_, moved, input)
+			n.Dragging = false
+			local _ = input
+			local dx = Motion.target(g.Root).X - (n.Rest and n.Rest.X or 0)
+			if moved and dx > 70 then
+				n.Close()
+			elseif not moved and #list == 0 then
+				Util.fire(o.OnClick or o.Callback)
+				n.Close()
+			else
+				layoutNotifications()
+			end
+		end,
+	})
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		if n.Closed or not g.Root.Parent then
+			conn:Disconnect()
+			return
+		end
+		if not hovered and not n.Dragging and duration and duration > 0 then
+			remaining -= dt
+			local f = math.max(remaining / duration, 0)
+			line.Size = UDim2.new(f, -2 * S.NotifyRadius * f, 0, 2)
+			if remaining <= 0 then
+				n.Close()
+			end
+		end
+	end)
+	g.Root:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutNotifications)
+	return n
+end
+
+---------------------------------------------------------------------------
+-- Dialogs (alerts)
+---------------------------------------------------------------------------
+function Library:Dialog(o, window)
+	o = o or {}
+	if Overlay.dialog then
+		Overlay.dialog.Close()
+	end
+	local d = {}
+	local host = window and window.Glass.Content or Library.Gui
+	local shade = new("TextButton", { Name = "DialogShade", Text = "", AutoButtonColor = false, BorderSizePixel = 0, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = window and 80 or nextZ(), Parent = host }, { window and Util.corner(S.WindowRadius) or nil })
+	Theme.bind(shade, { BackgroundColor3 = "Overlay" })
+	tween(shade, 0.3, { BackgroundTransparency = Theme.current.OverlayT })
+	local g = Glass.new({ Kind = "Surface", Dense = window ~= nil, Name = "Dialog", Parent = Library.Gui, Radius = S.DialogRadius, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(o.Width or S.DialogW, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = nextZ(600), BlurStart = 0 })
+	g.Root.Active = true
+	local function center()
+		local s = Library.ScaleObject.Scale
+		if window then
+			local p, size = screenPos(window.Root) / s, window.Root.AbsoluteSize / s
+			g.Root.Position = UDim2.fromOffset(p.X + size.X / 2, p.Y + size.Y / 2)
+		else
+			local vs = camera.ViewportSize / s
+			g.Root.Position = UDim2.fromOffset(vs.X / 2, vs.Y / 2)
+		end
+	end
+	center()
+	local follow = RunService.RenderStepped:Connect(center)
+	local body = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 6, Parent = g.Content }, {
+		Util.pad(S.DialogPad, S.DialogPad, S.DialogPad, S.DialogPad),
+		Util.list(nil, 8, { HorizontalAlignment = Enum.HorizontalAlignment.Center }),
+	})
+	local icon = opt(o, nil, "Icon", "Image")
+	if icon then
+		local badge = Glass.new({ Kind = "Tinted", Parent = body, Radius = 12, Size = UDim2.fromOffset(44, 44), Tint = o.IconColor or "Accent", Shadow = 0.25, SmallShadow = true, LayoutOrder = 1, ZIndex = 7 })
+		Glass.icon({ Parent = badge.Content, Icon = icon, Size = 22, Color = "OnAccent" })
+	end
+	Glass.text({ Parent = body, Text = opt(o, "Are you sure?", "Title", "Name"), Weight = Enum.FontWeight.SemiBold, TextSize = S.Title, XAlign = Enum.TextXAlignment.Center, Wrap = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 2 })
+	local content = opt(o, nil, "Content", "Description", "Text")
+	if content then
+		Glass.text({ Parent = body, Text = tostring(content), TextSize = S.Subhead, Level = 2, XAlign = Enum.TextXAlignment.Center, Wrap = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 3 })
+	end
+	local inputOpts = opt(o, nil, "Input", "TextBox")
+	local field
+	if inputOpts then
+		local fh = S.Control + 4
+		local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, fh + 4), LayoutOrder = 4, ZIndex = 7, Parent = body }, { Util.pad(4, 0, 0, 0) })
+		field = Glass.field(holder, { Placeholder = type(inputOpts) == "table" and inputOpts.Placeholder or "", Text = type(inputOpts) == "table" and inputOpts.Default or "", Height = fh, Size = UDim2.new(1, 0, 0, fh) })
+	end
+	local buttons = opt(o, { { Title = "OK", Style = "Primary" } }, "Buttons", "Actions")
+	local horizontal = #buttons == 2
+	local btnHolder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 5, ZIndex = 7, Parent = body }, {
+		Util.pad(12, 0, 0, 0),
+		Util.list(horizontal and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical, 8, horizontal and { HorizontalFlex = Enum.UIFlexAlignment.Fill } or nil),
+	})
+	local cancelButton
+	for i, b in ipairs(buttons) do
+		local style = (b.Style or (i == 1 and "Primary" or "Glass"))
+		if style:lower() == "cancel" then
+			style = "Glass"
+			cancelButton = b
+		end
+		capsule(btnHolder, { Title = b.Title or b.Name, Icon = b.Icon, LayoutOrder = i, Width = horizontal and UDim.new(0, 40) or UDim.new(1, 0), Variant = "Large" }, style, function()
+			local keep = b.Callback and b.Callback(field and field.Box.Text or nil)
+			if keep ~= false then
+				d.Close()
+			end
+		end)
+	end
+	g.Scale.Scale = 1.12
+	Glass.surfaceFade(g, false, 0)
+	task.defer(function()
+		Glass.surfaceFade(g, true, 0.25)
+		tween(g.Scale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
+		g.BlurRegion:SetTarget(1, 14)
+		Motion.groupFade(g.Content, 1, 0, 0.25)
+	end)
+	Sound.play("popup")
+	function d.Close()
+		if d.Closed then
+			return
+		end
+		d.Closed = true
+		if Overlay.dialog == d then
+			Overlay.dialog = nil
+		end
+		follow:Disconnect()
+		tween(shade, 0.25, { BackgroundTransparency = 1 })
+		tween(g.Scale, 0.2, { Scale = 0.92 }, Enum.EasingStyle.Quad)
+		Glass.surfaceFade(g, false, 0.2)
+		g.BlurRegion:SetTarget(0, 16)
+		Motion.groupFade(g.Content, 0, 1, 0.2)
+		task.delay(0.3, function()
+			g.Root:Destroy()
+			shade:Destroy()
+		end)
+	end
+	function d.Cancel()
+		if cancelButton then
+			Util.fire(cancelButton.Callback)
+		end
+		d.Close()
+	end
+	shade.Activated:Connect(function()
+		if o.CloseOnShade ~= false then
+			d.Cancel()
+		end
+	end)
+	Overlay.dialog = d
+	return d
+end
+
+function Window:Dialog(o)
+	return Library:Dialog(o, self)
+end
+
+function Window:Notify(o)
+	return Library:Notify(o)
+end
+
+---------------------------------------------------------------------------
+-- Intro: "made by Entity" in real 3D liquid glass, played once before the
+-- first window opens. The word is a glass mesh (exact font outlines with a
+-- rounded bevel) rebuilt at runtime with EditableMesh: clear glass faces, glossy
+-- bevels, a slow light glint, all over a softly moving colour backdrop that the
+-- glass refracts. Without EditableMesh access it falls back to a 2D version.
+---------------------------------------------------------------------------
+-- the intro always plays before the first window; automated tests may set
+-- getgenv().LiquidGlassSkipIntro = true before loading the library
+local Intro = { Played = env.LiquidGlassSkipIntro == true, Active = false }
+Library._intro = Intro
+
+local AssetService = game:GetService("AssetService")
+local INTRO_CREDIT = "Entity"
+
+local BACKDROP = {
+	{ 0.1, 0.15, Color3.fromRGB(46, 32, 190), 0.5 },
+	{ 0.9, 0.15, Color3.fromRGB(196, 36, 140), 0.5 },
+	{ 0.85, 0.9, Color3.fromRGB(238, 112, 40), 0.42 },
+	{ 0.12, 0.9, Color3.fromRGB(10, 150, 190), 0.42 },
+	{ 0.5, 0.5, Color3.fromRGB(92, 58, 210), 0.42 },
+}
+
+local function backdropColor(u, v)
+	local r, g, b, ws = 0, 0, 0, 0
+	for _, bl in ipairs(BACKDROP) do
+		local w = math.exp(-((u - bl[1]) ^ 2 + (v - bl[2]) ^ 2) / (bl[4] ^ 2 * 0.3))
+		r += bl[3].R * w
+		g += bl[3].G * w
+		b += bl[3].B * w
+		ws += w
+	end
+	local vig = 1 - 0.4 * math.clamp(((u - 0.5) ^ 2 + (v - 0.5) ^ 2) * 2.2, 0, 1)
+	return Color3.new(r / ws * vig, g / ws * vig, b / ws * vig)
+end
+
+local function solid(mesh)
+	mesh.Anchored = true
+	mesh.CanCollide = false
+	mesh.CanQuery = false
+	mesh.CanTouch = false
+	mesh.CastShadow = false
+	return mesh
+end
+
+-- opaque geometry with vertex colours: unlike decals, glass refracts it
+local function buildBackdrop()
+	local em = AssetService:CreateEditableMesh()
+	local GX, GY = 14, 8
+	local vid, cid = {}, {}
+	for j = 0, GY do
+		for i = 0, GX do
+			local k = j * (GX + 1) + i
+			vid[k] = em:AddVertex(Vector3.new(i / GX - 0.5, 0.5 - j / GY, 0))
+			cid[k] = em:AddColor(backdropColor(i / GX, j / GY), 1)
+		end
+	end
+	local nid = em:AddNormal(Vector3.new(0, 0, 1))
+	for j = 0, GY - 1 do
+		for i = 0, GX - 1 do
+			local a, b = j * (GX + 1) + i, j * (GX + 1) + i + 1
+			local c, d = a + GX + 1, b + GX + 1
+			for _, t in ipairs({ { a, c, b }, { b, c, d } }) do
+				local f = em:AddTriangle(vid[t[1]], vid[t[2]], vid[t[3]])
+				em:SetFaceColors(f, { cid[t[1]], cid[t[2]], cid[t[3]] })
+				em:SetFaceNormals(f, { nid, nid, nid })
+			end
+		end
+	end
+	local part = solid(AssetService:CreateMeshPartAsync(Content.fromObject(em)))
+	part.Material = Enum.Material.SmoothPlastic
+	part.Color = WHITE
+	return part, em
+end
+
+-- the word: returns faces mesh, bevel mesh, and the word's aspect (width / height)
+local function buildWord()
+	local raw = PACK["logo.mesh"]
+	if not raw then
+		return nil
+	end
+	local b = buffer.fromstring(b64decode(raw))
+	local nv, nt, nf = buffer.readu16(b, 0), buffer.readu16(b, 2), buffer.readu16(b, 4)
+	local o = 6
+	local posOff = o
+	o += nv * 6
+	local nOff = o
+	o += nv * 6
+	local tOff = o
+	o += nt * 6
+	local hx, hy, hz = buffer.readf32(b, o), buffer.readf32(b, o + 4), buffer.readf32(b, o + 8)
+	local function mesh(first, last)
+		local em = AssetService:CreateEditableMesh()
+		local vmap, nmap = {}, {}
+		local function vert(i)
+			local v = vmap[i]
+			if not v then
+				v = em:AddVertex(Vector3.new(buffer.readi16(b, posOff + i * 6) / 32767 * hx, buffer.readi16(b, posOff + i * 6 + 2) / 32767 * hy, buffer.readi16(b, posOff + i * 6 + 4) / 32767 * hz))
+				nmap[i] = em:AddNormal(Vector3.new(buffer.readi16(b, nOff + i * 6), buffer.readi16(b, nOff + i * 6 + 2), buffer.readi16(b, nOff + i * 6 + 4)).Unit)
+				vmap[i] = v
+			end
+			return v
+		end
+		for t = first, last do
+			local a = buffer.readu16(b, tOff + t * 6)
+			local c = buffer.readu16(b, tOff + t * 6 + 2)
+			local d = buffer.readu16(b, tOff + t * 6 + 4)
+			local f = em:AddTriangle(vert(a), vert(c), vert(d))
+			em:SetFaceNormals(f, { nmap[a], nmap[c], nmap[d] })
+		end
+		return solid(AssetService:CreateMeshPartAsync(Content.fromObject(em))), em
+	end
+	-- one part: Roblox sorts overlapping transparent parts unreliably
+	local word, em = mesh(0, nt - 1)
+	return word, word.Size, em
+end
+
+-- 2D overlay labels shared by both versions
+local function labels(holder, title)
+	local made = Glass.text({ Parent = holder, Text = "M A D E   B Y", Weight = Enum.FontWeight.SemiBold, TextSize = 15, XAlign = Enum.TextXAlignment.Center, AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.fromOffset(300, 18), ZIndex = 3 })
+	Theme.unbind(made, "TextColor3")
+	made.TextColor3 = WHITE
+	made.TextTransparency = 1
+	local sub
+	if title and title ~= "" then
+		sub = Glass.text({ Parent = holder, Text = title, Weight = Enum.FontWeight.SemiBold, TextSize = 18, XAlign = Enum.TextXAlignment.Center, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(500, 22), ZIndex = 3 })
+		Theme.unbind(sub, "TextColor3")
+		sub.TextColor3 = WHITE
+		sub.TextTransparency = 1
+	end
+	local hint = Glass.text({ Parent = holder, Text = "Click or press Space to skip", TextSize = 12, XAlign = Enum.TextXAlignment.Center, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -28), Size = UDim2.fromOffset(200, 16), ZIndex = 3 })
+	Theme.unbind(hint, "TextColor3")
+	hint.TextColor3 = WHITE
+	hint.TextTransparency = 1
+	return made, sub, hint
+end
+
+-- o: Title (shown under the word), OnReveal() called as the intro dissolves
+function Intro.play(o)
+	o = o or {}
+	Intro.Played = true
+	Intro.Active = true
+	local done = false
+	local cleanup = {}
+	local function finish()
+		if done then
+			return
+		end
+		done = true
+		Intro.Active = false
+		for _, fn in ipairs(cleanup) do
+			pcall(fn)
+		end
+		for _, fn in ipairs(Intro.waiting or {}) do
+			task.spawn(fn)
+		end
+		Intro.waiting = nil
+	end
+
+	local holder = new("Frame", { Name = "Intro", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = nextZ(2000), Parent = Library.Gui })
+	table.insert(cleanup, function()
+		holder:Destroy()
+	end)
+	local catch = new("TextButton", { BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Size = UDim2.fromScale(1, 1), ZIndex = 10, Parent = holder })
+	local made, sub, hint = labels(holder, o.Title)
+
+	local cam = workspace.CurrentCamera
+	local ok3d, word3d, wordSize, emWord = pcall(buildWord)
+	local backdrop, emBack
+	if ok3d and word3d then
+		local okB, p, e = pcall(buildBackdrop)
+		if okB then
+			backdrop, emBack = p, e
+		end
+	end
+	local is3d = ok3d and word3d ~= nil and backdrop ~= nil
+	local lights = {}
+	local fallback
+
+	local D, WALL = 2.5, 6
+	local function viewHeight(d)
+		return 2 * d * math.tan(math.rad(cam.FieldOfView) / 2)
+	end
+
+	if is3d then
+		for _, p in ipairs({ word3d, backdrop }) do
+			p.Transparency = 1
+			p.Parent = cam
+			table.insert(cleanup, function()
+				p:Destroy()
+			end)
+		end
+		table.insert(cleanup, function()
+			emWord:Destroy()
+			emBack:Destroy()
+		end)
+		word3d.Material = Enum.Material.Glass
+		word3d.Color = WHITE
+		word3d.Reflectance = 0.12
+		for i = 1, 2 do
+			local anchor = solid(new("Part", { Name = "IntroLight", Transparency = 1, Size = Vector3.one * 0.1, Parent = cam }))
+			local light = new("PointLight", { Brightness = 0, Range = 2.6, Shadows = false, Color = WHITE, Parent = anchor })
+			lights[i] = { anchor = anchor, light = light }
+			table.insert(cleanup, function()
+				anchor:Destroy()
+			end)
+		end
+	else
+		-- 2D fallback: a colour wash and a big word with a moving sheen
+		fallback = new("Frame", { BorderSizePixel = 0, BackgroundColor3 = WHITE, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = holder })
+		new("UIGradient", { Rotation = 35, Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(46, 32, 190)),
+			ColorSequenceKeypoint.new(0.45, Color3.fromRGB(92, 58, 210)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(196, 36, 140)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(238, 112, 40)),
+		}), Parent = fallback })
+		local word = new("TextLabel", { BackgroundTransparency = 1, Text = INTRO_CREDIT, FontFace = Util.font(Enum.FontWeight.Bold), TextScaled = true, TextColor3 = WHITE, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.6, 0.24), ZIndex = 2, Parent = holder })
+		new("UIGradient", { Name = "Sheen", Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(0.45, 0.25), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.55, 0.25), NumberSequenceKeypoint.new(1, 0.25) }), Rotation = 20, Offset = Vector2.new(-1, 0), Parent = word })
+		fallback:SetAttribute("Word", true)
+		Intro.word2d = word
+	end
+
+	local start = os.clock()
+	local skipAt
+	local revealed = false
+	local function reveal()
+		if not revealed then
+			revealed = true
+			Util.fire(o.OnReveal)
+		end
+	end
+	local function skip()
+		if not skipAt then
+			skipAt = os.clock() - start
+		end
+	end
+	catch.Activated:Connect(skip)
+	local keyConn = UserInputService.InputBegan:Connect(function(input)
+		-- only deliberate keys skip; walking (WASD) or the camera must not
+		local k = input.KeyCode
+		if k == Enum.KeyCode.Space or k == Enum.KeyCode.Return or k == Enum.KeyCode.Escape then
+			skip()
+		end
+	end)
+	table.insert(cleanup, function()
+		keyConn:Disconnect()
+	end)
+
+	local function ease(t)
+		t = math.clamp(t, 0, 1)
+		return 1 - (1 - t) ^ 3
+	end
+	-- damped spring step response: 0 -> 1 with a soft liquid overshoot
+	local function spring(t, freq, damp)
+		if t <= 0 then
+			return 0
+		end
+		local w = freq * 2 * math.pi
+		local wd = w * math.sqrt(1 - damp * damp)
+		return 1 - math.exp(-damp * w * t) * (math.cos(wd * t) + damp * w / wd * math.sin(wd * t))
+	end
+
+	local EXIT, LENGTH = 2.55, 3.35
+	Sound.play("intro")
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local now = os.clock() - start
+		-- a skip jumps the timeline straight into the exit; fade-ins keep real time
+		local t = skipAt and math.max(now, EXIT + (now - skipAt)) or now
+		local exitT = math.clamp((t - EXIT) / (LENGTH - EXIT), 0, 1)
+		local inT = ease((now - 0.25) / 0.6)
+		local out = ease(exitT)
+		local s = Library.ScaleObject.Scale
+		local vs = cam.ViewportSize
+		-- word height: 30% of the screen, never wider than 82% of it
+		local frac = 0.3
+		local aspect = is3d and (wordSize.X / wordSize.Y) or 2.8
+		frac = math.min(frac, 0.82 * vs.X / vs.Y / aspect)
+		local wordPx = vs.Y * frac
+		local centerY = vs.Y * 0.47
+
+		if is3d then
+			cam = workspace.CurrentCamera
+			local cf = cam.CFrame

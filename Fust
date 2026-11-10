@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44 (v18 LiquidGlass)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.45 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,58 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44 LiquidGlass...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.45 LiquidGlass...")
+-- ============================================================================
+-- 0.45: БОЛЬШАЯ ПЛАШКА ВЕРСИИ — видна с первой секунды запуска.
+-- ЕСЛИ ЭТОЙ ПЛАШКИ НЕТ НА ЭКРАНЕ — выполняется НЕ этот релиз:
+-- на репо старые части или старый лоадер. Скрипт 0.45 не запускался.
+-- ============================================================================
+local fustStampGui = nil
+pcall(function()
+fustStampGui = Instance.new("ScreenGui")
+fustStampGui.Name = "FUST_Stamp"
+fustStampGui.ResetOnSpawn = false
+fustStampGui.IgnoreGuiInset = true
+fustStampGui.DisplayOrder = 9999998
+local sp = nil
+pcall(function() sp = gethui and gethui() end)
+if not sp then
+pcall(function() sp = game:GetService("CoreGui") end)
+end
+if not sp then
+pcall(function()
+local lp = game:GetService("Players").LocalPlayer
+sp = lp and lp:FindFirstChildOfClass("PlayerGui")
+end)
+end
+if sp then
+fustStampGui.Parent = sp
+end
+if fustStampGui.Parent then
+local st = Instance.new("TextLabel")
+st.Size = UDim2.new(0, 440, 0, 48)
+st.Position = UDim2.new(0.5, -220, 0, 8)
+st.BackgroundColor3 = Color3.fromRGB(130, 15, 15)
+st.BorderSizePixel = 0
+st.Font = Enum.Font.GothamBold
+st.TextSize = 21
+st.TextColor3 = Color3.fromRGB(255, 225, 225)
+st.Text = "ПЬЯНЫЙ ПЕТУХ 0.45 — ЗАГРУЗКА"
+st.Parent = fustStampGui
+pcall(function()
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, 9)
+c.Parent = st
+end)
+end
+end)
+local function fustStampDestroy()
+pcall(function()
+if fustStampGui then
+fustStampGui:Destroy()
+end
+end)
+end
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -647,9 +698,9 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.45 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 -- ============================================================================
--- 0.44: WATCHDOG. Если инициализация не дошла до «4/4» за 30 секунд —
+-- 0.45: WATCHDOG. Если инициализация не дошла до «4/4» за 30 секунд —
 -- показываем красный баннер с ТОЧНЫМ шагом зависания вместо вечного молчания.
 -- Построен на чистом Instance.new — работает даже если библиотека не стартовала.
 -- ============================================================================
@@ -718,7 +769,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 16
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.44 — ЗАВИСЛО (watchdog)"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.45 — ЗАВИСЛО (watchdog)"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 24)
@@ -8423,7 +8474,7 @@ Library = (function()
 -- Голубой акцент библиотеки заменён КРАСНЫМ (255, 59, 48).
 -- ============================================================================
 -- ============================================================================
--- 0.44: БИБЛИОТЕКА ВСТРОЕНА В СКРИПТ. Ни одного HttpGet для LiquidGlass —
+-- 0.45: БИБЛИОТЕКА ВСТРОЕНА В СКРИПТ. Ни одного HttpGet для LiquidGlass —
 -- зависнуть на скачивании физически невозможно (в прошлых версиях HttpGet
 -- без таймаута на большом файле висел намертво на некоторых сетях).
 -- Дистрибутив встроен verbatim (лицензия не нарушена — исходник не изменён),
@@ -8452,14 +8503,19 @@ end
 local LG = nil
 do
 setProgress("2/4: парсинг встроенной LiquidGlass (1.0 МБ)...", Color3.fromRGB(120, 200, 120))
+print("[FUST] 2a/4: компиляция встроенной библиотеки (1.0 МБ)...")
+task.wait()
+local LG_T0 = os.clock()
 local okC, fn = pcall(function()
 return (loadstring or load)(FUST_LG_SRC, "=LiquidGlass")
 end)
 if okC and type(fn) == "function" then
+print("[FUST] 2b/4: компиляция OK за " .. string.format("%.1f", os.clock() - LG_T0) .. " сек, запускаю библиотеку...")
 setProgress("2/4: запуск LiquidGlass...", Color3.fromRGB(120, 200, 120))
 local okR, res = pcall(fn)
 if okR and type(res) == "table" then
 LG = res
+print("[FUST] 2c/4: библиотека выполнилась за " .. string.format("%.1f", os.clock() - LG_T0) .. " сек")
 else
 print("[FUST] LiquidGlass runtime: " .. tostring(okR and ("вернула " .. type(res)) or res))
 end
@@ -8482,7 +8538,7 @@ MathClamp = math.clamp
 
 local Library = {}
 Library.LG = LG
-Library.Version = "0.44-LiquidGlass"
+Library.Version = "0.45-LiquidGlass"
 Library.MenuKeybind = "RightControl"
 Library.Flags = {}      -- [flag] = значение или {Key=..}/{Color="#hex"}
 Library.SetFlags = {}   -- [flag] = обёртка элемента (для LoadConfig)
@@ -17391,6 +17447,7 @@ end)
 fustStep("4/4: финал")
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 getgenv().FUST_READY = true
+fustStampDestroy()
 end)
 -- 0.39v15: скрываем виджет загрузки при успехе
 pcall(function() loadWidget:Destroy() end)
@@ -17465,7 +17522,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.44 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.45 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)
@@ -17499,4 +17556,5 @@ FUST_LOAD_DONE = true
 FUST_LOAD_OK = false
 FUST_LOAD_ERR = err
 getgenv().FUST_READY = true -- ошибка уже показана баннером, watchdog молчит
+fustStampDestroy()
 print("[FUST] v16: загрузка завершена (с ошибкой — смотри баннер выше).")

@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44 (v18 LiquidGlass)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.45 (v18 LiquidGlass)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -457,7 +457,58 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44 LiquidGlass...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.45 LiquidGlass...")
+-- ============================================================================
+-- 0.45: БОЛЬШАЯ ПЛАШКА ВЕРСИИ — видна с первой секунды запуска.
+-- ЕСЛИ ЭТОЙ ПЛАШКИ НЕТ НА ЭКРАНЕ — выполняется НЕ этот релиз:
+-- на репо старые части или старый лоадер. Скрипт 0.45 не запускался.
+-- ============================================================================
+local fustStampGui = nil
+pcall(function()
+fustStampGui = Instance.new("ScreenGui")
+fustStampGui.Name = "FUST_Stamp"
+fustStampGui.ResetOnSpawn = false
+fustStampGui.IgnoreGuiInset = true
+fustStampGui.DisplayOrder = 9999998
+local sp = nil
+pcall(function() sp = gethui and gethui() end)
+if not sp then
+pcall(function() sp = game:GetService("CoreGui") end)
+end
+if not sp then
+pcall(function()
+local lp = game:GetService("Players").LocalPlayer
+sp = lp and lp:FindFirstChildOfClass("PlayerGui")
+end)
+end
+if sp then
+fustStampGui.Parent = sp
+end
+if fustStampGui.Parent then
+local st = Instance.new("TextLabel")
+st.Size = UDim2.new(0, 440, 0, 48)
+st.Position = UDim2.new(0.5, -220, 0, 8)
+st.BackgroundColor3 = Color3.fromRGB(130, 15, 15)
+st.BorderSizePixel = 0
+st.Font = Enum.Font.GothamBold
+st.TextSize = 21
+st.TextColor3 = Color3.fromRGB(255, 225, 225)
+st.Text = "ПЬЯНЫЙ ПЕТУХ 0.45 — ЗАГРУЗКА"
+st.Parent = fustStampGui
+pcall(function()
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, 9)
+c.Parent = st
+end)
+end
+end)
+local function fustStampDestroy()
+pcall(function()
+if fustStampGui then
+fustStampGui:Destroy()
+end
+end)
+end
 
 -- 0.39v15: ВЕСЬ pcall загрузки чита обёрнут в task.spawn — асинхронно,
 -- Roblox watchdog не убивает поток. Виджет "Загрузка..." показываем сразу,
@@ -647,9 +698,9 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.45 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 -- ============================================================================
--- 0.44: WATCHDOG. Если инициализация не дошла до «4/4» за 30 секунд —
+-- 0.45: WATCHDOG. Если инициализация не дошла до «4/4» за 30 секунд —
 -- показываем красный баннер с ТОЧНЫМ шагом зависания вместо вечного молчания.
 -- Построен на чистом Instance.new — работает даже если библиотека не стартовала.
 -- ============================================================================
@@ -677,4 +728,31 @@ tostring(getgenv().FUST_STEP), elapsed, EXECUTOR_NAME, touchVal, hasReq
 )
 print("[FUST-WATCHDOG] " .. diag:gsub("\n", " | "))
 pcall(function()
-local banner = Instance.new("Sc
+local banner = Instance.new("ScreenGui")
+banner.Name = "FUST_Watchdog"
+banner.ResetOnSpawn = false
+banner.IgnoreGuiInset = true
+banner.DisplayOrder = 9999999
+local parent = nil
+pcall(function() parent = gethui and gethui() end)
+if not parent then
+pcall(function() parent = game:GetService("CoreGui") end)
+end
+if not parent then
+pcall(function()
+local pg = game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then parent = pg end
+end)
+end
+if parent then
+banner.Parent = parent
+end
+if not banner.Parent then
+return
+end
+local fr = Instance.new("Frame")
+fr.Size = UDim2.new(1, -40, 0, 210)
+fr.Position = UDim2.new(0, 20, 0, 60)
+fr.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+fr.BorderSizePixel = 0
+fr
