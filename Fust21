@@ -1,0 +1,1716 @@
+screen, align)
+			if position ~= "Free" and posSeg.Value ~= position then
+				posSeg:Set(position, true)
+			end
+			if floatToggle.Value ~= floating then
+				floatToggle:Set(floating, true)
+			end
+			if screenToggle.Value ~= (screen == true) then
+				screenToggle:Set(screen == true, true)
+			end
+			if align and alignSeg.Value ~= align then
+				alignSeg:Set(align, true)
+			end
+			Util.fire(userMoved, position, floating, screen, align)
+		end
+	end
+
+	local snd = tab:AddSection("Sound")
+	snd:AddToggle({ Title = "Interface sounds", Icon = "volume", IconColor = Color3.fromRGB(255, 45, 85), Default = Library.Settings.Sounds, Callback = function(v)
+		Library.Settings.Sounds = v
+	end })
+	snd:AddSlider({ Title = "Volume", Min = 0, Max = 100, Step = 1, Default = math.floor(Library.Settings.Volume * 100), Suffix = "%", Callback = function(v)
+		Library.Settings.Volume = v / 100
+	end, Released = function()
+		Sound.play("click")
+	end })
+
+	local ctl = tab:AddSection("Controls")
+	ctl:AddKeybind({ Title = "Show / hide interface", Icon = "keyboard", IconColor = Color3.fromRGB(142, 142, 147), Default = Library.ToggleKey, ChangedCallback = function(k)
+		Library.ToggleKey = k
+	end })
+	ctl:AddDropdown({ Title = "Notifications", Options = { "TopRight", "TopLeft", "TopCenter", "BottomRight", "BottomLeft" }, Default = Library.NotifyPosition, Callback = function(v)
+		Library.NotifyPosition = v
+		Library:Notify({ Title = "Notifications moved", Content = "New notifications appear " .. v:gsub("(%l)(%u)", "%1 %2"):lower() .. ".", Duration = 3 })
+	end })
+
+	if canFiles then
+		local cfg = tab:AddSection("Configuration")
+		local nameInput = cfg:AddInput({ Title = "Config name", Placeholder = "default", Icon = "edit", IconColor = Color3.fromRGB(255, 159, 10) })
+		local list = cfg:AddDropdown({ Title = "Saved configs", Options = Library:ListConfigs(), Placeholder = "None" })
+		local function chosen()
+			local n = nameInput.Value
+			if n == nil or n == "" then
+				n = list.Value
+			end
+			return (n ~= nil and n ~= "") and n or "default"
+		end
+		cfg:AddButtons({
+			{ Title = "Save", Style = "Primary", Icon = "save", Callback = function()
+				local name = chosen()
+				local ok = Library:SaveConfig(name)
+				list:SetOptions(Library:ListConfigs(), true)
+				Library:Notify({ Title = ok and "Config saved" or "Save failed", Content = ok and ("Saved as “" .. name .. "”.") or "Could not write the file.", Type = ok and "Success" or "Error", Duration = 3 })
+			end },
+			{ Title = "Load", Icon = "download", Callback = function()
+				local name = chosen()
+				local ok, err = Library:LoadConfig(name)
+				Library:Notify({ Title = ok and "Config loaded" or "Load failed", Content = ok and ("Loaded “" .. name .. "”.") or tostring(err), Type = ok and "Success" or "Error", Duration = 3 })
+			end },
+			{ Title = "Delete", Style = "Destructive", Icon = "trash", Callback = function()
+				local name = chosen()
+				Library:DeleteConfig(name)
+				list:SetOptions(Library:ListConfigs(), false)
+			end },
+		})
+		cfg:AddButton({ Title = "Load this config automatically", Icon = "refresh", IconColor = Color3.fromRGB(48, 209, 88), Callback = function()
+			local name = chosen()
+			Library:SetAutoload(name)
+			Library:Notify({ Title = "Autoload set", Content = "“" .. name .. "” loads whenever the script starts.", Type = "Success", Duration = 3 })
+		end })
+	end
+
+	local danger = tab:AddSection({})
+	danger:AddButton({ Title = "Unload interface", Destructive = true, Icon = "power", Callback = function()
+		self:Dialog({
+			Title = "Unload " .. self.Title .. "?",
+			Content = "This removes the interface. Features that already run keep running.",
+			Icon = "power",
+			IconColor = "Danger",
+			Buttons = {
+				{ Title = "Cancel", Style = "Cancel" },
+				{ Title = "Unload", Style = "Destructive", Callback = function()
+					Library:Destroy()
+				end },
+			},
+		})
+	end })
+	return tab
+end
+Window.AddSettings = Window.AddSettingsTab
+
+---------------------------------------------------------------------------
+-- Unload
+---------------------------------------------------------------------------
+function Library:Destroy()
+	if Library.Unloaded then
+		return
+	end
+	for _, w in ipairs(table.clone(Library.Windows)) do
+		w:Destroy()
+	end
+	if Overlay.active then
+		Overlay.active.Close()
+	end
+	if Overlay.dialog then
+		Overlay.dialog.Close()
+	end
+	Library.Unloaded = true
+	Util.fire(Library.OnUnload)
+	task.delay(0.4, function()
+		for _, c in ipairs(connections) do
+			pcall(function()
+				c:Disconnect()
+			end)
+		end
+		for _, fn in ipairs(cleanupTasks) do
+			pcall(fn)
+		end
+		for _, s in pairs(Sound.pool) do
+			if s then
+				s:Destroy()
+			end
+		end
+		Library.Gui:Destroy()
+		if env.LiquidGlass == Library then
+			env.LiquidGlass = nil
+		end
+	end)
+end
+Library.Unload = Library.Destroy
+
+function Library:IsUnloaded()
+	return Library.Unloaded
+end
+
+Library.Theme = Theme
+Library.Assets = Assets
+Library.Glass = Glass
+Library.Motion = Motion
+Library.Util = Util
+Library._blur = Blur
+Library._overlay = Overlay
+
+return Library
+
+]==]
+
+-- прогресс-баннер (обновляем поверх loadWidget)
+local function setProgress(text, color)
+pcall(function()
+if lwText and lwText.Parent then
+lwText.Text = text
+lwText.TextColor3 = color or Color3.fromRGB(240, 130, 30)
+end
+end)
+end
+
+-- резервный HTTP-путь (используется ТОЛЬКО если встроенная копия упала)
+local LIB_URLS = {
+"https://raw.githubusercontent.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
+"https://cdn.jsdelivr.net/gh/fischgesichtert/LiquidGlass@main/dist/LiquidGlass.lua",
+"https://raw.githack.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
+}
+local function httpGetWithTimeout(url, timeoutSec)
+timeoutSec = timeoutSec or 6
+local req = request or http_request or (syn and syn.request)
+if req then
+local ok, res = pcall(function()
+return req({ Url = url, Method = "GET", Timeout = timeoutSec * 1000 })
+end)
+if ok and type(res) == "table" and res.Body and #res.Body > 1000 then
+return res.Body
+end
+end
+local ok2, body = pcall(function() return game:HttpGet(url) end)
+if ok2 and type(body) == "string" and #body > 1000 then
+return body
+end
+return nil
+end
+
+local LG = nil
+do
+-- путь 1: ВСТРОЕННАЯ копия (основной, мгновенный, без сети)
+setProgress("2/4: LiquidGlass (встроенная копия)...", Color3.fromRGB(120, 200, 120))
+local ok, result = pcall(function()
+return loadstring(LG_EMBED)()
+end)
+if ok and type(result) == "table" then
+LG = result
+end
+
+-- путь 2: HTTP-зеркала (только если встроенная вдруг сломалась)
+if not LG then
+for i, url in ipairs(LIB_URLS) do
+setProgress("2/4: LiquidGlass — зеркало " .. i .. "/" .. #LIB_URLS .. " (резерв)...", Color3.fromRGB(240, 180, 60))
+local body = httpGetWithTimeout(url, 6)
+if body then
+local lOk, lResult = pcall(function() return loadstring(body)() end)
+if lOk and type(lResult) == "table" then
+LG = lResult
+break
+end
+end
+end
+end
+
+if not LG then
+setProgress("2/4: LiquidGlass НЕ загрузился!", Color3.fromRGB(255, 80, 80))
+task.wait(1)
+error("[FUST] LiquidGlass не загрузился ни встроенной копией, ни с зеркал")
+end
+end
+
+-- КРАСНЫЙ вместо голубого
+local ACCENT_RED = Color3.fromRGB(255, 59, 48)
+pcall(function() LG:SetAccent(ACCENT_RED) end)
+
+-- глобал, который раньше давала старая библиотека
+MathClamp = math.clamp
+
+local Library = {}
+Library.LG = LG
+Library.Version = "0.44-LiquidGlass"
+Library.MenuKeybind = "RightControl"
+Library.Flags = {}      -- [flag] = значение или {Key=..}/{Color="#hex"}
+Library.SetFlags = {}   -- [flag] = обёртка элемента (для LoadConfig)
+Library.Connections = {}
+
+Library.Folders = {
+Directory = "Petuh",
+Configs = "Petuh/Configs",
+Assets = "Petuh/Assets",
+}
+pcall(function()
+if type(makefolder) == "function" then
+if not isfolder("Petuh") then makefolder("Petuh") end
+if not isfolder("Petuh/Configs") then makefolder("Petuh/Configs") end
+end
+end)
+
+-- совместимая таблица темы
+Library.Theme = {
+Background = Color3.fromRGB(20, 20, 26),
+Outline = Color3.fromRGB(40, 40, 50),
+Inline = Color3.fromRGB(30, 30, 38),
+Accent = ACCENT_RED,
+Text = Color3.fromRGB(235, 235, 242),
+Element = Color3.fromRGB(35, 35, 44),
+}
+
+-- собственный ScreenGui для оверлеев FUST (кнопка-петух)
+local function newHolder(name)
+local gui = Instance.new("ScreenGui")
+gui.Name = name
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.DisplayOrder = 999999
+pcall(function()
+local parent = (type(gethui) == "function" and gethui()) or game:GetService("CoreGui")
+gui.Parent = parent
+end)
+if not gui.Parent then
+pcall(function()
+local P = game:GetService("Players")
+local lp = P and P.LocalPlayer
+local pg = lp and lp:FindFirstChildOfClass("PlayerGui")
+if pg then gui.Parent = pg end
+end)
+end
+return { Instance = gui }
+end
+Library.Holder = newHolder("FUST_Holder")
+Library.UnusedHolder = newHolder("FUST_UnusedHolder")
+
+function Library:Connect(Event, Callback)
+if not Event or type(Event.Connect) ~= "function" then return nil end
+local c
+pcall(function() c = Event:Connect(Callback) end)
+if c then table.insert(Library.Connections, c) end
+return c
+end
+
+function Library:Disconnect(Conn)
+pcall(function() if Conn and Conn.Disconnect then Conn:Disconnect() end end)
+end
+
+function Library:Unload()
+for _, c in ipairs(Library.Connections) do
+pcall(function() c:Disconnect() end)
+end
+table.clear(Library.Connections)
+pcall(function() Library.Holder.Instance:Destroy() end)
+pcall(function() Library.UnusedHolder.Instance:Destroy() end)
+pcall(function() LG:Destroy() end)
+end
+Library.Exit = Library.Unload
+
+-- ================= утилиты =================
+local function normKey(k)
+if typeof(k) == "EnumItem" then return k end
+if type(k) == "string" then
+local name = string.match(k, "%.([%w]+)$") or k
+if Enum.KeyCode[name] then return Enum.KeyCode[name] end
+end
+return k
+end
+
+local function colorFrom(v)
+if typeof(v) == "Color3" then return v end
+if type(v) == "string" then
+local s = (v:sub(1, 1) == "#") and v or ("#" .. v)
+local ok, c = pcall(Color3.fromHex, s)
+if ok and c then return c end
+elseif type(v) == "table" then
+if (v[1] or 0) > 1 or (v[2] or 0) > 1 or (v[3] or 0) > 1 then
+return Color3.fromRGB(v[1] or 255, v[2] or 255, v[3] or 255)
+end
+return Color3.new(v[1] or 1, v[2] or 1, v[3] or 1)
+end
+return Color3.fromRGB(255, 255, 255)
+end
+
+local function pushFlag(w, flag, value)
+if flag and flag ~= "" then
+Library.Flags[flag] = value
+Library.SetFlags[flag] = w
+end
+end
+
+-- конструкторы прикреплённых элементов (объявлены заранее для замыканий)
+local makeColorpicker, makeKeybind
+
+-- ================= обёртка элемента =================
+local function wrapElement(lgObj, lgSection, kind, data)
+data = data or {}
+local flag = data.Flag
+local w
+w = {
+Obj = lgObj,
+Section = lgSection,
+Kind = kind,
+Title = data.Name or data.Title or "",
+Value = nil,
+Key = nil,
+Color = nil,
+}
+
+function w:Set(v, silent)
+pcall(function()
+if kind == "keybind" then
+v = normKey(v)
+if w.Obj and w.Obj.Set then w.Obj:Set(v) end
+w.Key = v
+pushFlag(w, flag, { Key = tostring(v), Mode = data.Mode or "Toggle" })
+elseif kind == "color" then
+v = colorFrom(v)
+if w.Obj and w.Obj.Set then w.Obj:Set(v) end
+w.Color = v
+pushFlag(w, flag, { Color = "#" .. v:ToHex() })
+elseif kind == "label" then
+if w.Obj and w.Obj.SetTitle then w.Obj:SetTitle(tostring(v)) end
+w.Value = v
+pushFlag(w, flag, v)
+elseif kind == "paragraph" then
+if type(v) == "table" then
+if w.Obj and w.Obj.Set then w.Obj:Set(v) end
+else
+if w.Obj and w.Obj.Set then w.Obj:Set({ Content = tostring(v) }) end
+end
+w.Value = v
+pushFlag(w, flag, v)
+else
+if w.Obj and w.Obj.Set then w.Obj:Set(v, silent == true) end
+w.Value = v
+pushFlag(w, flag, v)
+end
+end)
+end
+
+function w:SetText(t)
+pcall(function() if w.Obj and w.Obj.SetTitle then w.Obj:SetTitle(tostring(t)) end end)
+w.Title = t
+end
+w.SetTitle = w.SetText
+
+function w:SetVisible(b)
+pcall(function() if w.Obj and w.Obj.SetVisible then w.Obj:SetVisible(b) end end)
+end
+
+function w:Destroy()
+pcall(function() if w.Obj and w.Obj.Destroy then w.Obj:Destroy() end end)
+end
+
+function w:Fire()
+pcall(function() if w.Obj and w.Obj.Fire then w.Obj:Fire() end end)
+end
+
+-- прикреплённые элементы (как в старой библиотеке: Toggle:Colorpicker() и т.п.)
+function w:Colorpicker(d)
+d = d or {}
+d.Name = d.Name or w.Title
+return makeColorpicker(lgSection, d)
+end
+
+-- 0.42 FIX: в старой VOMAGLA Label():Keybind() делал прикреплённый кейбинд
+-- (внутри Label'а). В LiquidGlass это невозможно — Keybind самостоятельный
+-- элемент. Раньше создавалось ДВА элемента (Label + Keybind) = "размножилось".
+-- Теперь: если родитель — Label/Paragraph, прячем его (SetVisible(false)),
+-- а Title родителя переносим в Keybind.
+function w:Keybind(d)
+d = d or {}
+if (w.Kind == "label" or w.Kind == "paragraph") and w.Title and (not d.Name or d.Name == "") then
+d.Name = w.Title
+end
+local kb = makeKeybind(lgSection, d)
+if w.Kind == "label" or w.Kind == "paragraph" then
+pcall(function() if w.SetVisible then w:SetVisible(false) end end)
+end
+return kb
+end
+
+return w
+end
+
+-- ================= конструкторы элементов =================
+local function makeToggle(sec, data)
+data = data or {}
+local userCb = data.Callback
+local w
+local obj = sec:AddToggle({
+Title = data.Name or data.Title or "Toggle",
+Description = data.Description,
+Default = data.Default == nil and false or data.Default,
+Flag = data.Flag,
+Callback = function(v)
+if w then
+w.Value = v
+pushFlag(w, data.Flag, v)
+end
+if userCb then userCb(v) end
+end,
+})
+w = wrapElement(obj, sec, "toggle", data)
+w.Value = data.Default == nil and false or data.Default
+pushFlag(w, data.Flag, w.Value)
+return w
+end
+
+local function makeSlider(sec, data)
+data = data or {}
+local userCb = data.Callback
+local w
+local opts = {
+Title = data.Name or data.Title or "Slider",
+Min = data.Min or 0,
+Max = data.Max or 100,
+Default = data.Default or data.Min or 0,
+Suffix = data.Suffix,
+Prefix = data.Prefix,
+Callback = function(v)
+if w then
+w.Value = v
+pushFlag(w, data.Flag, v)
+end
+if userCb then userCb(v) end
+end,
+}
+-- 0.41 FIX: в старой VOMAGLA Decimals = ШАГ слайдера (0.05, 5, 50...),
+-- а не кол-во знаков. LiquidGlass Rounding = кол-во знаков, и при дробном
+-- шаге (0.05) string.format("%.0.05f") падает с invalid option '%.'.
+-- Передаём Decimals как Step — LiquidGlass сам посчитает знаки из шага.
+if data.Decimals and data.Decimals > 0 then
+opts.Step = data.Decimals
+end
+local obj = sec:AddSlider(opts)
+w = wrapElement(obj, sec, "slider", data)
+w.Value = opts.Default
+pushFlag(w, data.Flag, opts.Default)
+return w
+end
+
+local function makeDropdown(sec, data)
+data = data or {}
+local userCb = data.Callback
+local w
+local obj = sec:AddDropdown({
+Title = data.Name or data.Title or "Dropdown",
+Options = data.Items or data.Values or {},
+Multi = data.Multi == true,
+Default = data.Default,
+Placeholder = data.Placeholder,
+Callback = function(v)
+if w then
+w.Value = v
+pushFlag(w, data.Flag, v)
+end
+if userCb then userCb(v) end
+end,
+})
+w = wrapElement(obj, sec, "dropdown", data)
+w.Value = data.Default
+if data.Default ~= nil then
+pushFlag(w, data.Flag, data.Default)
+end
+return w
+end
+
+makeKeybind = function(sec, data)
+data = data or {}
+local userCb = data.Callback
+local onKey = data.OnKeyChanged
+local w
+local obj = sec:AddKeybind({
+Title = data.Name or data.Title or "Keybind",
+Default = data.Default,
+Mode = data.Mode or "Toggle",
+Callback = function(state)
+if userCb then userCb(state) end
+end,
+ChangedCallback = function(key)
+key = normKey(key)
+if w then
+w.Key = key
+pushFlag(w, data.Flag, { Key = tostring(key), Mode = data.Mode or "Toggle" })
+end
+if onKey then onKey(key) end
+end,
+})
+w = wrapElement(obj, sec, "keybind", data)
+w.Key = normKey(data.Default)
+pushFlag(w, data.Flag, { Key = tostring(w.Key), Mode = data.Mode or "Toggle" })
+return w
+end
+
+makeColorpicker = function(sec, data)
+data = data or {}
+local userCb = data.Callback
+local w
+local obj = sec:AddColorPicker({
+Title = data.Name or data.Title or "Цвет",
+Default = colorFrom(data.Default),
+Callback = function(c)
+if w then
+w.Color = c
+pushFlag(w, data.Flag, { Color = "#" .. c:ToHex() })
+end
+if userCb then userCb(c) end
+end,
+})
+w = wrapElement(obj, sec, "color", data)
+w.Color = colorFrom(data.Default)
+pushFlag(w, data.Flag, { Color = "#" .. w.Color:ToHex() })
+return w
+end
+
+local function makeButton(sec, data)
+data = data or {}
+local obj = sec:AddButton({
+Title = data.Name or data.Title or "Button",
+Description = data.Description,
+Style = data.Style,
+Callback = data.Callback,
+})
+return wrapElement(obj, sec, "button", data)
+end
+
+local function makeLabel(sec, text)
+local t = tostring(text or "")
+local obj = sec:AddLabel(t)
+local w = wrapElement(obj, sec, "label", { Name = t })
+w.Value = t
+return w
+end
+
+local function makeTextbox(sec, data)
+data = data or {}
+local userCb = data.Callback
+local w
+local opts = {
+Title = data.Name or data.Title or "Input",
+Placeholder = data.Placeholder,
+Default = data.Default,
+Callback = function(text)
+if w then
+w.Value = text
+pushFlag(w, data.Flag, text)
+end
+if userCb then userCb(text) end
+end,
+}
+if data.MultiLine or data.Multiline then
+opts.Multiline = true
+opts.Height = data.Height or 140
+end
+local obj = sec:AddInput(opts)
+w = wrapElement(obj, sec, "input", data)
+w.Value = data.Default or ""
+if data.Default ~= nil then
+pushFlag(w, data.Flag, data.Default)
+end
+return w
+end
+
+local function makeParagraph(sec, data)
+if type(data) == "string" then data = { Content = data } end
+data = data or {}
+local obj = sec:AddParagraph({
+Title = data.Name or data.Title or "",
+Content = data.Content or data.Text or "",
+})
+return wrapElement(obj, sec, "paragraph", data)
+end
+
+-- ================= секция =================
+local SectionWrapper = {}
+SectionWrapper.__index = SectionWrapper
+
+local function newSection(lgSec)
+local self = setmetatable({}, SectionWrapper)
+self.LGSection = lgSec
+return self
+end
+
+function SectionWrapper:Toggle(d)
+return makeToggle(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Slider(d)
+return makeSlider(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Dropdown(d)
+return makeDropdown(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Keybind(d)
+return makeKeybind(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Colorpicker(d)
+return makeColorpicker(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Button(d)
+return makeButton(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Label(t)
+return makeLabel(self.LGSection, t)
+end
+
+function SectionWrapper:Textbox(d)
+return makeTextbox(self.LGSection, type(d) == "table" and d or { Name = tostring(d) })
+end
+
+function SectionWrapper:Paragraph(d)
+return makeParagraph(self.LGSection, d)
+end
+
+function SectionWrapper:SetTitle(t)
+pcall(function() if self.LGSection and self.LGSection.SetTitle then self.LGSection:SetTitle(t) end end)
+end
+SectionWrapper.Set = SectionWrapper.SetTitle
+
+function SectionWrapper:SetVisible(b)
+pcall(function() if self.LGSection and self.LGSection.SetVisible then self.LGSection:SetVisible(b) end end)
+end
+
+-- 0.42 FIX: совместимость со старой VOMAGLA — старый код лезет в
+-- Section.Items["Content"].Instance, чтобы прилепить кастомный UI
+-- (вайтлист-панель, cfgStatus). В LiquidGlass этого нет. Делаем заглушку:
+-- пустой Frame без родителя — старый код не падает, кастомный UI просто
+-- не виден (это нормально, в LiquidGlass он и не нужен).
+SectionWrapper.Items = setmetatable({}, {
+__index = function(_, k)
+if k == "Content" then
+local fake = Instance.new("Frame")
+fake.Name = "FUST_CompatContent"
+fake.BackgroundTransparency = 1
+fake.Size = UDim2.new()
+fake.Visible = false
+return { Instance = fake }
+end
+return nil
+end,
+})
+
+-- ================= окно =================
+local UsedTabTitles = {}
+
+local function newWindow(lgWin)
+local self = {}
+self.LGWindow = lgWin
+self.IsOpen = true
+self.Pages = {}
+self.Items = {}
+
+function self:Group()
+-- группы навигации старой библиотеки — не поддерживаются, no-op
+end
+
+function self:IsOpenLive()
+local ok, v = pcall(function() return lgWin:IsVisible() end)
+if ok and type(v) == "boolean" then return v end
+return self.IsOpen
+end
+
+function self:SetOpen(b)
+if b == nil then b = not self:IsOpenLive() end
+pcall(function() lgWin:SetVisible(b and true or false) end)
+self.IsOpen = b and true or false
+end
+
+function self:Page(Data)
+Data = Data or {}
+local Page = { Name = Data.Name or "Page", Icon = Data.Icon, Tabs = {}, Win = self }
+
+function Page:Section(SecData)
+SecData = SecData or {}
+local tabName = SecData.Tab or self.Name
+local lgTab = self.Tabs[tabName]
+if not lgTab then
+local title = tostring(tabName)
+if UsedTabTitles[title] then
+title = tostring(self.Name) .. " · " .. title
+end
+UsedTabTitles[title] = true
+pcall(function()
+self.Tabs[tabName] = lgWin:AddTab({ Title = title, Icon = self.Icon })
+end)
+lgTab = self.Tabs[tabName]
+end
+local lgSec = nil
+pcall(function()
+lgSec = lgTab:AddSection({ Title = SecData.Name or "" })
+end)
+return newSection(lgSec)
+end
+
+table.insert(self.Pages, Page)
+return Page
+end
+
+return self
+end
+
+function Library:Window(Data)
+Data = Data or {}
+local lgWin = LG:CreateWindow({
+Title = Data.Name or "Пьяный Петух",
+Subtitle = Data.SubName or Data.Subname or "",
+Icon = Data.Logo or "sparkles",
+Size = Vector2.new(760, 520),
+ToggleKey = Enum.KeyCode.RightControl,
+})
+pcall(function() LG:SetAccent(ACCENT_RED) end)
+return newWindow(lgWin)
+end
+
+-- ================= настройки (вызывается из основного тела) =================
+function Library:CreateSettingsPage(Win)
+task.delay(1, function()
+local ok, err = pcall(function()
+-- нативная вкладка настроек LiquidGlass: тема, акцент, блюр, масштаб,
+-- звуки, клавиша показа, конфиги, выгрузка
+pcall(function()
+Win.LGWindow:AddSettingsTab({ Title = "Настройки", Icon = "settings" })
+end)
+
+local SettingsPage = Win:Page({ Name = "Settings", Icon = "rbxassetid://80758916183665" })
+
+-- кнопка-петух
+local MenuSection = SettingsPage:Section({ Name = "Кнопка меню", Tab = "Меню" })
+MenuSection:Toggle({
+Name = "Скрыть кнопку-петух (только хоткей)",
+Flag = "PetuhBtnHidden",
+Default = false,
+Callback = function(state)
+if petuhSetBtnHidden then petuhSetBtnHidden(state) end
+end,
+})
+MenuSection:Label("Клавиша меню (назначить)"):Keybind({
+Name = "Клавиша открытия/закрытия меню",
+Flag = "PetuhMenuKey",
+Default = Enum.KeyCode.RightControl,
+Mode = "Toggle",
+Callback = function() end,
+OnKeyChanged = function(key)
+pcall(function()
+PETUH_MENU_KEY = key
+Library.LG.ToggleKey = key
+journal("МЕНЮ: клавиша = " .. tostring(key))
+end)
+end,
+})
+pcall(function()
+if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
+end)
+MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
+
+-- цвета
+local ThemingSection = SettingsPage:Section({ Name = "Цвета", Tab = "Оформление" })
+ThemingSection:Label("Акцент интерфейса (по умолчанию — красный). Тема, блюр, масштаб и звуки — во вкладке «Настройки».")
+ThemingSection:Label("Акцент"):Colorpicker({
+Flag = "AccentColor",
+Default = ACCENT_RED,
+Callback = function(c)
+pcall(function() Library.LG:SetAccent(c) end)
+if petuhAccentChanged then petuhAccentChanged(c) end
+end,
+})
+
+-- конфиги
+local ConfigsSection = SettingsPage:Section({ Name = "Configs", Tab = "Конфиги" })
+local ConfigName, ConfigSelected
+local ConfigsDropdown
+ConfigsDropdown = ConfigsSection:Dropdown({
+Name = "Configs",
+Flag = "Configs",
+Items = {},
+Multi = false,
+Callback = function(Value)
+ConfigSelected = Value
+end,
+})
+ConfigsSection:Textbox({
+Name = "Config name",
+Placeholder = "Config name",
+Flag = "ConfigName",
+Callback = function(Value)
+ConfigName = Value
+end,
+})
+ConfigsSection:Button({
+Name = "Create",
+Callback = function()
+pcall(function()
+if ConfigName and ConfigName ~= "" then
+if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
+writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
+Library:RefreshConfigsList(ConfigsDropdown)
+end
+end
+end)
+end,
+})
+ConfigsSection:Button({
+Name = "Load",
+Callback = function()
+pcall(function()
+if ConfigSelected and ConfigSelected ~= "" then
+Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected .. ".json"))
+end
+end)
+end,
+})
+ConfigsSection:Button({
+Name = "Save",
+Callback = function()
+pcall(function()
+if ConfigSelected and ConfigSelected ~= "" then
+writefile(Library.Folders.Configs .. "/" .. ConfigSelected .. ".json", Library:GetConfig())
+end
+end)
+end,
+})
+ConfigsSection:Button({
+Name = "Delete",
+Callback = function()
+pcall(function()
+if ConfigSelected and ConfigSelected ~= "" then
+delfile(Library.Folders.Configs .. "/" .. ConfigSelected .. ".json")
+Library:RefreshConfigsList(ConfigsDropdown)
+end
+end)
+end,
+})
+ConfigsSection:Button({
+Name = "Refresh",
+Callback = function()
+Library:RefreshConfigsList(ConfigsDropdown)
+end,
+})
+Library:RefreshConfigsList(ConfigsDropdown)
+end)
+if not ok then
+warn("[FUST][Настройки] " .. tostring(err))
+pcall(function() journal("ОШИБКА НАСТРОЕК: " .. tostring(err)) end)
+end
+end)
+return true
+end
+
+-- ================= конфиги =================
+function Library:GetConfig()
+local Config = {}
+for flag, v in pairs(Library.Flags) do
+pcall(function()
+if type(v) == "table" and v.Key ~= nil then
+Config[flag] = { Key = tostring(v.Key), Mode = tostring(v.Mode or "Toggle") }
+elseif type(v) == "table" and v.Color ~= nil then
+Config[flag] = { Color = v.Color }
+else
+Config[flag] = v
+end
+end)
+end
+return game:GetService("HttpService"):JSONEncode(Config)
+end
+
+function Library:LoadConfig(Raw)
+local ok, decoded = pcall(function()
+return game:GetService("HttpService"):JSONDecode(Raw)
+end)
+if not ok or type(decoded) ~= "table" then
+warn("[ПП] LoadConfig: конфиг битый")
+return false
+end
+for flag, value in pairs(decoded) do
+local w = Library.SetFlags[flag]
+if w and w.Set then
+pcall(function()
+if type(value) == "table" and value.Key ~= nil then
+w:Set(value.Key)
+elseif type(value) == "table" and value.Color ~= nil then
+w:Set(value.Color)
+else
+w:Set(value)
+end
+end)
+end
+end
+return true
+end
+
+function Library:DeleteConfig(Config)
+pcall(function()
+if type(isfile) == "function" and isfile(Library.Folders.Configs .. "/" .. Config) then
+delfile(Library.Folders.Configs .. "/" .. Config)
+end
+end)
+end
+
+function Library:RefreshConfigsList(Element)
+local list = {}
+pcall(function()
+if type(listfiles) == "function" then
+for _, f in ipairs(listfiles(Library.Folders.Configs)) do
+local name = string.match(tostring(f), "([^/\\]+)%.json$")
+if name then table.insert(list, name) end
+end
+end
+end)
+if Element and Element.Obj then
+pcall(function()
+if Element.Obj.SetOptions then Element.Obj:SetOptions(list, false) end
+end)
+end
+return list
+end
+
+-- ================= тема =================
+function Library:ChangeTheme(Index, Value)
+pcall(function()
+if Index == "Accent" then
+Library.Theme.Accent = Value
+LG:SetAccent(Value)
+else
+Library.Theme[Index] = Value
+local map = {
+Background = "Glass",
+Outline = "Rim",
+Inline = "Dim",
+Element = "Card",
+Text = "Text",
+}
+LG:SetThemeValue(map[Index] or Index, Value)
+end
+end)
+end
+
+-- заглушка вотермарки (в LiquidGlass её нет, основному телу не нужна)
+function Library:Watermark()
+local stub = {}
+function stub:SetText() end
+function stub:SetVisibility() end
+function stub:SetCenter() end
+return stub
+end
+
+getgenv().Library = Library
+return Library
+end)()
+pcall(function()
+local function reparent(gui)
+if not gui or not gui.Instance then
+return
+end
+local coreGui = game:GetService("CoreGui")
+gui.Instance.Parent = coreGui
+if gui.Instance.Parent ~= coreGui then
+local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then
+gui.Instance.Parent = pg
+gui.Instance.DisplayOrder = 999999
+end
+else
+gui.Instance.DisplayOrder = 999999
+end
+end
+reparent(Library.Holder)
+reparent(Library.UnusedHolder)
+end)
+print("[FUST] 3/4: LiquidGlass готов, создаю окно...")
+-- 0.39v6: ИКОНКА ПЕТУХА — используем Roblox asset ID напрямую.
+-- getcustomasset убран — он детектится анти-читом ("Exploit detected;
+-- getcustomasset"). rbxassetid работает везде и не палится.
+PETUH_ICON_ASSET = "rbxassetid://134242818164054"
+print("[FUST] Иконка петуха: rbxassetid (безопасно)")
+
+-- 0.40: ОКНО ЧЕРЕЗ LiquidGlass (красный акцент задаётся в адаптере)
+Window = Library:Window({
+Name = "Пьяный Петух",
+SubName = "FUST Survival · LiquidGlass UI",
+Logo = PETUH_ICON_ASSET
+})
+UserInputService = game:GetService("UserInputService")
+WINDOW_MARGIN = 8
+-- 0.39v17: getViewSize оставлен — им пользуется кнопка-петух (кламп в экран)
+function getViewSize()
+local cam = Workspace.CurrentCamera
+local vp = (cam and cam.ViewportSize and cam.ViewportSize.X > 100)
+and cam.ViewportSize or Vector2.new(1280, 800)
+pcall(function()
+local inset = game:GetService("GuiService"):GetGuiInset()
+vp = Vector2.new(vp.X, vp.Y - inset.Y)
+end)
+return vp
+end
+-- 0.40: позицию/размер/фуллскрин окна держит сам LiquidGlass —
+-- он клампит окно в экран и не даёт ему улететь (старые костыли удалены).
+PETUH_MENU_KEY = Enum.KeyCode.RightControl
+PETUH_BTN_HIDDEN = false
+-- 0.42: СВОЯ КНОПКА-ПЕТУХ УБРАНА. Раньше на мобиле LiquidGlass сам создаёт
+-- нативную MobileButton (слева сверху, иконка «layers»), а наша кнопка-петух
+-- создавалась ВТОРОЙ = «две плавающих кнопки чита». На ПК MobileButton нет,
+-- но есть хоткей RightControl + нативная кнопка X в окне (закрыть/скрыть).
+-- Если на ПК нужна кнопка-петух (не только хоткей) — раскомментируй блок ниже.
+local btn = nil
+local mobileBtn = nil
+-- нативная MobileButton от LiquidGlass (создаётся автоматически на мобиле)
+pcall(function()
+mobileBtn = Window.LGWindow and Window.LGWindow.MobileButton and Window.LGWindow.MobileButton.Root
+end)
+-- своя кнопка-петух — ТОЛЬКО на ПК (где нет MobileButton)
+if not mobileBtn and not (UserInputService.TouchEnabled == true) then
+btn = Instance.new("ImageButton")
+btn.Name = "PetuhMenuToggle"
+btn.Image = PETUH_ICON_ASSET
+btn.ScaleType = Enum.ScaleType.Fit
+btn.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
+btn.BackgroundTransparency = 0.25
+btn.BorderSizePixel = 0
+btn.Size = UDim2.fromOffset(34, 34)
+btn.Position = UDim2.new(1, -44, 0.5, -17)
+btn.Active = true
+btn.Selectable = false
+btn.AutoButtonColor = false
+btn.Parent = Library.Holder.Instance
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = btn
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 59, 48)
+stroke.Thickness = 1.5
+stroke.Transparency = 0.3
+stroke.Parent = btn
+local dragging = false
+local dragStart, startPos
+local moved = false
+btn.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+dragging = true
+moved = false
+dragStart = input.Position
+startPos = btn.AbsolutePosition
+end
+end)
+UserInputService.InputChanged:Connect(function(input)
+if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+local delta = input.Position - dragStart
+if delta.Magnitude > 8 then
+moved = true
+end
+local bvp = getViewSize()
+local bs = btn.AbsoluteSize
+local nx = MathClamp(startPos.X + delta.X, WINDOW_MARGIN, math.max(WINDOW_MARGIN, bvp.X - bs.X - WINDOW_MARGIN))
+local ny = MathClamp(startPos.Y + delta.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, bvp.Y - bs.Y - WINDOW_MARGIN))
+btn.Position = UDim2.fromOffset(nx, ny)
+end
+end)
+UserInputService.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+if dragging and not moved then
+pcall(function() Window:SetOpen(not Window:IsOpenLive()) end)
+end
+dragging = false
+end
+end)
+end
+-- 0.42: перекраска. На ПК красим свою кнопку; MobileButton перекрашивается
+-- через LiquidGlass:SetAccent автоматически.
+function petuhAccentChanged(c)
+pcall(function()
+if btn and c then
+for _, ch in ipairs(btn:GetChildren()) do
+if ch:IsA("UIStroke") then ch.Color = c end
+end
+btn.BackgroundColor3 = Color3.new(math.min(1, c.R * 0.25), math.min(1, c.G * 0.25), math.min(1, c.B * 0.25))
+end
+end)
+end
+-- 0.42: скрытие работает для обеих кнопок. На мобиле — MobileButton,
+-- на ПК — наша кнопка-петух.
+function petuhSetBtnHidden(state)
+PETUH_BTN_HIDDEN = state
+pcall(function() if btn then btn.Visible = not state end end)
+pcall(function() if mobileBtn then mobileBtn.Visible = not state end end)
+journal("КНОПКА-ПЕТУХ " .. (state and "СКРЫТА (только хоткей)" or "ВИДНА"))
+end
+getgenv().FUST_PetuhBtn = btn
+pcall(function()
+Library:CreateSettingsPage(Window, nil)
+end)
+UI_ERRORS = {}
+function uiStep(stepName, fn)
+local ok, err = pcall(fn)
+if ok then
+print("[FUST][UI] блок собран: " .. stepName)
+else
+warn("[FUST][UI] ОШИБКА БЛОКА '" .. stepName .. "': " .. tostring(err))
+pcall(function()
+journal("ОШИБКА UI '" .. stepName .. "': " .. tostring(err))
+end)
+table.insert(UI_ERRORS, stepName .. ": " .. tostring(err))
+end
+end
+ICON_SETTINGS = "rbxassetid://80758916183665"
+ICON_COMBAT = "rbxassetid://87563802520297"
+ICON_VISUALS = "rbxassetid://100033680381365"
+UIRegistry = {}
+Window:Group("Главное")
+MainPage = Window:Page({ Name = "Main", Icon = ICON_SETTINGS })
+MiscSection = MainPage:Section({ Name = "Вайтлист", Tab = "Функции", Side = 1 })
+ConfigSection = MainPage:Section({ Name = "Конфиги", Tab = "Функции", Side = 2 })
+FreeCam = { Enabled = false, Speed = 30, AutoFly = false }
+freecamEnable = function() end
+freecamDisable = function() end
+FreeCamSection = MainPage:Section({ Name = "Свободная камера (FreeCam)", Tab = "Функции", Side = 2 })
+UIRegistry.FreeCamEnabled = FreeCamSection:Toggle({
+Name = "Фрикам (камера отдельно от тела)",
+Flag = "FreeCamEnabled",
+Default = false,
+Callback = function(state)
+if state then
+freecamEnable()
+else
+freecamDisable()
+end
+end
+})
+UIRegistry.FreeCamSpeed = FreeCamSection:Slider({
+Name = "Скорость полёта",
+Flag = "FreeCamSpeed",
+Default = 30,
+Min = 5,
+Max = 300,
+Decimals = 5,
+Suffix = " st/s",
+Callback = function(Value)
+FreeCam.Speed = Value
+end
+})
+UIRegistry.FreeCamAutoFly = FreeCamSection:Toggle({
+Name = "Авто-полёт вперёд (для телефона)",
+Flag = "FreeCamAutoFly",
+Default = false,
+Callback = function(state)
+FreeCam.AutoFly = state
+journal("ФРИКАМ: авто-полёт " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
+-- 0.39: настраиваемые клавиши фрикама
+FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
+local FC_KEY_OBJ = nil
+-- 0.42 FIX: Mode="Toggle" в LiquidGlass сам зовёт Callback(true/false) при
+-- нажатии. Раньше Callback только менял клавишу, а отдельно FUST_FCKeyConn
+-- ловил InputBegan и звал freecamToggle() = ДВОЙНАЯ обработка. Теперь:
+-- Callback зовёт freecamEnable/Disable, а FUST_FCKeyConn убран.
+-- OnKeyChanged обновляет FreeCamKeys (для совместимости со старым кодом).
+UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
+Name = "Клавиша: вкл/выкл фрикам",
+Flag = "FreeCamKeyToggle",
+Default = Enum.KeyCode.K,
+Mode = "Toggle",
+Callback = function(state)
+-- 0.42: freecamEnable/Disable определены ниже в файле, но Callback зовётся
+-- только при нажатии клавиши (не при создании) — к тому моменту всё готово.
+-- pcall защищает от "attempt to call nil" если что-то пошло не так.
+pcall(function()
+if state then freecamEnable() else freecamDisable() end
+end)
+end,
+OnKeyChanged = function(key)
+pcall(function()
+if key then
+FreeCamKeys.Toggle = key
+FC_KEY_TOGGLE = key
+journal("ФРИКАМ: клавиша toggle = " .. tostring(key))
+end
+end)
+end
+})
+local FC_KEY_SLOW_OBJ = nil
+UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
+Name = "Клавиша: скорость МЕНЬШЕ",
+Flag = "FreeCamKeySlow",
+Default = Enum.KeyCode.Z,
+Mode = "Toggle",
+Callback = function(state)
+if state then
+FreeCam.Speed = math.max(5, FreeCam.Speed - FC_SPEED_STEP)
+if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
+pcall(function() UIRegistry.FreeCamSpeed:Set(FreeCam.Speed) end)
+end
+journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
+end
+end,
+OnKeyChanged = function(key)
+pcall(function()
+if key then FreeCamKeys.Slow = key; FC_KEY_SLOW = key end
+end)
+end
+})
+local FC_KEY_FAST_OBJ = nil
+UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
+Name = "Клавиша: скорость БОЛЬШЕ",
+Flag = "FreeCamKeyFast",
+Default = Enum.KeyCode.X,
+Mode = "Toggle",
+Callback = function(state)
+if state then
+FreeCam.Speed = math.min(300, FreeCam.Speed + FC_SPEED_STEP)
+if UIRegistry.FreeCamSpeed and UIRegistry.FreeCamSpeed.Set then
+pcall(function() UIRegistry.FreeCamSpeed:Set(FreeCam.Speed) end)
+end
+journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
+end
+end,
+OnKeyChanged = function(key)
+pcall(function()
+if key then FreeCamKeys.Fast = key; FC_KEY_FAST = key end
+end)
+end
+})
+uiStep("Вкладка Аимбот", function()
+Window:Group("Бой")
+AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
+AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
+HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
+TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
+Window:Group("Визуал")
+EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
+EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
+VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
+WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
+-- 0.39v16: yield убран — в v13 без него работало
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 5,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+-- 0.39: новые поля
+ColorBg = Color3.fromRGB(12, 12, 16),
+ColorText = Color3.fromRGB(235, 235, 240),
+ColorStroke = Color3.fromRGB(255, 170, 40),
+ShowAdmin = true, 
+Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+Chams = false, 
+},
+}
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
+CollectionService = game:GetService("CollectionService")
+NPC_COLOR = Color3.fromRGB(255, 145, 0) 
+NPC_CAT_COLORS = {
+Guard = Color3.fromRGB(255, 145, 0), 
+Peaceful = Color3.fromRGB(80, 255, 140), 
+Animal = Color3.fromRGB(255, 80, 95), 
+Sleeper = Color3.fromRGB(80, 190, 255), 
+}
+NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
+NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
+SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
+SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
+ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
+GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
+SLEEPER_PATTERNS = { "sleeper", "пящ" }
+WEAPON_PATTERNS = {
+"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
+"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
+"меч", "сабл", "катан",
+"rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
+}
+npcCategoryCache = {} 
+npcHorizontalSince = {} 
+NPC_CAT_TTL = 0.75 
+function npcNameMatches(model, patterns)
+local okN, name = pcall(function()
+return string.lower(tostring(model.Name))
+end)
+if not okN then
+return false
+end
+for _, pat in ipairs(patterns) do
+if string.find(name, pat, 1, true) then
+return true
+end
+end
+return false
+end
+function npcHasAnyTag(model, tags)
+for _, tag in ipairs(tags) do
+local okT, has = pcall(CollectionService.HasTag, CollectionService, model, tag)
+if okT and has then
+return true
+end
+end
+return false
+end
+function npcInsideFolder(model, names)
+local p = model.Parent
+local depth = 0
+while p and p ~= Workspace and depth < 8 do
+for _, n in ipairs(names) do
+if p.Name == n then
+return true
+end
+end
+p = p.Parent
+depth = depth + 1
+end
+return false
+end
+function npcHasWeaponInHands(model)
+local okT, tool = pcall(function()
+return model:FindFirstChildOfClass("Tool")
+end)
+if okT and tool then
+local okN, tname = pcall(function()
+return string.lower(tostring(tool.Name))
+end)
+if okN and tname then
+for _, pat in ipairs(WEAPON_PATTERNS) do
+if string.find(tname, pat, 1, true) then
+return true
+end
+end
+end
+end
+return false
+end
+function npcSleeperMarked(model, hum, root)
+if npcHasAnyTag(model, SLEEPER_TAGS) then
+return true
+end
+if npcInsideFolder(model, { "Sleepers", "Sleeper", "Bodies", "SleepingPlayers", "Спящие" }) then
+return true
+end
+for _, inst in ipairs({ model, hum, root }) do
+if inst then
+for _, attr in ipairs(SLEEPER_ATTRS) do
+local okA, v = pcall(inst.GetAttribute, inst, attr)
+if okA and v == true then
+return true
+end
+end
+end
+end
+local okC, children = pcall(model.GetChildren, model)
+if okC and children then
+for _, child in ipairs(children) do
+if child:IsA("BoolValue") then
+local cn = string.lower(tostring(child.Name))
+if (string.find(cn, "sleep", 1, true) or string.find(cn, "пящ", 1, true))
+and child.Value == true then
+return true
+end
+end
+end
+end
+if npcNameMatches(model, SLEEPER_PATTERNS) then
+return true
+end
+return false
+end
+function npcGetCategory(model, hum, root)
+local now = os.clock()
+local cached = npcCategoryCache[model]
+if cached and cached.Cat and cached.Expire > now then
+local on = (
+(cached.Cat == "Guard" and S.NPC.CatGuards)
+or (cached.Cat == "Peaceful" and S.NPC.CatPeaceful)
+or (cached.Cat == "Animal" and S.NPC.CatAnimals)
+or (cached.Cat == "Sleeper" and S.NPC.CatSleepers)
+) and true or false
+return cached.Cat, on, NPC_CAT_COLORS[cached.Cat] or NPC_COLOR
+end
+local cat
+local inNpcFolder = npcInsideFolder(model, { "Npcs", "NPCs", "NPC" })
+or npcHasAnyTag(model, NPC_NPC_TAGS)
+local inAnimalFolder = npcInsideFolder(model, { "Animals", "Animal" })
+or npcHasAnyTag(model, NPC_ANIMAL_TAGS)
+if inAnimalFolder or npcNameMatches(model, ANIMAL_PATTERNS) then
+cat = "Animal"
+elseif inNpcFolder then
+if npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model) then
+cat = "Guard"
+else
+cat = "Peaceful"
+end
+else
+if npcSleeperMarked(model, hum, root) then
+cat = "Sleeper"
+else
+local okU, upDot = pcall(function()
+return root and root.CFrame.UpVector:Dot(Vector3.new(0, 1, 0)) or 1
+end)
+if okU and upDot and upDot < 0.45 then
+if not npcHorizontalSince[model] then
+npcHorizontalSince[model] = now
+end
+if now - npcHorizontalSince[model] >= 4 then
+cat = "Sleeper"
+end
+else
+npcHorizontalSince[model] = nil
+end
+if not cat and (npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model)) then
+cat = "Guard"
+end
+if not cat then
+cat = "Peaceful"
+end
+end
+end
+npcCategoryCache[model] = { Cat = cat, Expire = now + NPC_CAT_TTL }
+local on = (
+(cat == "Guard" and S.NPC.CatGuards)
+or (cat == "Peaceful" and S.NPC.CatPeaceful)
+or (cat == "Animal" and S.NPC.CatAnimals)
+or (cat == "Sleeper" and S.NPC.CatSleepers)
+) and true or false
+return cat, on, NPC_CAT_COLORS[cat] or NPC_COLOR
+end
+Whitelist = {} 
+FUST_BulletsSet = nil 
+HitboxAnnouncePending = false 
+NpcHitboxAnnouncePending = false 
+NpcHitboxAppliedCount = 0 
+AntiRecoil = {
+Enabled = false, 
+Rollback = true, 
+Offset = true, 
+Drift = true, 
+DriftStrength = 1, 
+Threshold = 1.2, 
+}
+AR_SnapCF = nil 
+AR_LastStateJournal = 0 
+AR_LastPitch = nil 
+AR_DriftFrames = 0 
+AR_AimBusyUntil = 0 
+AR_Anchor = nil 
+AR_LastDriftAt = 0 
+FUST_FireUntil = 0 
+FUST_FireTool = nil 
+FUST_FireConns = nil 
+AntiShake = {
+Enabled = false, 
+Roll = true, 
+Position = true, 
+Oscillation = true, 
+}
+AS_SmoothPos = nil 
+AS_LastRawPitch = nil 
+AS_LastLX, AS_LastLZ = nil, nil 
+AS_LastDp, AS_LastDy = nil, nil 
+AS_PitchFlips, AS_YawFlips = 0, 0 
+AS_AnchorLook = nil 
+AS_LastShakeAt = 0 
+COLOR_WHITELIST = Color3.fromRGB(0, 255, 0)
+COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)
+UIRegistry.ESPEnabled = EspSection:Toggle({
+Name = "ESP Enabled",
+Flag = "ESPEnabled",
+Default = false,
+Callback = function(state)
+S.ESP.Enabled = state
+journal("ESP " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.ESPBox = EspSection:Toggle({
+Name = "ESP Box",
+Flag = "ESPBox",
+Default = false,
+Callback = function(state)
+S.ESP.Box = state
+end
+})
+UIRegistry.ESPBoxColor = UIRegistry.ESPBox:Colorpicker({
+Flag = "ESPBoxColor",
+Default = S.ESPColors.Box,
+Callback = function(color)
+S.ESPColors.Box = color
+end
+})
+UIRegistry.ESPChams = EspSection:Toggle({
+Name = "ESP Chams",
+Flag = "ESPChams",
+Default = false,
+Callback = function(state)
+S.ESP.Chams = state
+journal("ЧАМСЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.ESPChamsTransparency = EspSection:Slider({
+Name = "Прозрачность чамсов",
+Flag = "ESPChamsTransparency",
+Default = 0.5,
+Min = 0,
+Max = 1,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.ESP.ChamsTransparency = Value
+end
+})
+UIRegistry.ESPName = EspSection:Toggle({
+Name = "ESP Name",
+Flag = "ESPName",
+Default = false,
+Callback = function(state)
+S.ESP.Name = state
+end
+})
+UIRegistry.ESPDistance = EspSection:Toggle({
+Name = "ESP Distance",
+Flag = "ESPDistance",
+Default = false,
+Callback = function(state)
+S.ESP.Distance = state
+end
+})
+UIRegistry.ESPItem = EspSection:Toggle({
+Name = "ESP Предмет (что в руках)",
+Flag = "ESPItem",
+Default = false,
+Callback = function(state)
+S.ESP.Item = state
+journal("ПРЕДМЕТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+-- 0.39: цвет предмета в руках
+ESPItemColor = Color3.fromRGB(255, 215, 90)
+UIRegistry.ESPItemColor = EspSection:Label("Цвет предмета в руках"):Colorpicker({
+Name = "Цвет предмета в руках",
+Flag = "ESPItemColor",
+Default = ESPItemColor,
+Callback = function(c)
+ESPItemColor = c
+end
+})
+-- 0.39: перевод названий предметов на русский (вкл/выкл)
+-- 0.39v6: расширено под Rust (FUST Survival — раст-подобная игра)
+ItemRuTranslate = false
+ITEM_RU_DICT = {
+-- оружие дальнобойное
+["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["ak-74"] = "АК-74",
+["m4a1"] = "М4А1", ["m4a4"] = "М4А4", ["m4"] = "М4", ["m16"] = "М16",
+["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90", ["mac-10"] = "МАК-10",
+["thompson"] = "Томпсон", ["custom smg"] = "Кастомный ПП", ["vector"] = "Вектор",
+["awp"] = "АВП", ["awm"] = "АВМ", ["mosin"] = "Мосина", ["kar98"] = "Кар98",
+["bolt rifle"] = "Винтовка с продольным затвором", ["l96"] = "Л96",
+["semi-auto rifle"] = "Полуавтоматическая винтовка", ["sar"] = "САВ",
+["shotgun"] = "Дробовик", ["pump shotgun"] = "Помповый дробовик",
+["auto shotgun"] = "Авто-дробовик", ["double barrel"] = "Двустволка",
+["spas-12"] = "СПАС-12", ["m870"] = "М870", ["sawn off"] = "Обрез",
+["pistol"] = "Пистолет", ["glock"] = "Глок", ["deagle"] = "Дезерт Игл",
+["revolver"] = "Револьвер", ["sniper"] = "Снайперка", ["rifle"] = "Винтовка",
+["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт",
+["m249"] = "М249", ["rp"] = "РП", ["bolt action"] = "Болтовка",
+["crossbow"] = "Арбалет", ["bow"] = "Лук", ["compound bow"] = "Блочный лук",
+-- патроны
+["9mm"] = "9мм патроны", ["45acp"] = ".45 патроны", ["556"] = "5.56 патроны",
+["5.56"] = "5.56 патроны", ["762"] = "7.62 патроны", ["7.62"] = "7.62 патроны",
+["12gauge"] = "12 калибр", ["12 gauge"] = "12 калибр", ["shells"] = "Патроны",
+["ammo"] = "Патроны", ["magazine"] = "Магазин",
+["12.7mm"] = "12.7мм патроны", ["308"] = ".308 патроны",
+["arrow"] = "Стрела", ["bolts"] = "Болты",
+-- еда/вода (Rust)
+["water"] = "Вода", ["water bottle"] = "Бутылка воды", ["cola"] = "Кола",
+["bottled water"] = "Бутылка воды", ["water jug"] = "Канистра воды",
+["water barrel"] = "Бочка воды", ["salt water"] = "Солёная вода",
+["bread"] = "Хлеб", ["can"] = "Консерва", ["canned food"] = "Консерва",
+["meat"] = "Мясо", ["cooked meat"] = "Жареное мясо", ["raw meat"] = "Сырое мясо",
+["bear meat"] = "Медвежатина", ["wolf meat"] = "Волчатина", ["chicken meat"] = "Курица",
+["deer meat"] = "Оленина", ["boar meat"] = "Кабанина",
+["apple"] = "Яблоко", ["banana"] = "Банан", ["chocolate"] = "Шоколад",
+["energy bar"] = "Энергетический батончик", ["granola bar"] = "Гранола",
+["corn"] = "Кукуруза", ["potato"] = "Картофель", ["pumpkin"] = "Тыква",
+["mushroom"] = "Гриб", ["berries"] = "Ягоды",
+["cooked corn"] = "Варёная кукуруза", ["cooked potato"] = "Варёная картошка",
+["fish"] = "Рыба", ["cooked fish"] = "Жареная рыба",
+["small water bottle"] = "Малая бутылка воды", ["large water bottle"] = "Большая бутылка воды",
+-- броня (Rust)
+["helmet"] = "Шлем", ["kevlar"] = "Кевлар", ["vest"] = "Жилет",
+["armor"] = "Броня", ["bulletproof vest"] = "Бронежилет",
+["metal helmet"] = "Металлический шлем", ["metal vest"] = "Металлический жилет",
+["road sign helmet"] = "Шлем из дорожного знака", ["road sign vest"] = "Жилет из дорожного знака",
+["coconut helmet"] = "Кокосовый шлем", ["wood helmet"] = "Деревянный шлем",
+["bone helmet"] = "Костяной шлем", ["bone vest"] = "Костяной жилет",
+["coffee can helmet"] = "Шлем из кофейной банки",
+-- лут/ресурсы (Rust)
+["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
+["metal fragments"] = "Металлические фрагменты", ["metal ore"] = "Руда металла",
+["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
+["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
+["blood bag"] = "Пакет крови", ["syringe"] = "Шприц",
+["wood planks"] = "Доски", ["wooden planks"] = "Доски",
+["stone ore"] = "Каменная руда", ["sulfur ore"] 
