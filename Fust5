@@ -1,17 +1,4 @@
-уторе — ESP/прицел работают вхолостую")
-end
-AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
-AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
-fovCircle = SafeDrawing("Circle")
-if fovCircle then
-fovCircle.Thickness = 1.5
-fovCircle.NumSides = 64
-fovCircle.Filled = false
-fovCircle.Radius = Aim.FOV
-fovCircle.Color = AIM_FOV_OFF
-fovCircle.Visible = false
-else
-warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
+тать")
 end
 -- 0.39: ПРИЦЕЛ В СТИЛЕ CS2 — настраиваемые длина/толщина/зазор/точка/обводка/цвет
 CH = {
@@ -1233,6 +1220,8 @@ FC_MOD.savedAnchor = nil
 FC_MOD.savedHum = nil
 FC_MOD.savedWalkSpeed = nil
 FC_MOD.savedJumpPower = nil
+FC_MOD.savedJumpHeight = nil
+FC_MOD.savedUseJumpPower = nil
 FC_MOD.savedAutoRotate = nil
 pcall(function()
 local c = LocalPlayer.Character
@@ -1247,6 +1236,9 @@ if hum then
 FC_MOD.savedHum = hum
 FC_MOD.savedWalkSpeed = hum.WalkSpeed
 FC_MOD.savedJumpPower = hum.JumpPower
+-- 0.39v8 FIX: сохраняем JumpHeight и UseJumpPower для восстановления
+FC_MOD.savedJumpHeight = hum.JumpHeight
+FC_MOD.savedUseJumpPower = hum.UseJumpPower
 FC_MOD.savedAutoRotate = hum.AutoRotate
 hum.WalkSpeed = 0
 hum.JumpPower = 0
@@ -1451,13 +1443,28 @@ local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
 if hrp2 and hrp2 ~= FC_MOD.savedHRP then
 hrp2.Anchored = false
 end
--- STEALTH 0.39: восстанавливаем WalkSpeed/JumpPower/AutoRotate
+-- STEALTH 0.39: восстанавливаем WalkSpeed/JumpPower/JumpHeight/AutoRotate
 if FC_MOD.savedHum and FC_MOD.savedHum.Parent then
 FC_MOD.savedHum.WalkSpeed = FC_MOD.savedWalkSpeed or 16
 FC_MOD.savedHum.JumpPower = FC_MOD.savedJumpPower or 50
+-- 0.39v8 FIX: восстанавливаем JumpHeight (современные игры используют его, не JumpPower)
+FC_MOD.savedHum.JumpHeight = FC_MOD.savedJumpHeight or 7.2
+-- 0.39v8 FIX: UseJumpPower — восстанавливаем тоже
+if FC_MOD.savedUseJumpPower ~= nil then
+FC_MOD.savedHum.UseJumpPower = FC_MOD.savedUseJumpPower
+end
 FC_MOD.savedHum.AutoRotate = FC_MOD.savedAutoRotate ~= false
 pcall(function()
+-- 0.39v8 FIX: GettingUp может не вывести из Physics. Пробуем Landed + свободное состояние.
 FC_MOD.savedHum:ChangeState(Enum.HumanoidStateType.GettingUp)
+task.wait(0.05)
+FC_MOD.savedHum:ChangeState(Enum.HumanoidStateType.Running)
+end)
+-- 0.39v8 FIX: снимаем якорь с HRP обязательно
+pcall(function()
+if FC_MOD.savedHRP and FC_MOD.savedHRP.Parent then
+FC_MOD.savedHRP.Anchored = false
+end
 end)
 end
 end)
@@ -2426,8 +2433,4 @@ end
 end
 end)
 end
--- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем тольк
+-- 5. GroupRole — если 

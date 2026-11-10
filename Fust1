@@ -1246,4 +1246,12 @@ end
 return Library:Connect(self.Instance.MouseEnter, Function)
 end
 Instances.OnHoverLeave = function(self, Function)
-if
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseLeave, Function)
+end
+end
+local CustomFont = { } do
+function CustomFont:New(Name, Weight, Style, Data)
+-- 0.39v6: getcustomasset убран полностью — детек�

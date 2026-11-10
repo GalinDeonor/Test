@@ -1,4 +1,8 @@
-о если игра дала плейс-специфичную группу
+у игрока роль Owner/Admin/Moderator в какой-то группе
+--    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
+if not isAdm then
+pcall(function()
+-- Проверяем только если игра дала плейс-специфичную группу
 local placeGroup = nil
 pcall(function()
 -- FUST: пробуем common survival group IDs

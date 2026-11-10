@@ -1,9 +1,4 @@
-sparency or 0.35, 0, 0.95)
-if S.HUD.ShowBg then
-hudFrame.BackgroundTransparency = bg
-hudFrame.BackgroundColor3 = colBg
-if hudStroke then
-hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
+)
 hudStroke.Color = colStroke
 end
 else
@@ -1107,44 +1102,33 @@ furnitureChamsPool = {}
 furnitureChamsAt = 0
 function furnitureScan()
 local now = os.clock()
-if now - furnitureChamsAt < 1.0 then return end
+if now - furnitureChamsAt < 1.5 then return end -- 0.39v8: реже (1.5с) — меньше нагрузки
 furnitureChamsAt = now
 local found = {}
 pcall(function()
--- 1. по тегам
+-- 1. по тегам CollectionService (везде в Workspace)
 for _, tag in ipairs(FURNITURE_TAGS) do
 local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
 if ok and items then
 for _, inst in ipairs(items) do
-if inst:IsA("Model") and inst.Parent then
+if inst.Parent and (inst:IsA("Model") or inst:IsA("BasePart")) then
 table.insert(found, inst)
 end
 end
 end
 end
--- 2. по имени в Workspace (верхние 2 уровня)
-for _, d in ipairs(Workspace:GetChildren()) do
-if d:IsA("Model") then
+-- 2. по имени через GetDescendants (глубокий поиск, с лимитом)
+local scanned = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+scanned = scanned + 1
+if scanned > 5000 then break end -- лимит для FPS
+if d:IsA("Model") or d:IsA("BasePart") then
 local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
-if okN then
+if okN and name and #name > 0 then
 for _, pat in ipairs(FURNITURE_PATTERNS) do
 if string.find(name, pat, 1, true) then
 table.insert(found, d)
 break
-end
-end
-end
--- проверяем детей модели
-for _, child in ipairs(d:GetChildren()) do
-if child:IsA("Model") or child:IsA("BasePart") then
-local okN2, name2 = pcall(function() return string.lower(tostring(child.Name)) end)
-if okN2 then
-for _, pat in ipairs(FURNITURE_PATTERNS) do
-if string.find(name2, pat, 1, true) then
-table.insert(found, child)
-break
-end
-end
 end
 end
 end
@@ -2470,4 +2454,17 @@ function dummy:Remove() end
 return dummy
 end
 Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
-warn("[FUST] Drawing недоступен в этом экзек
+warn("[FUST] Drawing недоступен в этом экзекуторе — ESP/прицел работают вхолостую")
+end
+AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
+AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
+fovCircle = SafeDrawing("Circle")
+if fovCircle then
+fovCircle.Thickness = 1.5
+fovCircle.NumSides = 64
+fovCircle.Filled = false
+fovCircle.Radius = Aim.FOV
+fovCircle.Color = AIM_FOV_OFF
+fovCircle.Visible = false
+else
+warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает рабо

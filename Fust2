@@ -1,12 +1,4 @@
- not self.Instance then
-return
-end
-return Library:Connect(self.Instance.MouseLeave, Function)
-end
-end
-local CustomFont = { } do
-function CustomFont:New(Name, Weight, Style, Data)
--- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
+�ится анти-читом.
 -- Возвращаем Roblox шрифт, кастомные не грузим.
 -- 0.39v7 FIX: FontFace хочет Font object, не EnumItem. Используем Font.fromEnum.
 return Font.fromEnum(Enum.Font.GothamMedium)
@@ -2309,4 +2301,19 @@ BorderColor3 = FromRGB(0, 0, 0),
 Size = UDim2New(0, 13, 0, 13),
 BorderSizePixel = 0
 })
-I
+Instances:Create("UICorner", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow2"] = Instances:Create("ImageLabel", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Accent"],
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 0.800000011920929,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency 

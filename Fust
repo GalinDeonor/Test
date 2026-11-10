@@ -4716,10 +4716,27 @@ end)
 return vp
 end
 function windowedSize(vp)
-local w = math.clamp(math.min(900, vp.X - 24), 320, 900)
-local h = math.clamp(math.min(600, vp.Y - 90), 240, 600)
-w = math.max(200, math.min(w, vp.X - WINDOW_MARGIN * 2))
-h = math.max(150, math.min(h, vp.Y - WINDOW_MARGIN * 2))
+-- 0.39v8 FIX: адаптивный размер под телефон. На маленьких экранах
+-- окно не должно быть больше 85% ширины и 70% высоты.
+local isPhone = not UserInputService.KeyboardEnabled
+local maxW, maxH
+if isPhone then
+-- телефон: окно 85% ширины, 70% высоты
+maxW = math.floor(vp.X * 0.85)
+maxH = math.floor(vp.Y * 0.70)
+else
+-- ПК: до 900×600
+maxW = 900
+maxH = 600
+end
+-- не меньше минимума
+maxW = math.max(maxW, 280)
+maxH = math.max(maxH, 220)
+-- не больше экрана минус маргины
+maxW = math.min(maxW, vp.X - WINDOW_MARGIN * 2)
+maxH = math.min(maxH, vp.Y - WINDOW_MARGIN * 2)
+local w = math.clamp(maxW, 280, maxW)
+local h = math.clamp(maxH, 220, maxH)
 return math.floor(w), math.floor(h)
 end
 function clampWindowOnScreen()
@@ -6813,44 +6830,33 @@ furnitureChamsPool = {}
 furnitureChamsAt = 0
 function furnitureScan()
 local now = os.clock()
-if now - furnitureChamsAt < 1.0 then return end
+if now - furnitureChamsAt < 1.5 then return end -- 0.39v8: реже (1.5с) — меньше нагрузки
 furnitureChamsAt = now
 local found = {}
 pcall(function()
--- 1. по тегам
+-- 1. по тегам CollectionService (везде в Workspace)
 for _, tag in ipairs(FURNITURE_TAGS) do
 local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
 if ok and items then
 for _, inst in ipairs(items) do
-if inst:IsA("Model") and inst.Parent then
+if inst.Parent and (inst:IsA("Model") or inst:IsA("BasePart")) then
 table.insert(found, inst)
 end
 end
 end
 end
--- 2. по имени в Workspace (верхние 2 уровня)
-for _, d in ipairs(Workspace:GetChildren()) do
-if d:IsA("Model") then
+-- 2. по имени через GetDescendants (глубокий поиск, с лимитом)
+local scanned = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+scanned = scanned + 1
+if scanned > 5000 then break end -- лимит для FPS
+if d:IsA("Model") or d:IsA("BasePart") then
 local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
-if okN then
+if okN and name and #name > 0 then
 for _, pat in ipairs(FURNITURE_PATTERNS) do
 if string.find(name, pat, 1, true) then
 table.insert(found, d)
 break
-end
-end
-end
--- проверяем детей модели
-for _, child in ipairs(d:GetChildren()) do
-if child:IsA("Model") or child:IsA("BasePart") then
-local okN2, name2 = pcall(function() return string.lower(tostring(child.Name)) end)
-if okN2 then
-for _, pat in ipairs(FURNITURE_PATTERNS) do
-if string.find(name2, pat, 1, true) then
-table.insert(found, child)
-break
-end
-end
 end
 end
 end
@@ -9411,6 +9417,8 @@ FC_MOD.savedAnchor = nil
 FC_MOD.savedHum = nil
 FC_MOD.savedWalkSpeed = nil
 FC_MOD.savedJumpPower = nil
+FC_MOD.savedJumpHeight = nil
+FC_MOD.savedUseJumpPower = nil
 FC_MOD.savedAutoRotate = nil
 pcall(function()
 local c = LocalPlayer.Character
@@ -9425,6 +9433,9 @@ if hum then
 FC_MOD.savedHum = hum
 FC_MOD.savedWalkSpeed = hum.WalkSpeed
 FC_MOD.savedJumpPower = hum.JumpPower
+-- 0.39v8 FIX: сохраняем JumpHeight и UseJumpPower для восстановления
+FC_MOD.savedJumpHeight = hum.JumpHeight
+FC_MOD.savedUseJumpPower = hum.UseJumpPower
 FC_MOD.savedAutoRotate = hum.AutoRotate
 hum.WalkSpeed = 0
 hum.JumpPower = 0
@@ -9629,13 +9640,28 @@ local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
 if hrp2 and hrp2 ~= FC_MOD.savedHRP then
 hrp2.Anchored = false
 end
--- STEALTH 0.39: восстанавливаем WalkSpeed/JumpPower/AutoRotate
+-- STEALTH 0.39: восстанавливаем WalkSpeed/JumpPower/JumpHeight/AutoRotate
 if FC_MOD.savedHum and FC_MOD.savedHum.Parent then
 FC_MOD.savedHum.WalkSpeed = FC_MOD.savedWalkSpeed or 16
 FC_MOD.savedHum.JumpPower = FC_MOD.savedJumpPower or 50
+-- 0.39v8 FIX: восстанавливаем JumpHeight (современные игры используют его, не JumpPower)
+FC_MOD.savedHum.JumpHeight = FC_MOD.savedJumpHeight or 7.2
+-- 0.39v8 FIX: UseJumpPower — восстанавливаем тоже
+if FC_MOD.savedUseJumpPower ~= nil then
+FC_MOD.savedHum.UseJumpPower = FC_MOD.savedUseJumpPower
+end
 FC_MOD.savedHum.AutoRotate = FC_MOD.savedAutoRotate ~= false
 pcall(function()
+-- 0.39v8 FIX: GettingUp может не вывести из Physics. Пробуем Landed + свободное состояние.
 FC_MOD.savedHum:ChangeState(Enum.HumanoidStateType.GettingUp)
+task.wait(0.05)
+FC_MOD.savedHum:ChangeState(Enum.HumanoidStateType.Running)
+end)
+-- 0.39v8 FIX: снимаем якорь с HRP обязательно
+pcall(function()
+if FC_MOD.savedHRP and FC_MOD.savedHRP.Parent then
+FC_MOD.savedHRP.Anchored = false
+end
 end)
 end
 end)

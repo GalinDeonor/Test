@@ -1,19 +1,4 @@
-nstances:Create("UICorner", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Items["Glow2"] = Instances:Create("ImageLabel", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
+= 1,
 Position = UDim2New(0.5, 0, 0.5, 0),
 ZIndex = 2,
 BorderSizePixel = 0,
@@ -1157,10 +1142,27 @@ end)
 return vp
 end
 function windowedSize(vp)
-local w = math.clamp(math.min(900, vp.X - 24), 320, 900)
-local h = math.clamp(math.min(600, vp.Y - 90), 240, 600)
-w = math.max(200, math.min(w, vp.X - WINDOW_MARGIN * 2))
-h = math.max(150, math.min(h, vp.Y - WINDOW_MARGIN * 2))
+-- 0.39v8 FIX: адаптивный размер под телефон. На маленьких экранах
+-- окно не должно быть больше 85% ширины и 70% высоты.
+local isPhone = not UserInputService.KeyboardEnabled
+local maxW, maxH
+if isPhone then
+-- телефон: окно 85% ширины, 70% высоты
+maxW = math.floor(vp.X * 0.85)
+maxH = math.floor(vp.Y * 0.70)
+else
+-- ПК: до 900×600
+maxW = 900
+maxH = 600
+end
+-- не меньше минимума
+maxW = math.max(maxW, 280)
+maxH = math.max(maxH, 220)
+-- не больше экрана минус маргины
+maxW = math.min(maxW, vp.X - WINDOW_MARGIN * 2)
+maxH = math.min(maxH, vp.Y - WINDOW_MARGIN * 2)
+local w = math.clamp(maxW, 280, maxW)
+local h = math.clamp(maxH, 220, maxH)
 return math.floor(w), math.floor(h)
 end
 function clampWindowOnScreen()
@@ -2145,4 +2147,9 @@ line.TextTransparency = textT
 line.TextColor3 = (line == hudLineAdmin) and Color3.fromRGB(255, 80, 80) or colText
 end
 end
-local bg = math.clamp(S.HUD.BgTran
+local bg = math.clamp(S.HUD.BgTransparency or 0.35, 0, 0.95)
+if S.HUD.ShowBg then
+hudFrame.BackgroundTransparency = bg
+hudFrame.BackgroundColor3 = colBg
+if hudStroke then
+hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1
