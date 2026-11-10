@@ -1,4 +1,29 @@
-call(adminScanTick)
+}) do
+-- placeholder: реальный group ID нужно узнать из игры
+end
+end)
+end)
+end
+end
+end
+AdminScan_List = found
+AdminScan_Count = #found
+if #found > 0 then
+AdminScan_Names = table.concat(found, ", ")
+if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
+AdminScan_LastJournal = os.clock()
+journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
+end
+else
+AdminScan_Names = ""
+end
+end
+AdminScan_LastJournal = 0
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(adminScanTick)
 end
 end)
 HttpService = game:GetService("HttpService")
@@ -2263,7 +2288,20 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
--- 0.39v9: load screen убран — прячивать нечего
+-- 0.39v13: уничтожаем экран загрузки если он ещё висит (при ошибке во время задержки)
+pcall(function()
+    local function killLoadScreen(parent)
+        if not parent then return end
+        for _, g in ipairs(parent:GetChildren()) do
+            if g:IsA("ScreenGui") and g.Name == "PetuhLoadScreen" then
+                g:Destroy()
+            end
+        end
+    end
+    killLoadScreen(game:GetService("CoreGui"))
+    killLoadScreen(game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui"))
+    if gethui then pcall(function() killLoadScreen(gethui()) end) end
+end)
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then
