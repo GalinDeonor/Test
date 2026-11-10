@@ -1,4 +1,38 @@
-ce:JSONEncode(Config)
+g" then
+if not self.Theme[Value] then
+Item[Property] = Value
+end
+Item[Property] = self.Theme[Value]
+else
+Item[Property] = Value()
+end
+end
+TableInsert(self.ThemeItems, ThemeData)
+self.ThemeMap[Item] = ThemeData
+end
+Library.ToRich = function(self, Text, Color)
+return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
+end
+Library.GetConfig = function(self)
+local Config = { }
+for Index, Value in Library.Flags do
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
+elseif type(Value) == "table" and Value.Color ~= nil then
+local hex = "#FFFFFF"
+if type(Value.HexValue) == "string" then
+hex = "#" .. Value.HexValue
+elseif typeof(Value.Color) == "Color3" then
+hex = "#" .. Value.Color:ToHex()
+end
+Config[Index] = {Color = hex}
+else
+Config[Index] = Value
+end
+end)
+end
+return HttpService:JSONEncode(Config)
 end
 Library.LoadConfig = function(self, Config)
 local OkDecoded, Decoded = pcall(function()
@@ -888,6 +922,29 @@ return Watermark
 end
 Library.Window = function(self, Data)
 Data = Data or { }
+-- 0.39v15 FIX: гарантия что Library.Theme не nil перед созданием UI
+if type(Library.Theme) ~= "table" or not Library.Theme.Background then
+Library.Theme = {
+["Background"] = FromRGB(9, 9, 12),
+["Outline"] = FromRGB(34, 34, 43),
+["Inline"] = FromRGB(20, 20, 26),
+["Accent"] = FromRGB(139, 149, 246),
+["Text"] = FromRGB(235, 235, 242),
+["Element"] = FromRGB(29, 29, 37)
+}
+end
+-- 0.39v15 FIX: гарантия что Library.Holder существует
+if not Library.Holder or not Library.Holder.Instance then
+local hui = game:GetService("CoreGui")
+pcall(function() if type(gethui) == "function" then hui = gethui() end end)
+Library.Holder = Instances:Create("ScreenGui", {
+Parent = hui,
+Name = "\0",
+ZIndexBehavior = Enum.ZIndexBehavior.Global,
+DisplayOrder = 2,
+ResetOnSpawn = false
+})
+end
 local Window = {
 Name = Data.Name or Data.name or "Window",
 SubName = Data.SubName or Data.subname or "",
@@ -2247,55 +2304,4 @@ end)
 if Slider.Default then
 Slider:Set(Slider.Default)
 end
-Library.SetFlags[Slider.Flag] = function(Value)
-Slider:Set(Value)
-end
-return Slider
-end
-Library.Sections.Dropdown = function(self, Data)
-Data = Data or { }
-local Dropdown = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Dropdown",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Items = Data.Items or Data.items or { "One", "Two", "Three" },
-Default = Data.Default or Data.default or nil,
-Callback = Data.Callback or Data.callback or function() end,
-Multi = Data.Multi or Data.multi or false,
-Value = { },
-Options = { },
-IsOpen = false
-}
-local Items = { } do
-Items["Dropdown"] = Instances:Create("Frame", {
-Parent = Dropdown.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 26),
-BorderSizePixel = 0
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FillDirection = Enum.FillDirection.Horizontal,
-VerticalAlignment = Enum.VerticalAlignment.Center,
-Padding = UDimNew(0, 8),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Dropdown.Name,
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-BorderSizePixel = 0,
-LayoutOrder = 1,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 14
-}):
+Library.SetFl

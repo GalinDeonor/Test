@@ -1,4 +1,55 @@
-AddToTheme({TextColor3 = 'Text'})
+ags[Slider.Flag] = function(Value)
+Slider:Set(Value)
+end
+return Slider
+end
+Library.Sections.Dropdown = function(self, Data)
+Data = Data or { }
+local Dropdown = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Dropdown",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Items = Data.Items or Data.items or { "One", "Two", "Three" },
+Default = Data.Default or Data.default or nil,
+Callback = Data.Callback or Data.callback or function() end,
+Multi = Data.Multi or Data.multi or false,
+Value = { },
+Options = { },
+IsOpen = false
+}
+local Items = { } do
+Items["Dropdown"] = Instances:Create("Frame", {
+Parent = Dropdown.Section.Items["Content"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 26),
+BorderSizePixel = 0
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FillDirection = Enum.FillDirection.Horizontal,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Padding = UDimNew(0, 8),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Dropdown.Name,
+Size = UDim2New(0, 0, 0, 15),
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+LayoutOrder = 1,
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 14
+}):AddToTheme({TextColor3 = 'Text'})
 Items["RealDropdown"] = Instances:Create("TextButton", {
 Parent = Items["Dropdown"].Instance,
 Name = "\0",
@@ -2100,34 +2151,4 @@ function hudEnsure()
 if hudFrame then
 return
 end
-local okGui = pcall(function()
-local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
-hudGui = Instance.new("ScreenGui")
-hudGui.Name = "PetuhHUD"
-hudGui.ResetOnSpawn = false
-hudGui.IgnoreGuiInset = true
-hudGui.DisplayOrder = 9999
-hudGui.Parent = parentGui
-hudFrame = Instance.new("Frame")
-hudFrame.Name = "Panel"
-hudFrame.Active = true
-hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-hudFrame.BorderSizePixel = 0
-hudFrame.AutomaticSize = Enum.AutomaticSize.XY
-hudFrame.Size = UDim2.new(0, 0, 0, 0)
-hudFrame.Parent = hudGui
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = hudFrame
-hudStroke = Instance.new("UIStroke")
-hudStroke.Color = Color3.fromRGB(255, 170, 40)
-hudStroke.Transparency = 0.6
-hudStroke.Parent = hudFrame
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.Padding = UDim.new(0, 2)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = hudFrame
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 6)
-pad.Padding
+local ok

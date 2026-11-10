@@ -809,7 +809,25 @@ local Themes = {
 ["Element"] = FromRGB(29, 29, 37)
 }
 }
-Library.Theme = TableClone(Themes["Preset"])
+Library.Theme = TableClone(Themes["Preset"]) or {
+["Background"] = FromRGB(9, 9, 12),
+["Outline"] = FromRGB(34, 34, 43),
+["Inline"] = FromRGB(20, 20, 26),
+["Accent"] = FromRGB(139, 149, 246),
+["Text"] = FromRGB(235, 235, 242),
+["Element"] = FromRGB(29, 29, 37)
+}
+-- 0.39v15 FIX: гарантия что Library.Theme не nil
+if type(Library.Theme) ~= "table" then
+Library.Theme = {
+["Background"] = FromRGB(9, 9, 12),
+["Outline"] = FromRGB(34, 34, 43),
+["Inline"] = FromRGB(20, 20, 26),
+["Accent"] = FromRGB(139, 149, 246),
+["Text"] = FromRGB(235, 235, 242),
+["Element"] = FromRGB(29, 29, 37)
+}
+end
 for Index, Value in Library.Folders do
 pcall(function()
 if not isfolder(Value) then
@@ -1131,30 +1149,47 @@ function CustomFont:New(Name, Weight, Style, Data)
 -- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
 -- Возвращаем Roblox шрифт, кастомные не грузим.
 -- 0.39v7 FIX: FontFace хочет Font object, не EnumItem. Используем Font.fromEnum.
-return Font.fromEnum(Enum.Font.GothamMedium)
+-- 0.39v15 FIX: Font.fromEnum может отсутствовать на старых клиентах — pcall + fallback
+local ok, font = pcall(function() return Font.fromEnum(Enum.Font.GothamMedium) end)
+if ok and font then return font end
+return Enum.Font.GothamMedium
 end
 do
 -- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
 -- который детектится анти-читом. Используем Roblox GothamMedium.
 -- 0.39v7 FIX: Font.new(Enum.Font.X) ломается — присваиваем Enum.Font напрямую.
-Library.Font = Font.fromEnum(Enum.Font.GothamMedium)
+-- 0.39v15 FIX: pcall защита — Font.fromEnum может отсутствовать
+local okF, fontF = pcall(function() return Font.fromEnum(Enum.Font.GothamMedium) end)
+if okF and fontF then
+Library.Font = fontF
+else
+Library.Font = Enum.Font.GothamMedium
 end
+end
+end
+-- 0.39v15 FIX: IgnoreGuiInset может падать на некоторых экзекуаторах.
+-- Убираем — позиционирование окна и так работает.
+-- Также pcall защита на случай если gethui() nil
+local function safeGetHui()
+    if type(gethui) == "function" then
+        local ok, hui = pcall(gethui)
+        if ok and hui then return hui end
+    end
+    return game:GetService("CoreGui")
 end
 Library.Holder = Instances:Create("ScreenGui", {
-Parent = gethui(),
+Parent = safeGetHui(),
 Name = "\0",
 ZIndexBehavior = Enum.ZIndexBehavior.Global,
 DisplayOrder = 2,
-ResetOnSpawn = false,
-IgnoreGuiInset = true -- 0.39v12 FIX: без этого GUI съезжает вниз на 36px (top inset)
+ResetOnSpawn = false
 })
 Library.UnusedHolder = Instances:Create("ScreenGui", {
-Parent = gethui(),
+Parent = safeGetHui(),
 Name = "\0",
 ZIndexBehavior = Enum.ZIndexBehavior.Global,
 Enabled = false,
-ResetOnSpawn = false,
-IgnoreGuiInset = true
+ResetOnSpawn = false
 })
 Library.Unload = function(self)
 for Index, Value in self.Connections do
@@ -1225,38 +1260,4 @@ Item = Item,
 Properties = Properties,
 }
 for Property, Value in ThemeData.Properties do
-if type(Value) == "string" then
-if not self.Theme[Value] then
-Item[Property] = Value
-end
-Item[Property] = self.Theme[Value]
-else
-Item[Property] = Value()
-end
-end
-TableInsert(self.ThemeItems, ThemeData)
-self.ThemeMap[Item] = ThemeData
-end
-Library.ToRich = function(self, Text, Color)
-return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
-end
-Library.GetConfig = function(self)
-local Config = { }
-for Index, Value in Library.Flags do
-pcall(function()
-if type(Value) == "table" and Value.Key ~= nil then
-Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
-elseif type(Value) == "table" and Value.Color ~= nil then
-local hex = "#FFFFFF"
-if type(Value.HexValue) == "string" then
-hex = "#" .. Value.HexValue
-elseif typeof(Value.Color) == "Color3" then
-hex = "#" .. Value.Color:ToHex()
-end
-Config[Index] = {Color = hex}
-else
-Config[Index] = Value
-end
-end)
-end
-return HttpServi
+if type(Value) == "strin
