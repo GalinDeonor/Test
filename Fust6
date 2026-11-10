@@ -1,4 +1,4 @@
- если игра дала плейс-специфичную группу
+о если игра дала плейс-специфичную группу
 local placeGroup = nil
 pcall(function()
 -- FUST: пробуем common survival group IDs

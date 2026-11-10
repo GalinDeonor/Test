@@ -1,4 +1,4 @@
-r 0.35, 0, 0.95)
+sparency or 0.35, 0, 0.95)
 if S.HUD.ShowBg then
 hudFrame.BackgroundTransparency = bg
 hudFrame.BackgroundColor3 = colBg
@@ -2470,4 +2470,4 @@ function dummy:Remove() end
 return dummy
 end
 Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
-warn("[FUST] Drawing недоступен в этом экзекуто
+warn("[FUST] Drawing недоступен в этом экзек

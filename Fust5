@@ -1,4 +1,4 @@
-ре — ESP/прицел работают вхолостую")
+уторе — ESP/прицел работают вхолостую")
 end
 AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
 AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
@@ -2430,4 +2430,4 @@ end
 --    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
 if not isAdm then
 pcall(function()
--- Проверяем только
+-- Проверяем тольк
