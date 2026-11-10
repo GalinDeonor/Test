@@ -1,4 +1,8 @@
-ed:Connect(function()
+me.AbsolutePosition
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
+hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
+input.Changed:Connect(function()
 if input.UserInputState == Enum.UserInputState.End
 or input.UserInputState == Enum.UserInputState.Cancel then
 hudDragging = false
@@ -2413,7 +2417,4 @@ chLines[1].Visible = visible
 elseif chLines[1] then
 chLines[1].Visible = false
 end
--- bottom
-if chLines[2] then
-chLines[2].From = Vector2.new(center.X, center.Y + gap)
-chLines[2].To = Vector2.new(center.X, 
+-- 

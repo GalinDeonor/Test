@@ -4513,6 +4513,9 @@ Library:ChangeTheme("Accent", Library.Theme.Accent)
 end)
 MainFrame = Window.Items["MainFrame"].Instance
 WINDOW_MARGIN = 8
+-- 0.39v11 FIX: получаем UserInputService напрямую (глобальная определена ниже,
+-- а local из библиотеки не видна — windowedSize падала с nil error в pcall)
+local UIS_EARLY = game:GetService("UserInputService")
 -- 0.39v10 FIX: принудительный resize при старте — на телефоне окно 900×600
 -- растянуто на весь экран. Уменьшаем сразу.
 task.defer(function()
@@ -4537,9 +4540,12 @@ end)
 return vp
 end
 function windowedSize(vp)
--- 0.39v8 FIX: адаптивный размер под телефон. На маленьких экранах
--- окно не должно быть больше 85% ширины и 70% высоты.
-local isPhone = not UserInputService.KeyboardEnabled
+-- 0.39v11 FIX: UserInputService получаем напрямую — глобальная может быть не определена
+local UIS = UserInputService
+if not UIS or type(UIS) ~= "userdata" then
+pcall(function() UIS = game:GetService("UserInputService") end)
+end
+local isPhone = UIS and (not UIS.KeyboardEnabled) or false
 local maxW, maxH
 if isPhone then
 -- телефон: окно 85% ширины, 70% высоты

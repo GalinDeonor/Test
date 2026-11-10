@@ -1,6 +1,4 @@
-
-Library.CreateColorpicker = function(self, Data)
-local Colorpicker = {
+picker = {
 Flag = Data.Flag,
 Hue = 0,
 Saturation = 0,
@@ -2265,4 +2263,8 @@ BorderSizePixel = 0
 Instances:Create("Frame", {
 Parent = Items["RealDropdown"].Instance,
 Name = "\0",
-AnchorPoint = Vect
+AnchorPoint = Vector2New(1, 0),
+Position = UDim2New(1, -32, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 1, 1, 0),
+BorderSizeP

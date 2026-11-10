@@ -1,4 +1,7 @@
-center.Y + gap + len)
+bottom
+if chLines[2] then
+chLines[2].From = Vector2.new(center.X, center.Y + gap)
+chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
 chLines[2].Thickness = th
 chLines[2].Color = CH.Color
 chLines[2].Transparency = 1 - alpha
@@ -2399,7 +2402,4 @@ task.spawn(function()
 while true do
 task.wait(5)
 if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
-end
-end)
-HttpService = game:GetService(
+p

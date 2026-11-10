@@ -1,4 +1,7 @@
-"HttpService")
+call(adminScanTick)
+end
+end)
+HttpService = game:GetService("HttpService")
 CONFIG_FILE = "FUST_config.json"
 function colorToTable(c)
 return {

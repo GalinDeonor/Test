@@ -1299,3 +1299,5 @@ local Top = Object.AbsolutePosition
 local Bottom = Top + Object.AbsoluteSize
 return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
 end
+Library.CreateColorpicker = function(self, Data)
+local Color
