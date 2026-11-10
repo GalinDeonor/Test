@@ -1,45 +1,44 @@
-=== РЕЛИЗ «Пьяный Петух» 0.44 ===
-Полный размер:   1382447 байт (md5: 52361332b233dcd67f6f4e3015a4e200)
-Частей:          25
+=== РЕЛИЗ «Пьяный Петух» 0.45 ===
+Полный размер:   1384559 байт (md5: da4d63a9740f238efdae487bff50fd81)
+Частей:          24
 
 Размеры частей (для проверки в лоадере не нужны — берутся из manifest.json):
-  Fust1       55297 байт  md5=21e47e8a70c6c0b841bb52b29ea7cb72
-  Fust2       55297 байт  md5=451b67d2855273501ee9c3a5afdf37b9
-  Fust3       55297 байт  md5=583aec7ba178494233147f55f4166ac8
-  Fust4       55297 байт  md5=0acacfd8dbe70af9fbdfce39ce2c1cf0
-  Fust5       55297 байт  md5=c5038582bbe7152f9bcdbae2f50e8590
-  Fust6       55297 байт  md5=51fc9c605e5ef38ca8395c94e0fb4b79
-  Fust7       55297 байт  md5=d70c470f4eef0ff1c0aeacf08bd8b570
-  Fust8       55297 байт  md5=c84fd0d958ccf4bde5232c5bd381eb23
-  Fust9       55297 байт  md5=5a8451ccd4899dab3b5d6f00eb191349
-  Fust10      55297 байт  md5=2bef74750bf4d08f34cc9b3445713539
-  Fust11      55297 байт  md5=901c89b64fbfb3cd5d39e96e0fb98c17
-  Fust12      55297 байт  md5=2870cfac512087089b20e723b7977764
-  Fust13      55297 байт  md5=055f8757b62e44d29344421f4ef1c27c
-  Fust14      55297 байт  md5=13aa8f4011d4aeb0a1ce345762a07bef
-  Fust15      55297 байт  md5=f7723fd7a24fd708e84709204c072d98
-  Fust16      55297 байт  md5=2eb0e9d62bce353dc12769a5adca6bed
-  Fust17      55297 байт  md5=5e7c028b847e10d947ef8b7b8f8c3682
-  Fust18      55297 байт  md5=e6117846ba3defeb8f76f16d2841bcf9
-  Fust19      55297 байт  md5=abfaba781b777a736b35be24d5ed5385
-  Fust20      55297 байт  md5=6fe11599a86923b34ea9822ee4d63113
-  Fust21      55297 байт  md5=88db73394c677f672d32131ce7146007
-  Fust22      55297 байт  md5=a2fd965564b3d25c26b4e5c8ce10eaa5
-  Fust23      55297 байт  md5=80ae1ee9c4e287fcc8cdd94bfba451b1
-  Fust24      55297 байт  md5=45979ae7b91694e4dcc4e6cbb53d7320
-  Fust25      55319 байт  md5=3858b265e4dea708d74ecd9e48cf71c8
-  СУММА     1382447 байт
+  Fust1       57689 байт  md5=16a44ac8589e66d37c12b63795034955
+  Fust2       57689 байт  md5=eaac6f273c112ec9ca6f084c6b693b90
+  Fust3       57689 байт  md5=153d3457efb6104507f76c39b0134f0c
+  Fust4       57689 байт  md5=5d0844d1543b096c0a55ad65d73fd4e4
+  Fust5       57689 байт  md5=3ab31ba8672375210fe157b01d890467
+  Fust6       57689 байт  md5=db3d77c61946ca187d88e43ba54faea1
+  Fust7       57689 байт  md5=2772cbdee79a8a5549b5aff5ad7706c1
+  Fust8       57689 байт  md5=9b849d7d0974411214c32876d3351199
+  Fust9       57689 байт  md5=0f682e2bdd646328e42fd7955d70c5f6
+  Fust10      57689 байт  md5=a5ee410b9d7d304a968596d2dfdf4d12
+  Fust11      57689 байт  md5=21b629dde1da226f4d28ecf78060afd6
+  Fust12      57689 байт  md5=563b06b320ae3a33c3d43d95b7c7d46e
+  Fust13      57689 байт  md5=3d2150b881da34c4fcb772ae928d54a9
+  Fust14      57689 байт  md5=fb9a4588b979a4f9620fe91245cdc799
+  Fust15      57689 байт  md5=5f96e5828d8575f6a734f5f51c341ce0
+  Fust16      57689 байт  md5=29ad312cfdc26445c94846a2791af39e
+  Fust17      57689 байт  md5=59872636d268b217f6cc2168e3f6fc93
+  Fust18      57689 байт  md5=9e17b23cf86b7421e382df82fcb75727
+  Fust19      57689 байт  md5=e576ff2ea9c1ab1318399e20098ad29b
+  Fust20      57689 байт  md5=e6396ec82994bfea92320208c5839f1c
+  Fust21      57689 байт  md5=959bba2981dad25ea3232a7a0f059407
+  Fust22      57689 байт  md5=e3acdb3f47e952497c6e33576fe6a28f
+  Fust23      57689 байт  md5=f2f5242dd8c21b19d358602410340b93
+  Fust24      57712 байт  md5=018059ebf51dbe04f063e80a9ca0df76
+  СУММА     1384559 байт
 
 ЧТО ЗАЛИВАТЬ В РЕПО GalinDeonor/Test (заменить старые):
-  Fust1, Fust2, ..., Fust25
+  Fust1, Fust2, ..., Fust24
   Fust           (для Xeno одним файлом — опционально, но рекомендуется)
   manifest.json  (ОБЯЗАТЕЛЬНО — лоадер читает v/sizes из него)
 
 ПОСЛЕ ЗАЛИВКИ:
   1. Проверь: https://raw.githubusercontent.com/GalinDeonor/Test/main/manifest.json
      должен отдавать новый файл (Ctrl+Shift+R от CDN-кэша).
-  2. ?v=44 в лоадере подставится автоматически из manifest.v.
-  3. ЛОАДЕР ОБНОВЛЁН до v2 (md5-проверка) — обязательно вставь новый текст в экзекутор.
+  2. ?v=45 в лоадере подставится автоматически из manifest.v.
+  3. Лоадер v3 — ОПЦИОНАЛЬНО (старый лоадер на 24 файла тоже сработает).
 
 ПРОВЕРКА СБОРКИ (cat частей == исходный Fust):
-  cat Fust1..25 == Fust : OK
+  cat Fust1..24 == Fust : OK
