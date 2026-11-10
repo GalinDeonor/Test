@@ -1,9 +1,15 @@
-�ую VOMAGLA-библиотеку.
--- Лицензия LiquidGlass запрещает копировать/править её исходник, поэтому
--- грузим ОФИЦИАЛЬНЫМ лоадстрингом и кастомизируем через публичный API.
--- Голубой акцент библиотеки заменён КРАСНЫМ (255, 59, 48).
--- ============================================================================
-local LIB_URL = "https://raw.githubusercontent.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua"
+t.com иногда висел на Delta (HTTP без
+-- таймаута) → "2/4" зависал намертво. Теперь пробуем 4 зеркала по очереди,
+-- каждое с явным таймаутом через request/http_request (если executor даёт),
+-- и кешируем результат в Petuh/cache_liquidglass.lua — при следующем запуске
+-- грузим из кеша (мгновенно), а GitHub только для проверки обновлений.
+local LIB_URLS = {
+"https://raw.githubusercontent.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
+"https://cdn.jsdelivr.net/gh/fischgesichtert/LiquidGlass@main/dist/LiquidGlass.lua",
+"https://raw.githack.com/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
+"https://gitcdn.xyz/repo/fischgesichtert/LiquidGlass/main/dist/LiquidGlass.lua",
+}
+local CACHE_FILE = "Petuh/cache_liquidglass.lua"
 
 -- 0.40 SAFETY: getcustomasset детектится анти-читом этой игры (см. 0.39v6 —
 -- за него кикало). LiquidGlass без него сам откатывается на чистые контуры
@@ -11,17 +17,94 @@ local LIB_URL = "https://raw.githubusercontent.com/fischgesichtert/LiquidGlass/m
 -- Если захочешь полный стеклянный вид — удали следующую строку НА СВОЙ РИСК.
 getgenv().getcustomasset = nil
 
+-- 0.43: скип интро "Entity" — оно играло 3 сек и могло подвисать на мобиле.
+-- Лицензия позволяет скипать через getgenv().LiquidGlassSkipIntro = true.
+getgenv().LiquidGlassSkipIntro = true
+
+-- прогресс-баннер (обновляем поверх loadWidget)
+local function setProgress(text, color)
+pcall(function()
+if lwText and lwText.Parent then
+lwText.Text = text
+lwText.TextColor3 = color or Color3.fromRGB(240, 130, 30)
+end
+end)
+end
+
+-- HTTP с таймаутом: пробуем request/http_request (у них есть timeout),
+-- если их нет — fallback на game:HttpGet (без таймаута, но быстро на хорошем интернете).
+local function httpGetWithTimeout(url, timeoutSec)
+timeoutSec = timeoutSec or 8
+-- путь 1: request (Synapse-style, есть в Delta/Xeno)
+local req = request or http_request or (syn and syn.request)
+if req then
+local ok, res = pcall(function()
+return req({ Url = url, Method = "GET", Timeout = timeoutSec * 1000 })
+end)
+if ok and type(res) == "table" and res.Body and #res.Body > 1000 then
+return res.Body
+end
+end
+-- путь 2: game:HttpGet (без таймаута, но с fallback на короткий запрос)
+local ok2, body = pcall(function() return game:HttpGet(url) end)
+if ok2 and type(body) == "string" and #body > 1000 then
+return body
+end
+return nil
+end
+
 local LG = nil
 do
-local ok, result = pcall(function()
-return loadstring(game:HttpGet(LIB_URL))()
+setProgress("2/4: гружу LiquidGlass (кеш...)", Color3.fromRGB(120, 200, 120))
+-- 0.43: сначала пробуем кеш (мгновенно)
+local cachedOk, cachedSrc = pcall(function()
+if type(isfile) == "function" and isfile(CACHE_FILE) then
+return readfile(CACHE_FILE)
+end
+return nil
 end)
-if ok and type(result) == "table" then
-LG = result
-else
-error("[FUST] LiquidGlass не загрузился: " .. tostring(result) .. " (проверь интернет)")
+if cachedOk and type(cachedSrc) == "string" and #cachedSrc > 10000 then
+setProgress("2/4: гружу LiquidGlass (из кеша)...", Color3.fromRGB(120, 200, 120))
+local cOk, cResult = pcall(function()
+return loadstring(cachedSrc)()
+end)
+if cOk and type(cResult) == "table" then
+LG = cResult
 end
 end
+
+if not LG then
+-- кеша нет/битый — качаем с зеркал
+for i, url in ipairs(LIB_URLS) do
+setProgress("2/4: гружу LiquidGlass (зеркало " .. i .. "/" .. #LIB_URLS .. ")...", Color3.fromRGB(240, 180, 60))
+local body = httpGetWithTimeout(url, 8)
+if body then
+local lOk, lResult = pcall(function() return loadstring(body)() end)
+if lOk and type(lResult) == "table" then
+LG = lResult
+-- сохраняем в кеш (для следующих запусков)
+pcall(function()
+if type(makefolder) == "function" and not isfolder("Petuh") then
+makefolder("Petuh")
+end
+if type(writefile) == "function" then
+writefile(CACHE_FILE, body)
+end
+end)
+break
+end
+end
+end
+end
+
+if not LG then
+setProgress("2/4: LiquidGlass НЕ загрузился!", Color3.fromRGB(255, 80, 80))
+task.wait(1)
+error("[FUST] LiquidGlass не загрузился ни с одного зеркала. Проверь интернет. Кеш: " .. tostring(cachedOk and #cachedSrc or 0) .. " байт")
+end
+end
+
+setProgress("2/4: LiquidGlass загружен, инициализация...", Color3.fromRGB(120, 200, 120))
 
 -- КРАСНЫЙ вместо голубого
 local ACCENT_RED = Color3.fromRGB(255, 59, 48)
@@ -32,7 +115,7 @@ MathClamp = math.clamp
 
 local Library = {}
 Library.LG = LG
-Library.Version = "0.42-LiquidGlass"
+Library.Version = "0.43-LiquidGlass"
 Library.MenuKeybind = "RightControl"
 Library.Flags = {}      -- [flag] = значение или {Key=..}/{Color="#hex"}
 Library.SetFlags = {}   -- [flag] = обёртка элемента (для LoadConfig)
@@ -1550,43 +1633,4 @@ ITEM_RU_DICT = {
 -- холодное оружие
 ["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
 ["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
-["bone knife"] = "Костяной нож", ["stone spear"] = "Каменное копьё",
-["wooden spear"] = "Деревянное копьё", ["metal spear"] = "Металлическое копьё",
-["longsword"] = "Длинный меч", ["mace"] = "Булава",
--- расходники
-["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
-["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
-["large backpack"] = "Большой рюкзак",
-["small bag"] = "Маленькая сумка", ["leather bag"] = "Кожаная сумка",
--- медицина (Rust)
-["large bandage"] = "Большой бинт",
-["medical syringe"] = "Медицинский шприц", ["anti-rad pills"] = "Анти-рад таблетки",
-["antirad pills"] = "Анти-рад таблетки", ["radiation pills"] = "Противорадиационные таблетки",
--- расходники для базы (Rust)
-["wood wall"] = "Деревянная стена", ["stone wall"] = "Каменная стена",
-["metal wall"] = "Металлическая стена", ["armored wall"] = "Бронированная стена",
-["wood door"] = "Деревянная дверь", ["metal door"] = "Металлическая дверь",
-["key lock"] = "Замок с ключом", ["code lock"] = "Кодовый замок",
-["wood ladder"] = "Деревянная лестница", ["wood stairs"] = "Деревянные ступени",
-["toolbox"] = "Ящик с инструментами", ["wood box"] = "Деревянный ящик",
-["large wood box"] = "Большой деревянный ящик", ["storage box"] = "Ящик для хранения",
-["vending machine"] = "Торговый автомат",
--- гранаты/взрывчатка (Rust)
-["grenade"] = "Граната", ["frag grenade"] = "Осколочная граната",
-["flashbang"] = "Светошумовая", ["smoke"] = "Дымовая",
-["molotov"] = "Коктейль Молотова", ["incendiary grenade"] = "Зажигательная граната",
-["c4"] = "С4", ["satchel charge"] = "Разрывной заряд",
-["timed explosive"] = "Тайм-взрывчатка", ["rocket"] = "Ракета",
-["rockets"] = "Ракеты", ["rocket launcher"] = "Ракетница",
-}
-function translateItemName(name)
-if not ItemRuTranslate or type(name) ~= "string" then
-return name
-end
-local nl = string.lower(name)
--- точное совпадение
-if ITEM_RU_DICT[nl] then
-return ITEM_RU_DICT[nl]
-end
--- частичное совпадение по подстроке
-for eng, rus in pairs(ITEM_RU_
+["bone knife"] = "Костяной нож", ["stone spear"] = "Каменное копь�

@@ -1,4 +1,43 @@
-DICT) do
+�",
+["wooden spear"] = "Деревянное копьё", ["metal spear"] = "Металлическое копьё",
+["longsword"] = "Длинный меч", ["mace"] = "Булава",
+-- расходники
+["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
+["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
+["large backpack"] = "Большой рюкзак",
+["small bag"] = "Маленькая сумка", ["leather bag"] = "Кожаная сумка",
+-- медицина (Rust)
+["large bandage"] = "Большой бинт",
+["medical syringe"] = "Медицинский шприц", ["anti-rad pills"] = "Анти-рад таблетки",
+["antirad pills"] = "Анти-рад таблетки", ["radiation pills"] = "Противорадиационные таблетки",
+-- расходники для базы (Rust)
+["wood wall"] = "Деревянная стена", ["stone wall"] = "Каменная стена",
+["metal wall"] = "Металлическая стена", ["armored wall"] = "Бронированная стена",
+["wood door"] = "Деревянная дверь", ["metal door"] = "Металлическая дверь",
+["key lock"] = "Замок с ключом", ["code lock"] = "Кодовый замок",
+["wood ladder"] = "Деревянная лестница", ["wood stairs"] = "Деревянные ступени",
+["toolbox"] = "Ящик с инструментами", ["wood box"] = "Деревянный ящик",
+["large wood box"] = "Большой деревянный ящик", ["storage box"] = "Ящик для хранения",
+["vending machine"] = "Торговый автомат",
+-- гранаты/взрывчатка (Rust)
+["grenade"] = "Граната", ["frag grenade"] = "Осколочная граната",
+["flashbang"] = "Светошумовая", ["smoke"] = "Дымовая",
+["molotov"] = "Коктейль Молотова", ["incendiary grenade"] = "Зажигательная граната",
+["c4"] = "С4", ["satchel charge"] = "Разрывной заряд",
+["timed explosive"] = "Тайм-взрывчатка", ["rocket"] = "Ракета",
+["rockets"] = "Ракеты", ["rocket launcher"] = "Ракетница",
+}
+function translateItemName(name)
+if not ItemRuTranslate or type(name) ~= "string" then
+return name
+end
+local nl = string.lower(name)
+-- точное совпадение
+if ITEM_RU_DICT[nl] then
+return ITEM_RU_DICT[nl]
+end
+-- частичное совпадение по подстроке
+for eng, rus in pairs(ITEM_RU_DICT) do
 if string.find(nl, eng, 1, true) then
 return rus
 end
@@ -1806,87 +1845,4 @@ if AimHotkeyObj then
 AimHotkeyObj.Toggled = state
 end
 journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-hasKeyboard = false
-pcall(function()
-hasKeyboard = (UserInputService.KeyboardEnabled == true)
-end)
-if hasKeyboard then
-AimHotkeyBusy = true
-AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
-Flag = "AimHotkey",
-Default = Enum.KeyCode.RightAlt,
-Mode = "Toggle",
-Callback = function(state)
-if AimHotkeyBusy then return end
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-UIRegistry.AimEnabled:Set(state)
-end
-end
-})
-AimHotkeyBusy = false
-UIRegistry.AimHotkey = AimHotkeyObj
-end
-UIRegistry.AimShowFOV = AimSection:Toggle({
-Name = "FOV круг (зеленеет при захвате)",
-Flag = "AimShowFOV",
-Default = false,
-Callback = function(state)
-Aim.ShowFOV = state
-end
-})
-UIRegistry.AimWallCheck = AimSection:Toggle({
-Name = "Проверка стен",
-Flag = "AimWallCheck",
-Default = true,
-Callback = function(state)
-Aim.WallCheck = state
-end
-})
-UIRegistry.AimTeamCheck = AimSection:Toggle({
-Name = "Не целить тимейтов (одна команда)",
-Flag = "AimTeamCheck",
-Default = false,
-Callback = function(state)
-Aim.TeamCheck = state
-end
-})
-UIRegistry.AimCrosshair = AimSection:Toggle({
-Name = "Прицел по центру (CS2-стиль)",
-Flag = "AimCrosshair",
-Default = false,
-Callback = function(state)
-Aim.Crosshair = state
-end
-})
--- 0.39: настройки прицела CS2
-UIRegistry.CHLength = AimSection:Slider({
-Name = "Прицел: длина лучей",
-Flag = "CHLength",
-Default = 7,
-Min = 1,
-Max = 20,
-Decimals = 1,
-Callback = function(v) CH.Length = v end
-})
-UIRegistry.CHThickness = AimSection:Slider({
-Name = "Прицел: толщина",
-Flag = "CHThickness",
-Default = 2,
-Min = 1,
-Max = 5,
-Decimals = 0.5,
-Callback = function(v) CH.Thickness = v end
-})
-UIRegistry.CHGap = AimSection:Slider({
-Name = "Прицел: зазор от центра",
-Flag = "CHGap",
-Default = 5,
-Min = 0,
-Max = 15,
-Decimals = 0.5,
-Callback = function(v) CH.Gap = v end
-})
-UIRegistry.CHDot = AimSection:Toggle({
-Name 
+e

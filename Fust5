@@ -1,4 +1,34 @@
-ols = pcall(function()
+ll(function()
+FC_MOD.savedFar = cam.Far
+end)
+local okLook, look = pcall(function()
+return cam.CFrame.LookVector
+end)
+if okLook and look then
+FC_MOD.yaw = math.atan2(-look.X, -look.Z)
+FC_MOD.pitch = math.asin(math.clamp(look.Y, -1, 1))
+else
+FC_MOD.yaw, FC_MOD.pitch = 0, 0
+end
+pcall(function()
+-- 0.39v5: Scriptable НЕОБХОДИМ — без него Roblox каждый кадр возвращает
+-- камеру к персонажу (CameraType.Custom). Ставим один раз при включении.
+-- Восстанавливаем при выключении. Это не детектится если не каждый кадр.
+cam.CameraType = Enum.CameraType.Scriptable
+cam.Far = math.max(cam.Far or 1000, 8000)
+end)
+FC_MOD.rmb = false
+FC_MOD.touchObj = nil
+FC_MOD.lastTouch = nil
+FC_MOD.jumpUntil = 0
+-- ТЕЛЕФОН: источник движения — джойстик. PlayerModule отдаёт ВЕКТОР ВВОДА
+-- (не персонажа), поэтому летает камера, а тело стоит (оно заякорено ниже).
+FC_MOD.getMoveVec = nil
+pcall(function()
+local ps = LocalPlayer:FindFirstChildOfClass("PlayerScripts")
+local pm = ps and (ps:FindFirstChild("PlayerModule") or ps:WaitForChild("PlayerModule", 2))
+if pm then
+local okReq, controls = pcall(function()
 local mod = require(pm)
 if mod and mod.GetControls then
 return mod:GetControls()
@@ -1800,30 +1830,4 @@ c0.Parent = part
 local c1 = Instance.new("Attachment")
 c1.Name = "C1"
 c1.Parent = part
-local core = Instance.new("Beam")
-core.Name = "Core"
-core.Attachment0 = c0
-core.Attachment1 = c1
-core.FaceCamera = true
-core.LightEmission = 1
-core.LightInfluence = 0
-core.Enabled = false
-core.Parent = part
-for idx, corner in ipairs({ { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }) do
-local a0 = Instance.new("Attachment")
-a0.Name = "E" .. idx .. "A"
-a0.Parent = part
-local a1 = Instance.new("Attachment")
-a1.Name = "E" .. idx .. "B"
-a1.Parent = part
-local b = Instance.new("Beam")
-b.Name = "E" .. idx
-b.Attachment0 = a0
-b.Attachment1 = a1
-b.FaceCamera = false
-b.LightEmission = 1
-b.LightInfluence = 0
-b.Enabled = false
-b.Parent = part
-end
-part:SetAttribute("PetuhKind", "square")
+local core = Instance.n

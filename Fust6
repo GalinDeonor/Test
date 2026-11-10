@@ -1,4 +1,30 @@
-
+ew("Beam")
+core.Name = "Core"
+core.Attachment0 = c0
+core.Attachment1 = c1
+core.FaceCamera = true
+core.LightEmission = 1
+core.LightInfluence = 0
+core.Enabled = false
+core.Parent = part
+for idx, corner in ipairs({ { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }) do
+local a0 = Instance.new("Attachment")
+a0.Name = "E" .. idx .. "A"
+a0.Parent = part
+local a1 = Instance.new("Attachment")
+a1.Name = "E" .. idx .. "B"
+a1.Parent = part
+local b = Instance.new("Beam")
+b.Name = "E" .. idx
+b.Attachment0 = a0
+b.Attachment1 = a1
+b.FaceCamera = false
+b.LightEmission = 1
+b.LightInfluence = 0
+b.Enabled = false
+b.Parent = part
+end
+part:SetAttribute("PetuhKind", "square")
 return part
 end
 local a0 = Instance.new("Attachment")
@@ -1762,7 +1788,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.42 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.43 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

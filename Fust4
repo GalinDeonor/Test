@@ -1,4 +1,87 @@
-= "Прицел: точка в центре",
+nd
+})
+hasKeyboard = false
+pcall(function()
+hasKeyboard = (UserInputService.KeyboardEnabled == true)
+end)
+if hasKeyboard then
+AimHotkeyBusy = true
+AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
+Flag = "AimHotkey",
+Default = Enum.KeyCode.RightAlt,
+Mode = "Toggle",
+Callback = function(state)
+if AimHotkeyBusy then return end
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+UIRegistry.AimEnabled:Set(state)
+end
+end
+})
+AimHotkeyBusy = false
+UIRegistry.AimHotkey = AimHotkeyObj
+end
+UIRegistry.AimShowFOV = AimSection:Toggle({
+Name = "FOV круг (зеленеет при захвате)",
+Flag = "AimShowFOV",
+Default = false,
+Callback = function(state)
+Aim.ShowFOV = state
+end
+})
+UIRegistry.AimWallCheck = AimSection:Toggle({
+Name = "Проверка стен",
+Flag = "AimWallCheck",
+Default = true,
+Callback = function(state)
+Aim.WallCheck = state
+end
+})
+UIRegistry.AimTeamCheck = AimSection:Toggle({
+Name = "Не целить тимейтов (одна команда)",
+Flag = "AimTeamCheck",
+Default = false,
+Callback = function(state)
+Aim.TeamCheck = state
+end
+})
+UIRegistry.AimCrosshair = AimSection:Toggle({
+Name = "Прицел по центру (CS2-стиль)",
+Flag = "AimCrosshair",
+Default = false,
+Callback = function(state)
+Aim.Crosshair = state
+end
+})
+-- 0.39: настройки прицела CS2
+UIRegistry.CHLength = AimSection:Slider({
+Name = "Прицел: длина лучей",
+Flag = "CHLength",
+Default = 7,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(v) CH.Length = v end
+})
+UIRegistry.CHThickness = AimSection:Slider({
+Name = "Прицел: толщина",
+Flag = "CHThickness",
+Default = 2,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.Thickness = v end
+})
+UIRegistry.CHGap = AimSection:Slider({
+Name = "Прицел: зазор от центра",
+Flag = "CHGap",
+Default = 5,
+Min = 0,
+Max = 15,
+Decimals = 0.5,
+Callback = function(v) CH.Gap = v end
+})
+UIRegistry.CHDot = AimSection:Toggle({
+Name = "Прицел: точка в центре",
 Flag = "CHDot",
 Default = false,
 Callback = function(state) CH.Dot = state end
@@ -1907,34 +1990,4 @@ end
 FreeCam.Enabled = true
 FC_MOD.savedType = cam.CameraType
 FC_MOD.savedSubject = cam.CameraSubject
-pcall(function()
-FC_MOD.savedFar = cam.Far
-end)
-local okLook, look = pcall(function()
-return cam.CFrame.LookVector
-end)
-if okLook and look then
-FC_MOD.yaw = math.atan2(-look.X, -look.Z)
-FC_MOD.pitch = math.asin(math.clamp(look.Y, -1, 1))
-else
-FC_MOD.yaw, FC_MOD.pitch = 0, 0
-end
-pcall(function()
--- 0.39v5: Scriptable НЕОБХОДИМ — без него Roblox каждый кадр возвращает
--- камеру к персонажу (CameraType.Custom). Ставим один раз при включении.
--- Восстанавливаем при выключении. Это не детектится если не каждый кадр.
-cam.CameraType = Enum.CameraType.Scriptable
-cam.Far = math.max(cam.Far or 1000, 8000)
-end)
-FC_MOD.rmb = false
-FC_MOD.touchObj = nil
-FC_MOD.lastTouch = nil
-FC_MOD.jumpUntil = 0
--- ТЕЛЕФОН: источник движения — джойстик. PlayerModule отдаёт ВЕКТОР ВВОДА
--- (не персонажа), поэтому летает камера, а тело стоит (оно заякорено ниже).
-FC_MOD.getMoveVec = nil
-pcall(function()
-local ps = LocalPlayer:FindFirstChildOfClass("PlayerScripts")
-local pm = ps and (ps:FindFirstChild("PlayerModule") or ps:WaitForChild("PlayerModule", 2))
-if pm then
-local okReq, contr
+pca
