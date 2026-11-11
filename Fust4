@@ -1,0 +1,2380 @@
+ys.Slow = key
+FC_KEY_SLOW = key
+end
+end
+})
+UIRegistry.FreeCamKeyFast = FreeCamSection:Keybind({
+Name = "Клавиша: скорость БОЛЬШЕ",
+Flag = "FreeCamKeyFast",
+Default = Enum.KeyCode.X,
+Mode = "Toggle",
+Callback = function(state, key)
+if key then
+FreeCamKeys.Fast = key
+FC_KEY_FAST = key
+end
+end
+})
+uiStep("Вкладка Аимбот", function()
+Window:Group("Бой")
+AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
+AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
+HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
+TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
+Window:Group("Визуал")
+EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
+EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
+VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
+WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 5,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+-- 0.39: новые поля
+ColorBg = Color3.fromRGB(12, 12, 16),
+ColorText = Color3.fromRGB(235, 235, 240),
+ColorStroke = Color3.fromRGB(255, 170, 40),
+ShowAdmin = true, 
+Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+Chams = false, 
+},
+}
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
+CollectionService = game:GetService("CollectionService")
+NPC_COLOR = Color3.fromRGB(255, 145, 0) 
+NPC_CAT_COLORS = {
+Guard = Color3.fromRGB(255, 145, 0), 
+Peaceful = Color3.fromRGB(80, 255, 140), 
+Animal = Color3.fromRGB(255, 80, 95), 
+Sleeper = Color3.fromRGB(80, 190, 255), 
+}
+NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
+NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
+SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
+SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
+ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
+GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
+SLEEPER_PATTERNS = { "sleeper", "пящ" }
+WEAPON_PATTERNS = {
+"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
+"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
+"меч", "сабл", "катан",
+"rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
+}
+npcCategoryCache = {} 
+npcHorizontalSince = {} 
+NPC_CAT_TTL = 0.75 
+function npcNameMatches(model, patterns)
+local okN, name = pcall(function()
+return string.lower(tostring(model.Name))
+end)
+if not okN then
+return false
+end
+for _, pat in ipairs(patterns) do
+if string.find(name, pat, 1, true) then
+return true
+end
+end
+return false
+end
+function npcHasAnyTag(model, tags)
+for _, tag in ipairs(tags) do
+local okT, has = pcall(CollectionService.HasTag, CollectionService, model, tag)
+if okT and has then
+return true
+end
+end
+return false
+end
+function npcInsideFolder(model, names)
+local p = model.Parent
+local depth = 0
+while p and p ~= Workspace and depth < 8 do
+for _, n in ipairs(names) do
+if p.Name == n then
+return true
+end
+end
+p = p.Parent
+depth = depth + 1
+end
+return false
+end
+function npcHasWeaponInHands(model)
+local okT, tool = pcall(function()
+return model:FindFirstChildOfClass("Tool")
+end)
+if okT and tool then
+local okN, tname = pcall(function()
+return string.lower(tostring(tool.Name))
+end)
+if okN and tname then
+for _, pat in ipairs(WEAPON_PATTERNS) do
+if string.find(tname, pat, 1, true) then
+return true
+end
+end
+end
+end
+return false
+end
+function npcSleeperMarked(model, hum, root)
+if npcHasAnyTag(model, SLEEPER_TAGS) then
+return true
+end
+if npcInsideFolder(model, { "Sleepers", "Sleeper", "Bodies", "SleepingPlayers", "Спящие" }) then
+return true
+end
+for _, inst in ipairs({ model, hum, root }) do
+if inst then
+for _, attr in ipairs(SLEEPER_ATTRS) do
+local okA, v = pcall(inst.GetAttribute, inst, attr)
+if okA and v == true then
+return true
+end
+end
+end
+end
+local okC, children = pcall(model.GetChildren, model)
+if okC and children then
+for _, child in ipairs(children) do
+if child:IsA("BoolValue") then
+local cn = string.lower(tostring(child.Name))
+if (string.find(cn, "sleep", 1, true) or string.find(cn, "пящ", 1, true))
+and child.Value == true then
+return true
+end
+end
+end
+end
+if npcNameMatches(model, SLEEPER_PATTERNS) then
+return true
+end
+return false
+end
+function npcGetCategory(model, hum, root)
+local now = os.clock()
+local cached = npcCategoryCache[model]
+if cached and cached.Cat and cached.Expire > now then
+local on = (
+(cached.Cat == "Guard" and S.NPC.CatGuards)
+or (cached.Cat == "Peaceful" and S.NPC.CatPeaceful)
+or (cached.Cat == "Animal" and S.NPC.CatAnimals)
+or (cached.Cat == "Sleeper" and S.NPC.CatSleepers)
+) and true or false
+return cached.Cat, on, NPC_CAT_COLORS[cached.Cat] or NPC_COLOR
+end
+local cat
+local inNpcFolder = npcInsideFolder(model, { "Npcs", "NPCs", "NPC" })
+or npcHasAnyTag(model, NPC_NPC_TAGS)
+local inAnimalFolder = npcInsideFolder(model, { "Animals", "Animal" })
+or npcHasAnyTag(model, NPC_ANIMAL_TAGS)
+if inAnimalFolder or npcNameMatches(model, ANIMAL_PATTERNS) then
+cat = "Animal"
+elseif inNpcFolder then
+if npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model) then
+cat = "Guard"
+else
+cat = "Peaceful"
+end
+else
+if npcSleeperMarked(model, hum, root) then
+cat = "Sleeper"
+else
+local okU, upDot = pcall(function()
+return root and root.CFrame.UpVector:Dot(Vector3.new(0, 1, 0)) or 1
+end)
+if okU and upDot and upDot < 0.45 then
+if not npcHorizontalSince[model] then
+npcHorizontalSince[model] = now
+end
+if now - npcHorizontalSince[model] >= 4 then
+cat = "Sleeper"
+end
+else
+npcHorizontalSince[model] = nil
+end
+if not cat and (npcNameMatches(model, GUARD_PATTERNS) or npcHasWeaponInHands(model)) then
+cat = "Guard"
+end
+if not cat then
+cat = "Peaceful"
+end
+end
+end
+npcCategoryCache[model] = { Cat = cat, Expire = now + NPC_CAT_TTL }
+local on = (
+(cat == "Guard" and S.NPC.CatGuards)
+or (cat == "Peaceful" and S.NPC.CatPeaceful)
+or (cat == "Animal" and S.NPC.CatAnimals)
+or (cat == "Sleeper" and S.NPC.CatSleepers)
+) and true or false
+return cat, on, NPC_CAT_COLORS[cat] or NPC_COLOR
+end
+Whitelist = {} 
+FUST_BulletsSet = nil 
+HitboxAnnouncePending = false 
+NpcHitboxAnnouncePending = false 
+NpcHitboxAppliedCount = 0 
+AntiRecoil = {
+Enabled = false, 
+Rollback = true, 
+Offset = true, 
+Drift = true, 
+DriftStrength = 1, 
+Threshold = 1.2, 
+}
+AR_SnapCF = nil 
+AR_LastStateJournal = 0 
+AR_LastPitch = nil 
+AR_DriftFrames = 0 
+AR_AimBusyUntil = 0 
+AR_Anchor = nil 
+AR_LastDriftAt = 0 
+FUST_FireUntil = 0 
+FUST_FireTool = nil 
+FUST_FireConns = nil 
+AntiShake = {
+Enabled = false, 
+Roll = true, 
+Position = true, 
+Oscillation = true, 
+}
+AS_SmoothPos = nil 
+AS_LastRawPitch = nil 
+AS_LastLX, AS_LastLZ = nil, nil 
+AS_LastDp, AS_LastDy = nil, nil 
+AS_PitchFlips, AS_YawFlips = 0, 0 
+AS_AnchorLook = nil 
+AS_LastShakeAt = 0 
+COLOR_WHITELIST = Color3.fromRGB(0, 255, 0)
+COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)
+UIRegistry.ESPEnabled = EspSection:Toggle({
+Name = "ESP Enabled",
+Flag = "ESPEnabled",
+Default = false,
+Callback = function(state)
+S.ESP.Enabled = state
+journal("ESP " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.ESPBox = EspSection:Toggle({
+Name = "ESP Box",
+Flag = "ESPBox",
+Default = false,
+Callback = function(state)
+S.ESP.Box = state
+end
+})
+UIRegistry.ESPBoxColor = UIRegistry.ESPBox:Colorpicker({
+Flag = "ESPBoxColor",
+Default = S.ESPColors.Box,
+Callback = function(color)
+S.ESPColors.Box = color
+end
+})
+UIRegistry.ESPChams = EspSection:Toggle({
+Name = "ESP Chams",
+Flag = "ESPChams",
+Default = false,
+Callback = function(state)
+S.ESP.Chams = state
+journal("ЧАМСЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.ESPChamsTransparency = EspSection:Slider({
+Name = "Прозрачность чамсов",
+Flag = "ESPChamsTransparency",
+Default = 0.5,
+Min = 0,
+Max = 1,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.ESP.ChamsTransparency = Value
+end
+})
+UIRegistry.ESPName = EspSection:Toggle({
+Name = "ESP Name",
+Flag = "ESPName",
+Default = false,
+Callback = function(state)
+S.ESP.Name = state
+end
+})
+UIRegistry.ESPDistance = EspSection:Toggle({
+Name = "ESP Distance",
+Flag = "ESPDistance",
+Default = false,
+Callback = function(state)
+S.ESP.Distance = state
+end
+})
+UIRegistry.ESPItem = EspSection:Toggle({
+Name = "ESP Предмет (что в руках)",
+Flag = "ESPItem",
+Default = false,
+Callback = function(state)
+S.ESP.Item = state
+journal("ПРЕДМЕТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+-- 0.39: цвет предмета в руках
+ESPItemColor = Color3.fromRGB(255, 215, 90)
+UIRegistry.ESPItemColor = EspSection:Colorpicker({
+Name = "Цвет предмета в руках",
+Flag = "ESPItemColor",
+Default = ESPItemColor,
+Callback = function(c)
+ESPItemColor = c
+end
+})
+-- 0.39: перевод названий предметов на русский (вкл/выкл)
+ItemRuTranslate = false
+ITEM_RU_DICT = {
+-- оружие
+["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["m4a1"] = "М4А1",
+["m4a4"] = "М4А4", ["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90",
+["awp"] = "АВП", ["awm"] = "АВМ", ["mosin"] = "Мосина", ["kar98"] = "Кар98",
+["shotgun"] = "Дробовик", ["pump shotgun"] = "Помповый дробовик",
+["auto shotgun"] = "Авто-дробовик", ["double barrel"] = "Двустволка",
+["pistol"] = "Пистолет", ["glock"] = "Глок", ["deagle"] = "Дезерт Игл",
+["revolver"] = "Револьвер", ["sniper"] = "Снайперка", ["rifle"] = "Винтовка",
+["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт", ["grenade"] = "Граната",
+["flashbang"] = "Слеповая", ["smoke"] = "Дымовая", ["molotov"] = "Коктейл Молотова",
+["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
+["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
+-- патроны
+["9mm"] = "9мм патроны", ["45acp"] = ".45 патроны", ["556"] = "5.56 патроны",
+["762"] = "7.62 патроны", ["12gauge"] = "12 калибр", ["shells"] = "Патроны",
+["ammo"] = "Патроны", ["magazine"] = "Магазин",
+-- еда/вода
+["water"] = "Вода", ["water bottle"] = "Бутылка воды", ["cola"] = "Кола",
+["bread"] = "Хлеб", ["can"] = "Консерва", ["canned food"] = "Консерва",
+["meat"] = "Мясо", ["cooked meat"] = "Жареное мясо", ["raw meat"] = "Сырое мясо",
+["apple"] = "Яблоко", ["banana"] = "Банан", ["chocolate"] = "Шоколад",
+["energy bar"] = "Энергетический батончик",
+-- броня
+["helmet"] = "Шлем", ["kevlar"] = "Кевлар", ["vest"] = "Жилет",
+["armor"] = "Броня", ["bulletproof vest"] = "Бронежилет",
+-- лут/ресурсы
+["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
+["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
+["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
+["blood bag"] = "Пакет крови",
+-- инструменты
+["pickaxe"] = "Кирка", ["hatchet"] = "Топорик", ["hammer"] = "Молоток",
+["screwdriver"] = "Отвёртка", ["wrench"] = "Гаечный ключ",
+["lockpick"] = "Отмычка", ["flashlight"] = "Фонарик",
+["map"] = "Карта", ["compass"] = "Компас", ["radio"] = "Радио",
+["binoculars"] = "Бинокль", ["scope"] = "Прицел",
+-- расходники
+["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
+["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
+}
+function translateItemName(name)
+if not ItemRuTranslate or type(name) ~= "string" then
+return name
+end
+local nl = string.lower(name)
+-- точное совпадение
+if ITEM_RU_DICT[nl] then
+return ITEM_RU_DICT[nl]
+end
+-- частичное совпадение по подстроке
+for eng, rus in pairs(ITEM_RU_DICT) do
+if string.find(nl, eng, 1, true) then
+return rus
+end
+end
+return name
+end
+UIRegistry.ItemRuTranslate = EspSection:Toggle({
+Name = "Перевод названий на русский",
+Flag = "ItemRuTranslate",
+Default = false,
+Callback = function(state)
+ItemRuTranslate = state
+journal("ПЕРЕВОД ПРЕДМЕТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.BulletsEnabled = TracerSection:Toggle({
+Name = "Трассеры пуль (стиль VOMAGLA)",
+Flag = "BulletsEnabled",
+Default = false,
+Callback = function(state)
+S.Bullets.Enabled = state
+if FUST_BulletsSet then
+pcall(FUST_BulletsSet, state)
+end
+journal("ТРАССЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Трассеры пуль " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.BulletsStyle = TracerSection:Dropdown({
+Name = "Трассеры: стиль луча",
+Items = { "Луч", "Квадратный", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
+Flag = "BulletsStyle",
+Default = "Луч",
+Callback = function(Value)
+S.Bullets.Style = Value
+journal("ТРАССЕРЫ-СТИЛЬ " .. tostring(Value))
+end
+})
+UIRegistry.BulletsWidth = TracerSection:Slider({
+Name = "Трассеры: толщина",
+Flag = "BulletsWidth",
+Default = 1.5,
+Min = 0.5,
+Max = 5,
+Decimals = 0.5,
+Suffix = "ст",
+Callback = function(Value)
+S.Bullets.Width = Value
+end
+})
+UIRegistry.BulletsTransparency = TracerSection:Slider({
+Name = "Трассеры: прозрачность",
+Flag = "BulletsTransparency",
+Default = 0,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(Value)
+S.Bullets.Transparency = Value
+end
+})
+UIRegistry.BulletsFade = TracerSection:Slider({
+Name = "Трассеры: затухание",
+Flag = "BulletsFade",
+Default = 1,
+Min = 0.5,
+Max = 5,
+Decimals = 0.1,
+Suffix = "с",
+Callback = function(Value)
+S.Bullets.Fade = Value
+end
+})
+UIRegistry.ESPHealthBar = EspSection:Toggle({
+Name = "ESP HealthBar",
+Flag = "ESPHealthBar",
+Default = false,
+Callback = function(state)
+S.ESP.HealthBar = state
+end
+})
+UIRegistry.ESPMaxDistance = EspSection:Slider({
+Name = "Max Distance",
+Flag = "ESPMaxDistance",
+Default = 3000,
+Min = 100,
+Max = 5000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.ESP.MaxDistance = Value
+end
+})
+UIRegistry.ESPDistanceScale = EspSection:Toggle({
+Name = "Сжатие ESP по дистанции (дальше = мельче)",
+Flag = "ESPDistanceScale",
+Default = true,
+Callback = function(state)
+S.ESP.DistanceScale = state
+journal("ESP СЖАТИЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+espVisCacheClear = function() end
+UIRegistry.ESPVisCheck = EspSection:Toggle({
+Name = "Проверка видимости (за стеной — серый)",
+Flag = "ESPVisCheck",
+Default = false,
+Callback = function(state)
+S.ESP.VisCheck = state
+espVisCacheClear()
+journal("ESP ВИДИМОСТЬ " .. (state and "ВКЛ (за стеной — серый + «СТЕНА»)" or "ВЫКЛ"))
+end
+})
+UIRegistry.ESPVisHitbox = EspSection:Toggle({
+Name = "Показывать хитбокс-доступ (жёлтый, если торчит)",
+Flag = "ESPVisHitbox",
+Default = false,
+Callback = function(state)
+S.ESP.VisHitbox = state
+espVisCacheClear()
+journal("ESP ХИТБОКС-ДОСТУП " .. (state and "ВКЛ (жёлтый = виден только хитбокс)" or "ВЫКЛ"))
+end
+})
+EspSection:Label("Видимость смотрит ТЕЛО (хитбоксы игнор). Жёлтый = тело за стеной, но хитбокс торчит. Серый + «СТЕНА» = не подстрелить.")
+HudSection = EspPage:Section({ Name = "HUD на экране", Tab = "ESP", Side = 2 })
+hudGui = nil 
+hudFrame = nil 
+hudStroke = nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudConns = {} 
+hudDragging = false
+hudDragStart, hudFrameStart = nil, nil
+HUD_MARGIN = 12
+function hudSnap(corner)
+if not hudFrame then
+return
+end
+local ax = (corner and string.find(corner, "Право", 1, true)) and 1 or 0
+local ay = (corner and string.find(corner, "верх", 1, true)) and 0 or 1
+local ox = (ax == 1) and -HUD_MARGIN or HUD_MARGIN
+local oy = (ay == 1) and -HUD_MARGIN or HUD_MARGIN
+hudFrame.AnchorPoint = Vector2.new(ax, ay)
+hudFrame.Position = UDim2.new(ax, ox, ay, oy)
+end
+function hudApplyStyle()
+if not hudFrame then
+return
+end
+local size = math.clamp(math.floor((S.HUD.Size or 11) + 0.5), 8, 16)
+local textT = math.clamp(S.HUD.TextTransparency or 0, 0, 0.9)
+local colText = S.HUD.ColorText or Color3.fromRGB(235, 235, 240)
+local colBg = S.HUD.ColorBg or Color3.fromRGB(12, 12, 16)
+local colStroke = S.HUD.ColorStroke or Color3.fromRGB(255, 170, 40)
+for _, line in ipairs({ hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin }) do
+if line then
+line.TextSize = size
+line.TextTransparency = textT
+line.TextColor3 = (line == hudLineAdmin) and Color3.fromRGB(255, 80, 80) or colText
+end
+end
+local bg = math.clamp(S.HUD.BgTransparency or 0.35, 0, 0.95)
+if S.HUD.ShowBg then
+hudFrame.BackgroundTransparency = bg
+hudFrame.BackgroundColor3 = colBg
+if hudStroke then
+hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
+hudStroke.Color = colStroke
+end
+else
+hudFrame.BackgroundTransparency = 1
+if hudStroke then
+hudStroke.Transparency = 1
+end
+end
+if hudLineTPS then
+hudLineTPS.Visible = S.HUD.ShowTPS and true or false
+end
+if hudLineAdmin then
+hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
+end
+end
+function hudDestroy()
+for _, c in ipairs(hudConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+hudConns = {}
+if hudGui then
+pcall(function()
+hudGui:Destroy()
+end)
+end
+hudGui = nil
+hudFrame = nil
+hudStroke = nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudDragging = false
+end
+function hudEnsure()
+if hudFrame then
+return
+end
+local okGui = pcall(function()
+local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
+hudGui = Instance.new("ScreenGui")
+hudGui.Name = "PetuhHUD"
+hudGui.ResetOnSpawn = false
+hudGui.IgnoreGuiInset = true
+hudGui.DisplayOrder = 9999
+hudGui.Parent = parentGui
+hudFrame = Instance.new("Frame")
+hudFrame.Name = "Panel"
+hudFrame.Active = true
+hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+hudFrame.BorderSizePixel = 0
+hudFrame.AutomaticSize = Enum.AutomaticSize.XY
+hudFrame.Size = UDim2.new(0, 0, 0, 0)
+hudFrame.Parent = hudGui
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = hudFrame
+hudStroke = Instance.new("UIStroke")
+hudStroke.Color = Color3.fromRGB(255, 170, 40)
+hudStroke.Transparency = 0.6
+hudStroke.Parent = hudFrame
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.Padding = UDim.new(0, 2)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = hudFrame
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 6)
+pad.PaddingBottom = UDim.new(0, 6)
+pad.PaddingLeft = UDim.new(0, 9)
+pad.PaddingRight = UDim.new(0, 9)
+pad.Parent = hudFrame
+local order = 0
+local function makeLine(text)
+order = order + 1
+local label = Instance.new("TextLabel")
+label.Name = "L" .. order
+label.BackgroundTransparency = 1
+label.Font = Enum.Font.Code
+label.Text = text
+label.TextColor3 = Color3.fromRGB(235, 235, 240)
+label.TextXAlignment = Enum.TextXAlignment.Left
+label.AutomaticSize = Enum.AutomaticSize.XY
+label.Size = UDim2.new(0, 0, 0, 0)
+label.LayoutOrder = order
+label.Parent = hudFrame
+return label
+end
+hudLineFPS = makeLine("FPS —")
+hudLinePing = makeLine("Пинг —")
+hudLineTPS = makeLine("ТПС —")
+hudLinePlayers = makeLine("Игроки —")
+hudLineAdmin = makeLine("АДМИН —")
+end)
+if not okGui or not hudFrame then
+warn("[FUST] HUD не создался в этом экзекуторе")
+hudDestroy()
+return
+end
+-- 0.39: восстановление сохранённой позиции drag, иначе угол
+pcall(function()
+if S.HUD.Position and type(S.HUD.Position) == "table" then
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
+else
+hudSnap(S.HUD.Corner)
+end
+end)
+hudApplyStyle()
+hudFrame.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = true
+hudDragStart = input.Position
+local topLeft = hudFrame.AbsolutePosition
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
+hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
+input.Changed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End
+or input.UserInputState == Enum.UserInputState.Cancel then
+hudDragging = false
+end
+end)
+end
+end)
+hudFrame.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = false
+end
+end)
+table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
+if not hudDragging then
+return
+end
+if input.UserInputType == Enum.UserInputType.MouseMovement
+or input.UserInputType == Enum.UserInputType.Touch then
+if hudDragStart and hudFrameStart and hudFrame then
+local cam = Workspace.CurrentCamera
+local view = cam and cam.ViewportSize or Vector2.new(1280, 720)
+local w = hudFrame.AbsoluteSize.X
+local h = hudFrame.AbsoluteSize.Y
+local nx = math.clamp(hudFrameStart.X + (input.Position.X - hudDragStart.X), 0, math.max(view.X - w, 0))
+local ny = math.clamp(hudFrameStart.Y + (input.Position.Y - hudDragStart.Y), 0, math.max(view.Y - h, 0))
+hudFrame.Position = UDim2.fromOffset(nx, ny)
+-- 0.39: сохраняем относительную позицию для восстановления после рестарта
+if view.X > 0 and view.Y > 0 then
+S.HUD.Position = { X = nx / view.X, Y = ny / view.Y }
+end
+end
+end
+end))
+local frames = 0
+local fpsAccum = 0
+local fpsValue = 0
+local lastServerT = nil
+local lastRealT = nil
+local tpsEMA = nil
+local uiAccum = 0
+table.insert(hudConns, RunService.RenderStepped:Connect(function(dt)
+frames = frames + 1
+fpsAccum = fpsAccum + dt
+if fpsAccum >= 1 then
+fpsValue = math.floor(frames / fpsAccum + 0.5)
+frames = 0
+fpsAccum = 0
+end
+local okT, serverT = pcall(function()
+return Workspace:GetServerTimeNow()
+end)
+if okT and type(serverT) == "number" then
+if lastServerT and lastRealT then
+local dReal = os.clock() - lastRealT
+if dReal >= 1 then
+local dServer = serverT - lastServerT
+local tps = dServer / dReal
+if tps >= 0 and tps <= 61 then
+tpsEMA = tpsEMA and (tpsEMA * 0.6 + tps * 0.4) or tps
+end
+lastServerT = serverT
+lastRealT = os.clock()
+end
+else
+lastServerT = serverT
+lastRealT = os.clock()
+end
+end
+uiAccum = uiAccum + dt
+if uiAccum >= 0.35 then
+uiAccum = 0
+if hudLineFPS then
+hudLineFPS.Text = "FPS " .. tostring(fpsValue)
+end
+if hudLinePing then
+local okP, ping = pcall(function()
+return LocalPlayer:GetNetworkPing()
+end)
+if okP and type(ping) == "number" then
+hudLinePing.Text = "Пинг " .. tostring(math.floor(ping * 1000 + 0.5)) .. "мс"
+else
+hudLinePing.Text = "Пинг —"
+end
+end
+if hudLineTPS then
+hudLineTPS.Text = tpsEMA and ("ТПС " .. string.format("%.1f", tpsEMA)) or "ТПС —"
+end
+if hudLinePlayers then
+local n = #Players:GetPlayers()
+local maxP = 0
+pcall(function()
+maxP = Players.MaxPlayers or 0
+end)
+if maxP and maxP > 0 then
+hudLinePlayers.Text = "Игроки " .. tostring(n) .. "/" .. tostring(maxP)
+else
+hudLinePlayers.Text = "Игроки " .. tostring(n)
+end
+end
+-- 0.39: админ/VIP чек — обновление строки
+if hudLineAdmin and S.HUD.ShowAdmin then
+local adminCount = AdminScan_Count or 0
+local adminNames = AdminScan_Names
+if adminCount > 0 then
+hudLineAdmin.Text = "АДМИН: " .. tostring(adminCount) .. " — " .. (adminNames or "?")
+hudLineAdmin.TextColor3 = Color3.fromRGB(255, 80, 80)
+else
+hudLineAdmin.Text = "АДМИН: нет"
+hudLineAdmin.TextColor3 = Color3.fromRGB(120, 200, 120)
+end
+end
+end
+end))
+end
+UIRegistry.HUDEnabled = HudSection:Toggle({
+Name = "Микро-HUD (FPS, пинг, ТПС, игроки)",
+Flag = "HUDEnabled",
+Default = true,
+Callback = function(state)
+S.HUD.Enabled = state
+if state then
+hudEnsure()
+journal("HUD ВКЛ")
+else
+hudDestroy()
+journal("HUD ВЫКЛ")
+end
+end
+})
+UIRegistry.HUDSize = HudSection:Slider({
+Name = "Размер текста HUD",
+Flag = "HUDSize",
+Default = 11,
+Min = 8,
+Max = 16,
+Decimals = 1,
+Callback = function(Value)
+S.HUD.Size = Value
+hudApplyStyle()
+end
+})
+UIRegistry.HUDBgTransparency = HudSection:Slider({
+Name = "Прозрачность фона HUD",
+Flag = "HUDBgTransparency",
+Default = 0.35,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Callback = function(Value)
+S.HUD.BgTransparency = Value
+hudApplyStyle()
+end
+})
+UIRegistry.HUDTextTransparency = HudSection:Slider({
+Name = "Прозрачность текста HUD",
+Flag = "HUDTextTransparency",
+Default = 0,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(Value)
+S.HUD.TextTransparency = Value
+hudApplyStyle()
+end
+})
+-- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
+UIRegistry.HUDBgColor = HudSection:Colorpicker({
+Name = "Цвет фона HUD",
+Flag = "HUDBgColor",
+Default = Color3.fromRGB(12, 12, 16),
+Callback = function(c)
+S.HUD.ColorBg = c
+hudApplyStyle()
+end
+})
+UIRegistry.HUDTextColor = HudSection:Colorpicker({
+Name = "Цвет текста HUD",
+Flag = "HUDTextColor",
+Default = Color3.fromRGB(235, 235, 240),
+Callback = function(c)
+S.HUD.ColorText = c
+hudApplyStyle()
+end
+})
+UIRegistry.HUDStrokeColor = HudSection:Colorpicker({
+Name = "Цвет обводки HUD",
+Flag = "HUDStrokeColor",
+Default = Color3.fromRGB(255, 170, 40),
+Callback = function(c)
+S.HUD.ColorStroke = c
+hudApplyStyle()
+end
+})
+UIRegistry.HUDShowAdmin = HudSection:Toggle({
+Name = "Показывать админ/VIP чек",
+Flag = "HUDShowAdmin",
+Default = true,
+Callback = function(state)
+S.HUD.ShowAdmin = state
+hudApplyStyle()
+end
+})
+UIRegistry.HUDResetPos = HudSection:Button({
+Name = "Сбросить позицию HUD",
+Callback = function()
+S.HUD.Position = nil
+if hudFrame then
+hudSnap(S.HUD.Corner or "Лево-низ")
+end
+journal("HUD: позиция сброшена")
+end
+})
+UIRegistry.HUDShowTPS = HudSection:Toggle({
+Name = "Показывать ТПС сервера",
+Flag = "HUDShowTPS",
+Default = true,
+Callback = function(state)
+S.HUD.ShowTPS = state
+hudApplyStyle()
+end
+})
+UIRegistry.HUDShowBg = HudSection:Toggle({
+Name = "Фон панельки",
+Flag = "HUDShowBg",
+Default = true,
+Callback = function(state)
+S.HUD.ShowBg = state
+hudApplyStyle()
+end
+})
+if S.HUD.Enabled then
+task.defer(function()
+pcall(hudEnsure)
+end)
+end
+getgenv().FUST_HUDCleanup = hudDestroy
+UIRegistry.LootEnabled = LootSection:Toggle({
+Name = "ESP мешков с добычей (рюкзаки игроков)",
+Flag = "LootEnabled",
+Default = false,
+Callback = function(state)
+S.Loot.Enabled = state
+journal("ESP МЕШКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootColor = UIRegistry.LootEnabled:Colorpicker({
+Flag = "LootColor",
+Default = LOOT_COLOR,
+Callback = function(color)
+LOOT_COLOR = color
+end
+})
+UIRegistry.LootOwner = LootSection:Toggle({
+Name = "Чей лут (из подписи игры)",
+Flag = "LootOwner",
+Default = true,
+Callback = function(state)
+S.Loot.Owner = state
+end
+})
+UIRegistry.LootSlots = LootSection:Toggle({
+Name = "Сколько слотов забито",
+Flag = "LootSlots",
+Default = true,
+Callback = function(state)
+S.Loot.Slots = state
+end
+})
+UIRegistry.LootDistance = LootSection:Toggle({
+Name = "Дистанция",
+Flag = "LootDistance",
+Default = true,
+Callback = function(state)
+S.Loot.Distance = state
+end
+})
+UIRegistry.LootBox = LootSection:Toggle({
+Name = "Рамка вокруг рюкзака",
+Flag = "LootBox",
+Default = true,
+Callback = function(state)
+S.Loot.Box = state
+end
+})
+UIRegistry.LootChams = LootSection:Toggle({
+Name = "Чамсы рюкзаков (видно сквозь траву и стены)",
+Flag = "LootChams",
+Default = true,
+Callback = function(state)
+S.Loot.Chams = state
+journal("ЧАМСЫ РЮКЗАКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootMaxDistance = LootSection:Slider({
+Name = "Рюкзаки: Max Distance",
+Flag = "LootMaxDistance",
+Default = 1500,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.Loot.MaxDistance = Value
+end
+})
+UIRegistry.LootDebugLog = LootSection:Toggle({
+Name = "Диагностика: лог рюкзаков в консоль (раз в 10 сек)",
+Flag = "LootDebugLog",
+Default = false,
+Callback = function(state)
+S.Loot.DebugLog = state
+if state then
+print("[FUST] Диагностика рюкзаков: имена, атрибуты, подписи и содержимое пойдут в консоль")
+journal("ДИАГНОСТИКА РЮКЗАКОВ ВКЛ")
+end
+end
+})
+LootCSection = EspPage:Section({ Name = "Лут (бочки и ящики)", Tab = "Лут", Side = 2 })
+UIRegistry.LootCEnabled = LootCSection:Toggle({
+Name = "ESP лута (бочки/ящики/элитные/военные)",
+Flag = "LootCEnabled",
+Default = false,
+Callback = function(state)
+S.LootC.Enabled = state
+journal("ESP ЛУТА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.LootCColor = UIRegistry.LootCEnabled:Colorpicker({
+Flag = "LootCColor",
+Default = LOOTC_COLOR,
+Callback = function(color)
+LOOTC_COLOR = color
+end
+})
+UIRegistry.LootCName = LootCSection:Toggle({
+Name = "Название контейнера",
+Flag = "LootCName",
+Default = true,
+Callback = function(state)
+S.LootC.Name = state
+end
+})
+UIRegistry.LootCDistance = LootCSection:Toggle({
+Name = "Дистанция",
+Flag = "LootCDistance",
+Default = true,
+Callback = function(state)
+S.LootC.Distance = state
+end
+})
+UIRegistry.LootCBox = LootCSection:Toggle({
+Name = "Рамка вокруг контейнера",
+Flag = "LootCBox",
+Default = true,
+Callback = function(state)
+S.LootC.Box = state
+end
+})
+UIRegistry.LootCMaxDistance = LootCSection:Slider({
+Name = "Лут: Max Distance",
+Flag = "LootCMaxDistance",
+Default = 800,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.LootC.MaxDistance = Value
+end
+})
+UIRegistry.LootCChams = LootCSection:Toggle({
+Name = "Чамсы контейнеров (по модельке, пул 12)",
+Flag = "LootCChams",
+Default = false,
+Callback = function(state)
+S.LootC.Chams = state
+journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
+uiStep("Вкладка Боты и НПС", function()
+BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
+BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
+BotHitSection = BotPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты", Side = 2 })
+end)
+UIRegistry.NPCEsp = BotEspSection:Toggle({
+Name = "ESP ботов и НПС (мастер)",
+Flag = "NPCEsp",
+Default = false,
+Callback = function(state)
+S.NPC.ESP = state
+journal("ESP БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCGuards = BotEspSection:Toggle({
+Name = "Охранники (враждебные НПС)",
+Flag = "NPCGuards",
+Default = true,
+Callback = function(state)
+S.NPC.CatGuards = state
+end
+})
+UIRegistry.NPCColorGuard = UIRegistry.NPCGuards:Colorpicker({
+Flag = "NPCColorGuard",
+Default = NPC_CAT_COLORS.Guard,
+Callback = function(color)
+NPC_CAT_COLORS.Guard = color
+end
+})
+UIRegistry.NPCPeaceful = BotEspSection:Toggle({
+Name = "Мирные НПС (зелёные)",
+Flag = "NPCPeaceful",
+Default = false,
+Callback = function(state)
+S.NPC.CatPeaceful = state
+end
+})
+UIRegistry.NPCColorPeaceful = UIRegistry.NPCPeaceful:Colorpicker({
+Flag = "NPCColorPeaceful",
+Default = NPC_CAT_COLORS.Peaceful,
+Callback = function(color)
+NPC_CAT_COLORS.Peaceful = color
+end
+})
+UIRegistry.NPCAnimals = BotEspSection:Toggle({
+Name = "Животные: медведь, волк, олень, кабан",
+Flag = "NPCAnimals",
+Default = false,
+Callback = function(state)
+S.NPC.CatAnimals = state
+end
+})
+UIRegistry.NPCColorAnimal = UIRegistry.NPCAnimals:Colorpicker({
+Flag = "NPCColorAnimal",
+Default = NPC_CAT_COLORS.Animal,
+Callback = function(color)
+NPC_CAT_COLORS.Animal = color
+end
+})
+UIRegistry.NPCSleepers = BotEspSection:Toggle({
+Name = "Слиперы (спящие игроки)",
+Flag = "NPCSleepers",
+Default = false,
+Callback = function(state)
+S.NPC.CatSleepers = state
+end
+})
+UIRegistry.NPCColorSleeper = UIRegistry.NPCSleepers:Colorpicker({
+Flag = "NPCColorSleeper",
+Default = NPC_CAT_COLORS.Sleeper,
+Callback = function(color)
+NPC_CAT_COLORS.Sleeper = color
+end
+})
+UIRegistry.NPCBox = BotEspSection:Toggle({
+Name = "Боты: бокс",
+Flag = "NPCBox",
+Default = false,
+Callback = function(state)
+S.NPC.Box = state
+end
+})
+UIRegistry.NPCName = BotEspSection:Toggle({
+Name = "Боты: ник модели",
+Flag = "NPCName",
+Default = false,
+Callback = function(state)
+S.NPC.Name = state
+end
+})
+UIRegistry.NPCItem = BotEspSection:Toggle({
+Name = "Боты: предмет в руках",
+Flag = "NPCItem",
+Default = false,
+Callback = function(state)
+S.NPC.Item = state
+end
+})
+UIRegistry.NPCDistance = BotEspSection:Toggle({
+Name = "Боты: дистанция",
+Flag = "NPCDistance",
+Default = false,
+Callback = function(state)
+S.NPC.Distance = state
+end
+})
+UIRegistry.NPCHealthBar = BotEspSection:Toggle({
+Name = "Боты: хелсбар",
+Flag = "NPCHealthBar",
+Default = false,
+Callback = function(state)
+S.NPC.HealthBar = state
+end
+})
+UIRegistry.NPCMaxDistance = BotEspSection:Slider({
+Name = "Боты: Max Distance",
+Flag = "NPCMaxDistance",
+Default = 3000,
+Min = 100,
+Max = 3000,
+Decimals = 50,
+Suffix = "m",
+Callback = function(Value)
+S.NPC.MaxDistance = Value
+end
+})
+UIRegistry.NPCChams = BotEspSection:Toggle({
+Name = "Чамсы ботов (цвет категории, до потолка)",
+Flag = "NPCChams",
+Default = false,
+Callback = function(state)
+S.NPC.Chams = state
+journal("ЧАМСЫ БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCChamsTransparency = BotEspSection:Slider({
+Name = "Чамсы ботов: прозрачность",
+Flag = "NPCChamsTransparency",
+Default = 0.5,
+Min = 0,
+Max = 1,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.NPC.ChamsTransparency = Value
+end
+})
+UIRegistry.NPCDebugLog = BotEspSection:Toggle({
+Name = "Диагностика: лог НПС в консоль (раз в 10 сек)",
+Flag = "NPCDebugLog",
+Default = false,
+Callback = function(state)
+S.NPC.DebugLog = state
+if state then
+print("[FUST] Диагностика НПС: имена, папки, теги и категории пойдут в консоль")
+journal("ДИАГНОСТИКА НПС ВКЛ")
+end
+end
+})
+UIRegistry.NPCHitboxEnabled = BotHitSection:Toggle({
+Name = "Хитбоксы НПС и ботов",
+Flag = "NPCHitboxEnabled",
+Default = false,
+Callback = function(state)
+S.NPC.HitboxEnabled = state
+if state then
+NpcHitboxAnnouncePending = true
+end
+print("[FUST] Хитбоксы НПС " .. (state and ("ВКЛ, размер " .. tostring(S.NPC.HitboxSize)) or "ВЫКЛ"))
+journal("ХИТБОКС НПС " .. (state and ("ВКЛ (размер " .. tostring(S.NPC.HitboxSize) .. ")") or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCHitboxSize = BotHitSection:Slider({
+Name = "Размер хитбокса НПС",
+Flag = "NPCHitboxSize",
+Default = 5,
+Min = 2,
+Max = 6,
+Decimals = 0.5,
+Suffix = "",
+Callback = function(Value)
+S.NPC.HitboxSize = Value
+end
+})
+UIRegistry.NPCHitboxTransparency = BotHitSection:Slider({
+Name = "Прозрачность хитбокса НПС",
+Flag = "NPCHitboxTransparency",
+Default = 0.7,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.NPC.HitboxTransparency = Value
+end
+})
+UIRegistry.NPCHitboxAnimals = BotHitSection:Toggle({
+Name = "Хитбокс: животные (по умолчанию выкл)",
+Flag = "NPCHitboxAnimals",
+Default = false,
+Callback = function(state)
+S.NPC.HitboxAnimals = state
+journal("ХИТБОКС ЖИВОТНЫЕ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.NPCHitboxSleepers = BotHitSection:Toggle({
+Name = "Хитбокс: слиперы (по умолчанию выкл)",
+Flag = "NPCHitboxSleepers",
+Default = false,
+Callback = function(state)
+S.NPC.HitboxSleepers = state
+journal("ХИТБОКС СЛИПЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.HitboxEnabled = HitboxSection:Toggle({
+Name = "Hitbox Expander",
+Flag = "HitboxEnabled",
+Default = false,
+Callback = function(state)
+S.Hitbox.Enabled = state
+if state then
+HitboxAnnouncePending = true
+end
+print("[FUST] Хитбокс " .. (state and ("ВКЛ, размер " .. tostring(S.Hitbox.Size)) or "ВЫКЛ"))
+journal("ХИТБОКС " .. (state and ("ВКЛ (размер " .. tostring(S.Hitbox.Size) .. ")") or "ВЫКЛ"))
+end
+})
+UIRegistry.HitboxSize = HitboxSection:Slider({
+Name = "Hitbox Size",
+Flag = "HitboxSize",
+Default = 5,
+Min = 2,
+Max = 6,
+Decimals = 0.5,
+Suffix = "",
+Callback = function(Value)
+S.Hitbox.Size = Value
+end
+})
+UIRegistry.HitboxTransparency = HitboxSection:Slider({
+Name = "Hitbox Transparency",
+Flag = "HitboxTransparency",
+Default = 0.7,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+S.Hitbox.Transparency = Value
+end
+})
+FullBrightBackup = nil
+UIRegistry.ESPTeamCheck = VisFilterSection:Toggle({
+Name = "Team Check (не показывать тимейтов)",
+Flag = "ESPTeamCheck",
+Default = false,
+Callback = function(state)
+S.ESP.TeamCheck = state
+journal("TEAM CHECK (ESP) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FullBright = WorldSection:Toggle({
+Name = "FullBright",
+Flag = "FullBright",
+Default = false,
+Callback = function(state)
+S.FullBright = state
+journal("FULLBRIGHT " .. (state and "ВКЛ" or "ВЫКЛ"))
+if state then
+FullBrightBackup = {
+Brightness = Lighting.Brightness,
+ClockTime = Lighting.ClockTime,
+FogEnd = Lighting.FogEnd,
+GlobalShadows = Lighting.GlobalShadows,
+}
+elseif FullBrightBackup then
+Lighting.Brightness = FullBrightBackup.Brightness
+Lighting.ClockTime = FullBrightBackup.ClockTime
+Lighting.FogEnd = FullBrightBackup.FogEnd
+Lighting.GlobalShadows = FullBrightBackup.GlobalShadows
+FullBrightBackup = nil
+end
+end
+})
+UIRegistry.NoDecoration = WorldSection:Toggle({
+Name = "Убрать декорации (NoDecoration)",
+Flag = "NoDecoration",
+Default = false,
+Callback = function(state)
+S.NoDecoration = state
+journal("НОДЕКОРАЦИИ " .. (state and "ВКЛ" or "ВЫКЛ"))
+pcall(function()
+local decor = Workspace:FindFirstChild("Decorations") or Workspace:FindFirstChild("TerrainDecorations")
+if decor then
+if state then
+decor.Parent = nil
+getgenv().FUST_DecorBackup = decor
+else
+decor.Parent = Workspace
+getgenv().FUST_DecorBackup = nil
+end
+end
+end)
+end
+})
+UIRegistry.NoGrass = WorldSection:Toggle({
+Name = "Убрать траву (No Grass)",
+Flag = "NoGrass",
+Default = false,
+Callback = function(state)
+S.NoGrass = state
+journal("НОТРАВА " .. (state and "ВКЛ" or "ВЫКЛ"))
+coroutine.wrap(pcall)(function()
+local terrain = Workspace:FindFirstChildOfClass("Terrain")
+if not terrain then
+repeat
+task.wait()
+until Workspace:FindFirstChildOfClass("Terrain")
+terrain = Workspace:FindFirstChildOfClass("Terrain")
+end
+if sethiddenproperty then
+sethiddenproperty(terrain, "Decoration", not state)
+else
+warn("Your exploit does not support sethiddenproperty.")
+end
+end)
+end
+})
+NoFogBackup = nil
+UIRegistry.NoFog = WorldSection:Toggle({
+Name = "Убрать туман (No Fog)",
+Flag = "NoFog",
+Default = false,
+Callback = function(state)
+S.NoFog = state
+journal("НОФОГ " .. (state and "ВКЛ" or "ВЫКЛ"))
+pcall(function()
+if state then
+if not NoFogBackup then
+NoFogBackup = { FogEnd = Lighting.FogEnd, FogStart = Lighting.FogStart }
+end
+Lighting.FogEnd = 100000
+Lighting.FogStart = 100000
+elseif NoFogBackup then
+Lighting.FogEnd = NoFogBackup.FogEnd
+Lighting.FogStart = NoFogBackup.FogStart
+NoFogBackup = nil
+end
+end)
+end
+})
+-- 0.39: УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS
+TextureBackup = nil
+function applyTextureDegradation(state)
+pcall(function()
+if state then
+if not TextureBackup then
+TextureBackup = {
+MaterialService2022 = nil,
+LightingTech = Lighting.Technology,
+}
+pcall(function()
+local ms = game:GetService("MaterialService")
+TextureBackup.MaterialService2022 = ms.Use2022Materials
+ms.Use2022Materials = false
+end)
+end
+-- всем BasePart в Workspace — Material = Plastic (если ещё не)
+pcall(function()
+for _, d in ipairs(Workspace:GetDescendants()) do
+if d:IsA("BasePart") and d.Material ~= Enum.Material.Plastic then
+pcall(function()
+d.Material = Enum.Material.Plastic
+end)
+elseif d:IsA("MeshPart") then
+pcall(function()
+d.TextureID = ""
+end)
+elseif d:IsA("Decal") or d:IsA("Texture") then
+pcall(function()
+d.Texture = ""
+d.Transparency = 1
+end)
+end
+end
+end)
+pcall(function()
+Lighting.Technology = Enum.Technology.Compatibility
+end)
+journal("ТЕКСТУРЫ ВЫКЛ (FPS режим)")
+else
+if TextureBackup then
+pcall(function()
+if TextureBackup.MaterialService2022 ~= nil then
+local ms = game:GetService("MaterialService")
+ms.Use2022Materials = TextureBackup.MaterialService2022
+end
+end)
+pcall(function()
+Lighting.Technology = TextureBackup.LightingTech
+end)
+TextureBackup = nil
+end
+journal("ТЕКСТУРЫ ВКЛ (восстановлено)")
+end
+end)
+end
+UIRegistry.TextureDegradation = WorldSection:Toggle({
+Name = "Ухудшение текстур (макс FPS)",
+Flag = "TextureDegradation",
+Default = false,
+Callback = function(state)
+S.TextureDegradation = state
+applyTextureDegradation(state)
+end
+})
+-- 0.39: дальность видимости (StreamingTargetRadius)
+UIRegistry.StreamBoost = WorldSection:Toggle({
+Name = "Увеличить дальность прогрузки",
+Flag = "StreamBoost",
+Default = false,
+Callback = function(state)
+S.StreamBoost = state
+pcall(function()
+if state then
+pcall(function()
+Workspace.StreamingTargetRadius = 4096
+Workspace.StreamingMinRadius = 1024
+end)
+journal("ПРОГРУЗКА: дальность увеличена")
+else
+pcall(function()
+Workspace.StreamingTargetRadius = 1024
+Workspace.StreamingMinRadius = 256
+end)
+journal("ПРОГРУЗКА: дальность по умолчанию")
+end
+end)
+end
+})
+function normalizeName(raw)
+if type(raw) ~= "string" then
+return ""
+end
+local name = raw:gsub("^%s+", ""):gsub("%s+$", "")
+name = name:gsub("^@", "")
+return name
+end
+function resolveName(raw)
+local name = normalizeName(raw)
+if name == "" then
+return nil
+end
+local lower = string.lower(name)
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.Name) == lower then
+return plr.Name
+end
+end
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.DisplayName) == lower then
+return plr.Name
+end
+end
+return name
+end
+WL_BG = Color3.fromRGB(17, 18, 22)
+WL_ROW = Color3.fromRGB(28, 39, 45)
+WL_ACCENT = Color3.fromRGB(157, 53, 12)
+WL_BRIGHT = Color3.fromRGB(225, 66, 6)
+WL_TEXT = Color3.fromRGB(199, 199, 212)
+WL_GRAY = Color3.fromRGB(117, 117, 131)
+wlHost = MiscSection.Items["Content"].Instance
+wlPanel = Instance.new("Frame")
+wlPanel.Name = "FustWhitelistPanel"
+wlPanel.BackgroundColor3 = WL_BG
+wlPanel.BorderSizePixel = 0
+wlPanel.Size = UDim2.new(1, 0, 0, 0)
+wlPanel.AutomaticSize = Enum.AutomaticSize.Y
+wlPanel.LayoutOrder = 100
+wlPanel.Parent = wlHost
+function wlCorner(parent, radius)
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, radius or 6)
+c.Parent = parent
+return c
+end
+do
+wlCorner(wlPanel)
+local stroke = Instance.new("UIStroke")
+stroke.Color = WL_ACCENT
+stroke.Transparency = 0.55
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = wlPanel
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 8)
+pad.PaddingBottom = UDim.new(0, 8)
+pad.PaddingLeft = UDim.new(0, 8)
+pad.PaddingRight = UDim.new(0, 8)
+pad.Parent = wlPanel
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlPanel
+end
+function wlLabel(text, order, color, bold)
+local l = Instance.new("TextLabel")
+l.BackgroundTransparency = 1
+l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+l.TextSize = 13
+l.TextColor3 = color or WL_TEXT
+l.Text = text
+l.TextXAlignment = Enum.TextXAlignment.Left
+l.Size = UDim2.new(1, 0, 0, 16)
+l.LayoutOrder = order
+l.Parent = wlPanel
+return l
+end
+wlLabel("Вайтлист (не бьём по этим)", 1, WL_BRIGHT, true)
+wlLabel("Тап по нику в списке — вкл/выкл.", 2, WL_GRAY)
+wlScroll = Instance.new("ScrollingFrame")
+wlScroll.Name = "FustWhitelistScroll"
+wlScroll.Size = UDim2.new(1, 0, 0, 150)
+wlScroll.BackgroundColor3 = WL_BG
+wlScroll.BorderSizePixel = 0
+wlScroll.ScrollBarThickness = 4
+wlScroll.ScrollBarImageColor3 = WL_ACCENT
+wlScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+wlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+wlScroll.LayoutOrder = 3
+wlScroll.Parent = wlPanel
+do
+wlCorner(wlScroll)
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 5)
+pad.PaddingBottom = UDim.new(0, 5)
+pad.PaddingLeft = UDim.new(0, 5)
+pad.PaddingRight = UDim.new(0, 6)
+pad.Parent = wlScroll
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlScroll
+end
+wlRows = {}
+function clearPlayerRows()
+for _, r in ipairs(wlRows) do
+r:Destroy()
+end
+table.clear(wlRows)
+end
+function applyRowStyle(row, isOn)
+local base = row:GetAttribute("WLText") or ""
+if isOn then
+row.BackgroundColor3 = WL_ACCENT
+row.TextColor3 = Color3.fromRGB(255, 255, 255)
+row.Text = "✓ " .. base
+else
+row.BackgroundColor3 = WL_ROW
+row.TextColor3 = WL_GRAY
+row.Text = base
+end
+end
+function rebuildPlayerList()
+clearPlayerRows()
+local rows = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+table.insert(rows, plr)
+end
+end
+table.sort(rows, function(a, b)
+return a.Name < b.Name
+end)
+if #rows == 0 then
+local empty = Instance.new("TextLabel")
+empty.BackgroundTransparency = 1
+empty.Font = Enum.Font.Gotham
+empty.TextSize = 12
+empty.TextColor3 = WL_GRAY
+empty.Text = "На сервере пока нет других игроков"
+empty.Size = UDim2.new(1, 0, 0, 26)
+empty.LayoutOrder = 1
+empty.Parent = wlScroll
+table.insert(wlRows, empty)
+return
+end
+for order, plr in ipairs(rows) do
+local row = Instance.new("TextButton")
+row.Name = "WL_" .. plr.Name
+row.AutoButtonColor = false
+row.Font = Enum.Font.Gotham
+row.TextSize = 13
+row.TextXAlignment = Enum.TextXAlignment.Left
+row.BackgroundColor3 = WL_ROW
+row.BorderSizePixel = 0
+row.Size = UDim2.new(1, 0, 0, 30)
+row.LayoutOrder = order
+row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
+row.Parent = wlScroll
+table.insert(wlRows, row)
+wlCorner(row, 5)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = row
+applyRowStyle(row, Whitelist[plr.Name] == true)
+row.Activated:Connect(function()
+if Whitelist[plr.Name] then
+Whitelist[plr.Name] = nil
+applyRowStyle(row, false)
+else
+Whitelist[plr.Name] = true
+applyRowStyle(row, true)
+end
+end)
+end
+end
+wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
+wlInput = Instance.new("TextBox")
+wlInput.Name = "FustWhitelistInput"
+wlInput.Font = Enum.Font.Gotham
+wlInput.TextSize = 13
+wlInput.PlaceholderText = "Ник или DisplayName друга..."
+wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
+wlInput.Text = ""
+wlInput.TextColor3 = WL_TEXT
+wlInput.TextXAlignment = Enum.TextXAlignment.Left
+wlInput.ClearTextOnFocus = false
+wlInput.BackgroundColor3 = WL_BG
+wlInput.BorderSizePixel = 0
+wlInput.Size = UDim2.new(1, 0, 0, 32)
+wlInput.LayoutOrder = 5
+wlInput.Active = true
+wlInput.Selectable = true
+wlInput.Parent = wlPanel
+do
+wlCorner(wlInput)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = wlInput
+end
+wlButtonRow = Instance.new("Frame")
+wlButtonRow.Name = "FustWhitelistButtons"
+wlButtonRow.BackgroundTransparency = 1
+wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
+wlButtonRow.LayoutOrder = 6
+wlButtonRow.Parent = wlPanel
+do
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlButtonRow
+end
+function wlMakeButton(text, order, bg, fg)
+local b = Instance.new("TextButton")
+b.Font = Enum.Font.GothamBold
+b.TextSize = 13
+b.Text = text
+b.TextColor3 = fg
+b.BackgroundColor3 = bg
+b.BorderSizePixel = 0
+b.Size = UDim2.new(0.5, -3, 1, 0)
+b.LayoutOrder = order
+b.Parent = wlButtonRow
+wlCorner(b, 5)
+return b
+end
+wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
+wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
+wlAdd.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = true
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+wlRemove.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = nil
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+Players.PlayerAdded:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+Players.PlayerRemoving:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+rebuildPlayerList()
+Aim = {
+Enabled = false,
+ShowFOV = false,
+FOV = 150, 
+Distance = 500, 
+Smooth = 4, 
+Prediction = 0.5, 
+Part = "Head", 
+Priority = "Прицел", 
+WallCheck = true,
+TeamCheck = false,
+Crosshair = false,
+TargetsPlayers = true, 
+TargetsNPC = false, 
+TargetsAnimals = false, 
+TargetsSleepers = false, 
+AutoPredict = false, 
+AutoPredictK = 1, 
+}
+Evil = {
+Enabled = false, 
+AutoPred = true, 
+Snipe = false, 
+K = 1, 
+}
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+AA_EnemyNear = false 
+AA_NearestDist = nil 
+AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
+AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+AimHotkeyObj = nil 
+AimHotkeyBusy = false 
+UIRegistry.AimEnabled = AimSection:Toggle({
+Name = "Аимбот (камера-лок)",
+Flag = "AimEnabled",
+Default = false,
+Callback = function(state)
+Aim.Enabled = state
+if AimHotkeyObj then
+AimHotkeyObj.Toggled = state
+end
+journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+hasKeyboard = false
+pcall(function()
+hasKeyboard = (UserInputService.KeyboardEnabled == true)
+end)
+if hasKeyboard then
+AimHotkeyBusy = true
+AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
+Flag = "AimHotkey",
+Default = Enum.KeyCode.RightAlt,
+Mode = "Toggle",
+Callback = function(state)
+if AimHotkeyBusy then return end
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+UIRegistry.AimEnabled:Set(state)
+end
+end
+})
+AimHotkeyBusy = false
+UIRegistry.AimHotkey = AimHotkeyObj
+end
+UIRegistry.AimShowFOV = AimSection:Toggle({
+Name = "FOV круг (зеленеет при захвате)",
+Flag = "AimShowFOV",
+Default = false,
+Callback = function(state)
+Aim.ShowFOV = state
+end
+})
+UIRegistry.AimWallCheck = AimSection:Toggle({
+Name = "Проверка стен",
+Flag = "AimWallCheck",
+Default = true,
+Callback = function(state)
+Aim.WallCheck = state
+end
+})
+UIRegistry.AimTeamCheck = AimSection:Toggle({
+Name = "Не целить тимейтов (одна команда)",
+Flag = "AimTeamCheck",
+Default = false,
+Callback = function(state)
+Aim.TeamCheck = state
+end
+})
+UIRegistry.AimCrosshair = AimSection:Toggle({
+Name = "Прицел по центру (CS2-стиль)",
+Flag = "AimCrosshair",
+Default = false,
+Callback = function(state)
+Aim.Crosshair = state
+end
+})
+-- 0.39: настройки прицела CS2
+UIRegistry.CHLength = AimSection:Slider({
+Name = "Прицел: длина лучей",
+Flag = "CHLength",
+Default = 7,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(v) CH.Length = v end
+})
+UIRegistry.CHThickness = AimSection:Slider({
+Name = "Прицел: толщина",
+Flag = "CHThickness",
+Default = 2,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.Thickness = v end
+})
+UIRegistry.CHGap = AimSection:Slider({
+Name = "Прицел: зазор от центра",
+Flag = "CHGap",
+Default = 5,
+Min = 0,
+Max = 15,
+Decimals = 0.5,
+Callback = function(v) CH.Gap = v end
+})
+UIRegistry.CHDot = AimSection:Toggle({
+Name = "Прицел: точка в центре",
+Flag = "CHDot",
+Default = false,
+Callback = function(state) CH.Dot = state end
+})
+UIRegistry.CHOutline = AimSection:Toggle({
+Name = "Прицел: обводка (чёрная)",
+Flag = "CHOutline",
+Default = true,
+Callback = function(state) CH.Outline = state end
+})
+UIRegistry.CHColor = AimSection:Colorpicker({
+Name = "Прицел: цвет",
+Flag = "CHColor",
+Default = Color3.fromRGB(255, 30, 30),
+Callback = function(c) CH.Color = c end
+})
+UIRegistry.AimFOV = AimSection:Slider({
+Name = "FOV радиус",
+Flag = "AimFOV",
+Default = 150,
+Min = 50,
+Max = 400,
+Decimals = 5,
+Suffix = "px",
+Callback = function(Value)
+Aim.FOV = Value
+end
+})
+UIRegistry.AimDistance = AimSection:Slider({
+Name = "Дистанция аима",
+Flag = "AimDistance",
+Default = 500,
+Min = 50,
+Max = 1500,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+Aim.Distance = Value
+end
+})
+UIRegistry.AimSmooth = AimSection:Slider({
+Name = "Smooth (1 резко — 20 плавно)",
+Flag = "AimSmooth",
+Default = 4,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(Value)
+Aim.Smooth = Value
+end
+})
+UIRegistry.AimPrediction = AimSection:Slider({
+Name = "Предикт (упреждение)",
+Flag = "AimPrediction",
+Default = 0.5,
+Min = 0,
+Max = 2,
+Decimals = 0.05,
+Suffix = "с",
+Callback = function(Value)
+Aim.Prediction = Value
+end
+})
+UIRegistry.AimAutoPredict = AimSection:Toggle({
+Name = "Авто-предикт (подстраивается под цель)",
+Flag = "AimAutoPredict",
+Default = false,
+Callback = function(state)
+Aim.AutoPredict = state
+journal("АВТО-ПРЕДИКТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AimAutoPredictK = AimSection:Slider({
+Name = "Авто-предикт: коэффициент",
+Flag = "AimAutoPredictK",
+Default = 1,
+Min = 0.2,
+Max = 3,
+Decimals = 0.1,
+Suffix = "x",
+Callback = function(Value)
+Aim.AutoPredictK = Value
+end
+})
+EvilSection = AimPage:Section({ Name = "ЗЛОЙ АИМ — ТЕСТ", Tab = "Аимбот", Side = 1 })
+EvilSection:Label({
+Name = "!! ЭТО ТЕСТ-РЕЖИМ: возможен БАН. Весь риск на тебе !!",
+Color = Color3.fromRGB(255, 64, 64)
+})
+UIRegistry.EvilEnabled = EvilSection:Toggle({
+Name = "ЗЛОЙ АИМ (хитбокс + авторедикт, мгновенно)",
+Flag = "EvilEnabled",
+Default = false,
+Color = Color3.fromRGB(255, 64, 64),
+Callback = function(state)
+Evil.Enabled = state
+if state and not Aim.Enabled and UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+pcall(function()
+UIRegistry.AimEnabled:Set(true)
+end)
+end
+journal("ЗЛОЙ АИМ (ТЕСТ) " .. (state and "ВКЛ — возможен БАН" or "ВЫКЛ"))
+print("[FUST] Злой аим " .. (state and "ВКЛ (ТЕСТ, риск бана)" or "ВЫКЛ"))
+end
+})
+UIRegistry.EvilAutoPred = EvilSection:Toggle({
+Name = "Злой: авто-предикт (скорость + край хитбокса)",
+Flag = "EvilAutoPred",
+Default = true,
+Color = Color3.fromRGB(255, 64, 64),
+Callback = function(state)
+Evil.AutoPred = state
+journal("ЗЛОЙ АИМ: авто-предикт " .. (state and "ВКЛ" or "ВЫКЛ (центр хитбокса)"))
+end
+})
+hasKeyboardEvil = hasKeyboard
+if hasKeyboardEvil then
+EvilPredHotkeyBusy = true
+UIRegistry.EvilPredHotkey = UIRegistry.EvilAutoPred:Keybind({
+Flag = "EvilPredHotkey",
+Default = Enum.KeyCode.P,
+Mode = "Toggle",
+Callback = function(state)
+if EvilPredHotkeyBusy then return end
+if UIRegistry.EvilAutoPred and UIRegistry.EvilAutoPred.Set then
+pcall(function()
+UIRegistry.EvilAutoPred:Set(state)
+end)
+end
+end
+})
+EvilPredHotkeyBusy = false
+end
+UIRegistry.EvilSnipe = EvilSection:Toggle({
+Name = "Меткий таргет (руфкемперы: без FOV, рывок)",
+Flag = "EvilSnipe",
+Default = false,
+Color = Color3.fromRGB(255, 64, 64),
+Callback = function(state)
+Evil.Snipe = state
+journal("ЗЛОЙ АИМ: меткий таргет " .. (state and "ВКЛ (без FOV, цель у прицела)" or "ВЫКЛ"))
+end
+})
+UIRegistry.EvilK = EvilSection:Slider({
+Name = "Злой: сила предикта",
+Flag = "EvilK",
+Default = 1,
+Min = 0.2,
+Max = 3,
+Decimals = 0.1,
+Suffix = "x",
+Callback = function(Value)
+Evil.K = Value
+end
+})
+EvilSection:Label({
+Name = "Хитбокс целится, но видно ТЕЛО: за стеной = не аимим. Стоит — центр, бежит — край.",
+Color = Color3.fromRGB(200, 120, 255)
+})
+AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
+Name = "Авто вкл/выкл аима (враги в радиусе)",
+Flag = "AutoAimEnabled",
+Default = false,
+Callback = function(state)
+AutoAim.Enabled = state
+AA_EnemyNear = false 
+journal("АВТО-АИМ " .. (state and "ВКЛ (враг в радиусе включит аимбот сам)" or "ВЫКЛ"))
+print("[FUST] Авто-аим " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoAimRadius = AutoAimSection:Slider({
+Name = "Радиус авто-включения",
+Flag = "AutoAimRadius",
+Default = 500,
+Min = 50,
+Max = 2000,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+AutoAim.Radius = Value
+end
+})
+RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
+UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
+Name = "Анти-отдача",
+Flag = "AntiRecoilEnabled",
+Default = false,
+Callback = function(state)
+AntiRecoil.Enabled = state
+journal("АНТИ-ОТДАЧА " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Анти-отдача " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({
+Name = "АО: откат кика камеры",
+Flag = "AntiRecoilRollback",
+Default = true,
+Callback = function(state)
+AntiRecoil.Rollback = state
+journal("АО откат-камеры " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilOffset = RecoilSection:Toggle({
+Name = "АО: сброс CameraOffset",
+Flag = "AntiRecoilOffset",
+Default = true,
+Callback = function(state)
+AntiRecoil.Offset = state
+journal("АО cameraoffset " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilThreshold = RecoilSection:Slider({
+Name = "АО: порог кика",
+Flag = "AntiRecoilThreshold",
+Default = 1.2,
+Min = 0.3,
+Max = 5,
+Decimals = 0.1,
+Suffix = "°",
+Callback = function(Value)
+AntiRecoil.Threshold = Value
+end
+})
+UIRegistry.AntiRecoilDrift = RecoilSection:Toggle({
+Name = "АО: компенсация дрифта",
+Flag = "AntiRecoilDrift",
+Default = true,
+Callback = function(state)
+AntiRecoil.Drift = state
+journal("АО дрифт " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilDriftStrength = RecoilSection:Slider({
+Name = "АО: сила компенсации",
+Flag = "AntiRecoilDriftStrength",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+AntiRecoil.DriftStrength = Value
+end
+})
+UIRegistry.AntiShakeEnabled = RecoilSection:Toggle({
+Name = "Анти-тряска (выстрел)",
+Flag = "AntiShakeEnabled",
+Default = false,
+Callback = function(state)
+AntiShake.Enabled = state
+journal("АНТИ-ТРЯСКА " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Анти-тряска " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiShakeRoll = RecoilSection:Toggle({
+Name = "АТ: крен (наклон вбок)",
+Flag = "AntiShakeRoll",
+Default = true,
+Callback = function(state)
+AntiShake.Roll = state
+journal("АТ крен " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiShakePosition = RecoilSection:Toggle({
+Name = "АТ: дёрганье позиции",
+Flag = "AntiShakePosition",
+Default = true,
+Callback = function(state)
+AntiShake.Position = state
+journal("АТ позиция " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiShakeOscillation = RecoilSection:Toggle({
+Name = "АТ: дрожь прицела",
+Flag = "AntiShakeOscillation",
+Default = true,
+Callback = function(state)
+AntiShake.Oscillation = state
+journal("АТ дрожь " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+function AR_DriftPass()
+if not (AntiRecoil.Enabled and AntiRecoil.Drift) then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+if os.clock() < AR_AimBusyUntil then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+if os.clock() >= FUST_FireUntil then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+local camera = Workspace.CurrentCamera
+local myChar = LocalPlayer.Character
+local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
+if not (camera and myTool) then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+pcall(function()
+local pitch = camera.CFrame.LookVector.Y
+local now = os.clock()
+if AR_LastPitch then
+local d = pitch - AR_LastPitch
+if d < -0.00005 or d > math.rad(2.5) then
+AR_DriftFrames = 0
+AR_Anchor = nil
+elseif d > 0.0001 then
+AR_LastDriftAt = now
+AR_DriftFrames = AR_DriftFrames + 1
+if not AR_Anchor then
+AR_Anchor = pitch - d
+end
+if AR_DriftFrames >= 2 then
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.35)
+end
+else
+if now - AR_LastDriftAt > 0.25 then
+AR_DriftFrames = 0
+AR_Anchor = nil
+end
+end
+end
+AR_LastPitch = pitch
+if AR_Anchor then
+local err = pitch - AR_Anchor
+if err > 0.0006 then
+local rate = 0.2 + 0.4 * math.clamp(AntiRecoil.DriftStrength, 0, 1)
+local theta = math.asin(math.clamp(err * rate, -1, 1))
+camera.CFrame = camera.CFrame * CFrame.Angles(-theta, 0, 0)
+AR_LastPitch = camera.CFrame.LookVector.Y
+end
+end
+end)
+end
+function FUST_BindFireTool(tool)
+if tool == FUST_FireTool then
+return
+end
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+end
+FUST_FireConns = nil
+FUST_FireTool = tool
+if not tool then
+FUST_FireUntil = 0
+return
+end
+local conns = {}
+local function markFire()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+for _, c in ipairs(conns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+return
+end
+FUST_FireUntil = os.clock() + 0.6
+end
+local function markStop()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+FUST_FireUntil = math.max(FUST_FireUntil, os.clock() + 0.3)
+end
+table.insert(conns, tool.Activated:Connect(markFire))
+table.insert(conns, tool.Deactivated:Connect(markStop))
+FUST_FireConns = conns
+end
+getgenv().FUST_ASCleanup = function()
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+end
+FUST_FireConns = nil
+FUST_FireTool = nil
+FUST_FireUntil = 0
+end
+function AS_Pass()
+local camera = Workspace.CurrentCamera
+local myChar = LocalPlayer.Character
+local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
+if FreeCam.Enabled then
+AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
+AS_LastLX, AS_LastLZ = nil, nil
+AS_AnchorLook, AS_SmoothPos = nil, nil
+AS_PitchFlips, AS_YawFlips = 0, 0
+return
+end
+if not (AntiShake.Enabled and camera and myTool) then
+AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
+AS_LastLX, AS_LastLZ = nil, nil
+AS_AnchorLook, AS_SmoothPos = nil, nil
+AS_PitchFlips, AS_YawFlips = 0, 0
+return
+end
+local aimBusy = os.clock() < AR_AimBusyUntil
+pcall(function()
+local cf = camera.CFrame
+local look = cf.LookVector
+local pos = cf.Position
+local now = os.clock()
+local firing = now < FUST_FireUntil
+if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
+local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
+if math.abs(roll) > math.rad(0.05) then
+camera.CFrame = CFrame.lookAt(pos, pos + look)
+cf = camera.CFrame
+end
+end
+if AntiShake.Position then
+if firing then
+if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
+AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
+camera.CFrame = CFrame.new(AS_SmoothPos) *
