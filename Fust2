@@ -1,3 +1,154 @@
+0, EdgeThickness, 1, 0)),
+Side = "L"
+},
+{Button = MakeEdge(
+"Right",
+UDim2New(1, -EdgeThickness, 0, 0),
+UDim2New(0, EdgeThickness, 1, 0)),
+Side = "R"
+},
+{Button = MakeEdge(
+"Top", UDim2New(0, 0, 0, 0),
+UDim2New(1, 0, 0, EdgeThickness)),
+Side = "T"
+},
+{Button = MakeEdge(
+"Bottom",
+UDim2New(0, 0, 1, -EdgeThickness),
+UDim2New(1, 0, 0, EdgeThickness)),
+Side = "B"
+},
+}
+local BeginResizing = function(Side)
+Resizing = true
+CurrentSide = Side
+StartMouse = UserInputService:GetMouseLocation()
+StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
+StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
+for Index, Value in Edges do
+Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
+end
+end
+local EndResizing = function()
+Resizing = false
+CurrentSide = nil
+for Index, Value in Edges do
+Value.Button.Instance.BackgroundTransparency = 1
+end
+end
+for Index, Value in Edges do
+Value.Button:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+BeginResizing(Value.Side)
+end
+end)
+end
+Library:Connect(UserInputService.InputEnded, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+if Resizing then
+EndResizing()
+end
+end
+end)
+Library:Connect(RunService.RenderStepped, function()
+if not Resizing or not CurrentSide then
+return
+end
+local MouseLocation = UserInputService:GetMouseLocation()
+local dx = MouseLocation.X - StartMouse.X
+local dy = MouseLocation.Y - StartMouse.Y
+local x, y = StartPosition.X, StartPosition.Y
+local w, h = StartSize.X, StartSize.Y
+if CurrentSide == "L" then
+x = StartPosition.X + dx
+w = StartSize.X - dx
+elseif CurrentSide == "R" then
+w = StartSize.X + dx
+elseif CurrentSide == "T" then
+y = StartPosition.Y + dy
+h = StartSize.Y - dy
+elseif CurrentSide == "B" then
+h = StartSize.Y + dy
+end
+if w < Minimum.X then
+if CurrentSide == "L" then
+x = x - (Minimum.X - w)
+end
+w = Minimum.X
+end
+if h < Minimum.Y then
+if CurrentSide == "T" then
+y = y - (Minimum.Y - h)
+end
+h = Minimum.Y
+end
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2FromOffset(x, y)})
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2FromOffset(w, h)})
+end)
+end
+Instances.OnHover = function(self, Function)
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseEnter, Function)
+end
+Instances.OnHoverLeave = function(self, Function)
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseLeave, Function)
+end
+end
+local CustomFont = { } do
+function CustomFont:New(Name, Weight, Style, Data)
+if not isfile(Data.Id) then
+writefile(Data.Id, game:HttpGet(Data.Url))
+end
+local Data = {
+name = Name,
+faces = {
+{
+name = Name,
+weight = Weight,
+style = Style,
+assetId = getcustomasset(Data.Id)
+}
+}
+}
+writefile(Library.Folders.Assets .. "/" .. Name .. ".font", HttpService:JSONEncode(Data))
+return Font.new(getcustomasset(Library.Folders.Assets .. "/" .. Name .. ".font"))
+end
+do
+local loaded = pcall(function()
+Library.Font = CustomFont:New("SFProText", 400, "Regular", {
+Id = "AltHack_SFProText",
+Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/SF-Pro-Text-Regular.otf"
+})
+end)
+if not loaded then
+pcall(function() delfile("AltHack_SFProText") end)
+loaded = pcall(function()
+Library.Font = CustomFont:New("Inter", 400, "Regular", {
+Id = "AltHack_Inter",
+Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Inter.ttf"
+})
+end)
+end
+if not loaded then
+pcall(function() delfile("AltHack_Inter") end)
+loaded = pcall(function()
+Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
+Id = "OutfitMedium",
+Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
+})
+end)
+end
+if not loaded or not Library.Font then
+Library.Font = Font.new(Enum.Font.GothamMedium)
+end
+end
+end
+Library.Holder = Instances:Create("ScreenGui", {
 Parent = gethui(),
 Name = "\0",
 ZIndexBehavior = Enum.ZIndexBehavior.Global,
@@ -1862,3 +2013,225 @@ Library.Sections.Toggle = function(self, Data)
 Data = Data or { }
 local Toggle = {
 Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Toggle",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Default = Data.Default or Data.default or false,
+Callback = Data.Callback or Data.callback or function() end,
+Value = false,
+Color = Data.Color or Data.color
+}
+local Items = { } do
+Items["Toggle"] = Instances:Create("TextButton", {
+Parent = Toggle.Section.Items["Content"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = FromRGB(0, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+AnchorPoint = Vector2New(1, 0),
+BackgroundTransparency = 1,
+Size = UDim2New(1, 0, 0, 20),
+BorderSizePixel = 0,
+TextSize = 14
+})
+Items["SubElements"] = Instances:Create("Frame", {
+Parent = Items["Toggle"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+AnchorPoint = Vector2New(1, 0),
+BackgroundTransparency = 1,
+Position = UDim2New(1, -38, 0, 0),
+Size = UDim2New(0, 0, 1, 0),
+BorderSizePixel = 0,
+AutomaticSize = Enum.AutomaticSize.X
+})
+Instances:Create("UIListLayout", {
+Parent = Items["SubElements"].Instance,
+Name = "\0",
+VerticalAlignment = Enum.VerticalAlignment.Center,
+FillDirection = Enum.FillDirection.Horizontal,
+HorizontalAlignment = Enum.HorizontalAlignment.Right,
+Padding = UDimNew(0, 6),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Toggle"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+TextTransparency = 0.5,
+Text = Toggle.Name,
+Size = UDim2New(0, 0, 0, 15),
+AnchorPoint = Vector2New(0, 0.5),
+BorderSizePixel = 0,
+BackgroundTransparency = 1,
+Position = UDim2New(0, 0, 0.5, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 14
+}):AddToTheme({TextColor3 = 'Text'})
+if Toggle.Color then
+Items["Text"].Instance.TextColor3 = Toggle.Color
+Items["Text"].Instance.TextTransparency = 0
+end
+Items["Indicator"] = Instances:Create("Frame", {
+Parent = Items["Toggle"].Instance,
+Name = "\0",
+AnchorPoint = Vector2New(1, 0.5),
+Position = UDim2New(1, 0, 0.5, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 32, 0, 16),
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+Instances:Create("UICorner", {
+Parent = Items["Indicator"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Instances:Create("UIStroke", {
+Parent = Items["Indicator"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Circle"] = Instances:Create("Frame", {
+Parent = Items["Indicator"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+AnchorPoint = Vector2New(0, 0.5),
+BackgroundTransparency = 0.5,
+Position = UDim2New(0, 4, 0.5, 0),
+Size = UDim2New(0, 10, 0, 10),
+BorderSizePixel = 0
+}):AddToTheme({BackgroundColor3 = function() return FromRGB(255, 255, 255) end})
+Instances:Create("UICorner", {
+Parent = Items["Circle"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow"] = Instances:Create("ImageLabel", {
+Parent = Items["Circle"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Accent"],
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+BorderSizePixel = 0,
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+}):AddToTheme({ImageColor3 = 'Accent'})
+end
+table.insert(Library.SearchRows, {Frame = Items["Toggle"].Instance, Text = StringLower(Toggle.Name), Page = Toggle.Page})
+function Toggle:Get()
+return Toggle.Value
+end
+function Toggle:Set(Value)
+Toggle.Value = Value
+Library.Flags[Toggle.Flag] = Value
+if Toggle.Value then
+Items["Glow"]:Tween(nil, {ImageTransparency = 0.7})
+Items["Indicator"]:ChangeItemTheme({BackgroundColor3 = "Accent"})
+Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
+Items["Circle"]:ChangeItemTheme({BackgroundColor3 = function() return FromRGB(255, 255, 255) end})
+Items["Circle"]:Tween(TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+AnchorPoint = Vector2New(1, 0.5),
+Position = UDim2New(1, -3, 0.5, 0),
+BackgroundTransparency = 0,
+BackgroundColor3 = FromRGB(255, 255, 255)
+})
+Items["Text"]:Tween(nil, {TextTransparency = 0})
+else
+Items["Glow"]:Tween(nil, {ImageTransparency = 1})
+Items["Indicator"]:ChangeItemTheme({BackgroundColor3 = "Element"})
+Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
+Items["Circle"]:ChangeItemTheme({BackgroundColor3 = function() return FromRGB(255, 255, 255) end})
+Items["Circle"]:Tween(TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+AnchorPoint = Vector2New(0, 0.5),
+Position = UDim2New(0, 3, 0.5, 0),
+BackgroundTransparency = 0.45,
+BackgroundColor3 = FromRGB(255, 255, 255)
+})
+Items["Text"]:Tween(nil, {TextTransparency = 0.45})
+end
+if Toggle.Callback then
+Library:SafeCall(Toggle.Callback, Toggle.Value)
+end
+end
+function Toggle:SetVisibility(Bool)
+Items["Toggle"].Instance.Visible = Bool
+end
+function Toggle:Colorpicker(Data)
+Data = Data or { }
+local Colorpicker = {
+Window = Toggle.Window,
+Page = Toggle.Page,
+Section = Toggle.Section,
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Default = Data.Default or Data.default or Color3.fromRGB(255, 255, 255),
+Callback = Data.Callback or Data.callback or function() end,
+Alpha = Data.Alpha or Data.alpha or false
+}
+local NewColorpicker, ColorpickerItems = Library:CreateColorpicker({
+Parent = Items["SubElements"],
+Page = Colorpicker.Page,
+Section = Colorpicker.Section,
+Flag = Colorpicker.Flag,
+Default = Colorpicker.Default,
+Callback = Colorpicker.Callback,
+Alpha = Colorpicker.Alpha
+})
+return NewColorpicker
+end
+function Toggle:Keybind(Data)
+Data = Data or { }
+local Keybind = {
+Window = Toggle.Window,
+Page = Toggle.Page,
+Section = Toggle.Section,
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Default = Data.Default or Data.default,
+Callback = Data.Callback or Data.callback or function() end,
+Mode = Data.Mode or Data.mode or "Toggle"
+}
+local NewKeybind, KeybindItems = Library:CreateKeybind({
+Parent = Items["SubElements"],
+Page = Keybind.Page,
+Section = Keybind.Section,
+Flag = Keybind.Flag,
+Default = Keybind.Default,
+Mode = Keybind.Mode,
+Callback = Keybind.Callback
+})
+return NewKeybind
+end
+Items["Toggle"]:Connect("MouseButton1Down", function()
+Toggle:Set(not Toggle.Value)
+end)
+Toggle:Set(Toggle.Default)
+Library.SetFlags[Toggle.Flag] = function(Value)
+Toggle:Set(Value)
+end
+return Toggle
+end
+Library.Sections.Button = function(self, Data)
+Data = Data or { }
+local Button = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Button",
+Callback = Data.Callback or Data.callback or function() end
+}
+local Items = { } do
+Items["Button"] = Instances:Create("TextButton", {
+Parent = Button.Section.Items["Content"].Instance,
+Name = "\0",
+TextColor3 = Library.

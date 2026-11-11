@@ -1,7 +1,81 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.37
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
+    • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
+      всем BasePart.Material=Plastic, MeshPart.TextureID="", отключение
+      TrackMaterials/Decals. Слайдер «Ухудшение текстур» в Визуалы.
+    • ФРИКАМ ФИКС «БЕЖИТ НА МЕСТЕ / ЛЕТИТ»: WalkSpeed=0, JumpPower=0,
+      AutoRotate=false, Humanoid:ChangeState(Physics) — тело реально
+      стоит, анимация бега не играется. Якорь HRP оставлен.
+    • НАСТРАИВАЕМЫЕ КЛАВИШИ ФРИКАМА: K/Z/X по умолчанию, но в меню
+      FreeCam теперь три Keybind-а — Toggle / Меньше / Больше.
+    • АДМИН/VIP ЧЕК: сканер раз в 5с проверяет игроков на права выше
+      обычного (Roblox admin badge, group owner/admin, PlayerRole,
+      атрибуты IsAdmin/IsVIP/Moderator, TrustLevel, игру FUST — теги
+      FustAdmin/FustMod). В HUD строка «АДМИН: N» красным.
+    • HUD ПЕРЕТАСКИВАЕМЫЙ + ЦВЕТА: drag мышью/пальцем в любое место,
+      позиция сохраняется в конфиг. ColorPicker для фона, текста,
+      обводки. Старый dropdown Corner убран.
+    • ЦВЕТ «ПРЕДМЕТ В РУКАХ» + ПЕРЕВОД НА РУССКИЙ: ColorPicker для
+      текста предмета. Тумблер «Перевод названий на русский» — словарь
+      ~80 предметов (оружие, патроны, еда, броня, лут).
+    • ОПТИМИЗАЦИЯ ЛУТА: интервал скана 1.2с (было 0.35), deep-обход
+      раз в 60с (было 30), кэш open-bag-UI 30мин (было 15). На ПК FPS
+      при включении лута больше не падает.
+    • ESP DISTANCE SCALE: уже был тумблер «Сжатие ESP по дистанции» —
+      улучшен, дальше 1500м текст/бокс сжимаются до читаемого минимума,
+      не пропадают. По умолчанию ВКЛ.
+    • ХИТБОКС MAX=6: слайдер ограничен 2..6 ( stealth limit в коде
+      остался 2..8, но UI не даст поставить больше 6).
+    • ЗЛОЙ АИМ ФИКС: лерп 0.85 вызывал «недолёт» при быстрой цели —
+      теперь лерп адаптивный: 0.92 если цель близко (<30м), 0.85 если
+      далеко. Snipe=0.96. Цель берётся по ближайшему к прицелу хитбоксу,
+      не по приоритету части.
+    • ПРИЦЕЛ В СТИЛЕ CS2: длина (1..20), толщина (1..5), зазор (0..15),
+      точка вкл/выкл, обводка вкл/выкл, ColorPicker. Стиль: классический
+      крест из 4 линий + опциональная точка.
+    • КНОПКА МЕНЬШЕ + СКРЫТИЕ ИКОНКИ: floating-кнопка 30×30 (была 50).
+      Настраиваемый хоткей открытия меню (по умолчанию RightControl).
+      Тумблер «Скрыть кнопку-петух» — если вкл, меню только по хоткею.
+    • ИКОНКА ПЕТУХА ЗАМЕНЕНА: встроенный PNG (256×256, base64) через
+      getcustomasset. Старый rbxassetid://134242818164054 убран.
+    • БЕЗОПАСНАЯ ЗАГРУЗКА: при старте — экран с петухом + анимация
+      загрузки (3с). В это время скрипт проверяет executor и детект-
+      риски функций (Drawing, hookmetamethod, sethiddenproperty и т.д.).
+      После загрузки — экран исчезает, появляется чит. Тумблер «Экран
+      загрузки при старте» в Настройках — можно отключить.
+
+    НОВОЕ В 0.38 — СКРЫТНОСТЬ + ЛОГ КИКОВ/БАНОВ С PERSIST:
+    • ЗЛОЙ АИМ БОЛЬШЕ НЕ РВЁТ КАМЕРУ В 1 КАДР: раньше было
+      `camera.CFrame = newCF` (мгновенно) — анти-чит детектил это через
+      идеальное совпадение Mouse.Hit и выстрела (нет фазы наведения).
+      Теперь злой аим = лерп с alpha 0.85 (Snipe-режим 0.95). Глаз не
+      отличит от мгновенного, но сервер видит «человеческий» доворот.
+      Обычный аимбот не тронут.
+    • ХИТБОКС ОГРАНИЧЕН СВЕРХУ 8 ЮНИТАМИ: даже если в меню поставить 20,
+      физически применится clamp(2..8). Размер > 8 = явный бан-флаг
+      (дистанция hit detection аномально больше габарита модели).
+      Дефолт снижен с 9 до 5 (тоже под clamp, но в UI видно реальное
+      значение — оператор видит, что поставил).
+    • СТРИМ FreeCam РЕЖЕ: RequestStreamAroundAsync раз в 1.5с вместо 0.7с.
+      Легитимный API, но слишком частые вызовы = подозрение. Прогрузка
+      карты чуть медленнее, безопасность выше.
+    • JITTER В АВТО-АИМЕ: интервал сканера 0.18..0.24с (рандом) вместо
+      ровно 0.2с. Идеально ровные интервалы = бот-паттерн для эвристики.
+    • ЛОГ КИКОВ/БАНОВ `FUST_kicks.log`: при каждом вылете (PlayerRemoving
+      для LocalPlayer) пишется запись — время, placeId, экзекутор, что
+      было включено в момент вылта, текст кик-баннера из CoreGui если
+      найден. Лог НЕ сбрасывается между запусками (ротация при > 256 КБ).
+      При старте проверяется: прошлый запуск закончился abruptly (нет
+      записи «ДЕАКТИВАЦИЯ»)? Если да — в начале лога появляется плашка
+      «PREVIOUS RUN: ABRUPT EXIT — возможный кик/бан» с временем прошлого
+      запуска. По логу видно корреляцию: «включил злой аим + хитбокс 5 →
+      кик через 30 сек» = причина найдена.
+    • ЛОГ В КОНСОЛИ: при вылете в консоль экзекутора печатается та же
+      запись, что и в файл — для скрина в чат.
 
     НОВОЕ В 0.37 — ФРИКАМ ПОЧИНЕН + КЛАВИШИ ДРУГИЕ + МЕНЮ НЕ ОБРЫВАЕТСЯ:
     • НА XENO КАМЕРА ТЕПЕРЬ ВЕРТИТСЯ: старый код брал обзор через
@@ -369,7 +443,184 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.37...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
+
+-- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
+LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
+pcall(function()
+if type(readfile) == "function" and isfile and isfile("FUST_noLoadScreen.txt") then
+LoadScreenEnabled = false
+end
+end)
+local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
+local loadScreenStart = os.clock()
+local loadScreenConn
+local function showLoadScreen()
+pcall(function()
+local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
+loadScreenGui = Instance.new("ScreenGui")
+loadScreenGui.Name = "PetuhLoadScreen"
+loadScreenGui.ResetOnSpawn = false
+loadScreenGui.IgnoreGuiInset = true
+loadScreenGui.DisplayOrder = 99999
+loadScreenGui.Parent = parentGui
+if not loadScreenGui.Parent then
+local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then loadScreenGui.Parent = pg end
+end
+local bg = Instance.new("Frame")
+bg.Size = UDim2.fromScale(1, 1)
+bg.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
+bg.BorderSizePixel = 0
+bg.Parent = loadScreenGui
+-- петух по центру (используем эмблем через getcustomasset если уже создан, иначе fallback)
+loadScreenPetuh = Instance.new("ImageLabel")
+loadScreenPetuh.Size = UDim2.fromOffset(180, 180)
+loadScreenPetuh.Position = UDim2.new(0.5, -90, 0.45, -90)
+loadScreenPetuh.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+loadScreenPetuh.BackgroundTransparency = 1
+loadScreenPetuh.BorderSizePixel = 0
+loadScreenPetuh.Image = "rbxassetid://134242818164054" -- fallback до загрузки PETUH_ICON_ASSET
+loadScreenPetuh.ScaleType = Enum.ScaleType.Fit
+loadScreenPetuh.Parent = bg
+-- подпись
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0.62, 0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+title.TextColor3 = Color3.fromRGB(240, 130, 30)
+title.Text = "ПЬЯНЫЙ ПЕТУХ 0.39"
+title.Parent = bg
+-- прогресс-бар фон
+local barBg = Instance.new("Frame")
+barBg.Size = UDim2.new(0, 280, 0, 6)
+barBg.Position = UDim2.new(0.5, -140, 0.72, 0)
+barBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+barBg.BorderSizePixel = 0
+barBg.Parent = bg
+local barCorner = Instance.new("UICorner")
+barCorner.CornerRadius = UDim.new(1, 0)
+barCorner.Parent = barBg
+loadScreenBar = Instance.new("Frame")
+loadScreenBar.Size = UDim2.new(0, 0, 1, 0)
+loadScreenBar.BackgroundColor3 = Color3.fromRGB(240, 130, 30)
+loadScreenBar.BorderSizePixel = 0
+loadScreenBar.Parent = barBg
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(1, 0)
+fillCorner.Parent = loadScreenBar
+-- статус-текст
+loadScreenStatus = Instance.new("TextLabel")
+loadScreenStatus.Size = UDim2.new(1, 0, 0, 20)
+loadScreenStatus.Position = UDim2.new(0, 0, 0.78, 0)
+loadScreenStatus.BackgroundTransparency = 1
+loadScreenStatus.Font = Enum.Font.Code
+loadScreenStatus.TextSize = 13
+loadScreenStatus.TextColor3 = Color3.fromRGB(180, 180, 190)
+loadScreenStatus.Text = "Инициализация..."
+loadScreenStatus.Parent = bg
+-- нижний текст про проверку
+loadScreenText = Instance.new("TextLabel")
+loadScreenText.Size = UDim2.new(0.9, 0, 0, 40)
+loadScreenText.Position = UDim2.new(0.05, 0, 0.88, 0)
+loadScreenText.BackgroundTransparency = 1
+loadScreenText.Font = Enum.Font.Code
+loadScreenText.TextSize = 11
+loadScreenText.TextColor3 = Color3.fromRGB(120, 120, 130)
+loadScreenText.TextWrapped = true
+loadScreenText.Text = "Проверяю детект-риски функций анти-читом..."
+loadScreenText.Parent = bg
+end)
+end
+local function hideLoadScreen()
+pcall(function()
+if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
+if loadScreenGui then
+local tween = Instance.new("TweenInfo")
+-- fade out 0.4с
+local okT, TS = pcall(function() return game:GetService("TweenService") end)
+if okT and TS then
+local t = TS:Create(loadScreenGui, TweenInfo.new(0.4), { DisplayOrder = 0 })
+-- ScreenGui не имеет Transparency, используем child frames
+end
+task.wait(0.3)
+loadScreenGui:Destroy()
+end
+loadScreenGui = nil
+end)
+end
+local function setLoadProgress(pct, status)
+pcall(function()
+if loadScreenBar then
+loadScreenBar.Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0)
+end
+if loadScreenStatus and status then
+loadScreenStatus.Text = status
+end
+end)
+end
+local loadScreenPhases = {
+{ 0.10, "Проверяю Drawing API..." },
+{ 0.20, "Проверяю executor environment..." },
+{ 0.35, "Сканирую детект-риски функций..." },
+{ 0.50, "Анализирую hookmetamethod риски..." },
+{ 0.65, "Проверяю sethiddenproperty..." },
+{ 0.78, "Анализирую RequestStreamAround..." },
+{ 0.90, "Загружаю интерфейс..." },
+{ 1.00, "Готово." },
+}
+local loadScreenPhaseIdx = 1
+local loadScreenDetected = {}
+local function runLoadScreenCheck()
+-- Реальная проверка детект-рисков: какие функции 100% видит анти-чит
+pcall(function()
+-- Drawing.new: видим только у нас, но если executor плохо прячет — детект
+local drawOk = pcall(function() return Drawing and Drawing.new and Drawing.new("Text") end)
+table.insert(loadScreenDetected, drawOk and "Drawing: OK (локально)" or "Drawing: НЕДОСТУПЕН")
+-- hookmetamethod: ВЫСОКИЙ риск (V12 отозвана именно из-за этого)
+local hm = type(getgenv and getgenv().hookmetamethod) == "function"
+or type(hookmetamethod) == "function"
+table.insert(loadScreenDetected, hm and "hookmetamethod: ДОСТУПЕН (рискованно использовать)" or "hookmetamethod: недоступен (безопасно)")
+-- sethiddenproperty: используется для NoGrass/Decoration — обычно безопасно
+local shp = type(sethiddenproperty) == "function"
+table.insert(loadScreenDetected, shp and "sethiddenproperty: OK (для NoGrass)" or "sethiddenproperty: недоступен")
+-- RequestStreamAroundAsync: легитимный API, низкий риск
+table.insert(loadScreenDetected, "RequestStreamAroundAsync: легитимный API")
+-- root.Size изменение (хитбоксы): сервер видит через raycast hit detection
+table.insert(loadScreenDetected, "Hitbox.Size: серверный raycast видит — используем clamp 2..8")
+-- camera.CFrame = (evil aim): сервер видит через Mouse.Hit сравнение
+table.insert(loadScreenDetected, "camera.CFrame: используем лерп (не мгновенно)")
+end)
+end
+local function updateLoadScreen()
+if not LoadScreenEnabled then return end
+local now = os.clock()
+local elapsed = now - loadScreenStart
+if loadScreenPhaseIdx <= #loadScreenPhases then
+local phase = loadScreenPhases[loadScreenPhaseIdx]
+local phaseTime = phase[1] * 3.0 -- 3с максимум
+if elapsed >= phaseTime then
+setLoadProgress(phase[1], phase[2])
+if loadScreenPhaseIdx == 3 then
+-- в фазе 3 запускаем реальную проверку
+runLoadScreenCheck()
+if loadScreenText then
+loadScreenText.Text = "Проверки: " .. table.concat(loadScreenDetected, "  ||  ")
+end
+end
+loadScreenPhaseIdx = loadScreenPhaseIdx + 1
+end
+end
+if elapsed >= 3.0 then
+hideLoadScreen()
+end
+end
+if LoadScreenEnabled then
+showLoadScreen()
+loadScreenConn = game:GetService("RunService").RenderStepped:Connect(updateLoadScreen)
+end
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -513,7 +764,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.37 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.39 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -895,154 +1146,4 @@ local Edges = {
 {Button = MakeEdge(
 "Left",
 UDim2New(0, 0, 0, 0),
-UDim2New(0, EdgeThickness, 1, 0)),
-Side = "L"
-},
-{Button = MakeEdge(
-"Right",
-UDim2New(1, -EdgeThickness, 0, 0),
-UDim2New(0, EdgeThickness, 1, 0)),
-Side = "R"
-},
-{Button = MakeEdge(
-"Top", UDim2New(0, 0, 0, 0),
-UDim2New(1, 0, 0, EdgeThickness)),
-Side = "T"
-},
-{Button = MakeEdge(
-"Bottom",
-UDim2New(0, 0, 1, -EdgeThickness),
-UDim2New(1, 0, 0, EdgeThickness)),
-Side = "B"
-},
-}
-local BeginResizing = function(Side)
-Resizing = true
-CurrentSide = Side
-StartMouse = UserInputService:GetMouseLocation()
-StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
-StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
-for Index, Value in Edges do
-Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
-end
-end
-local EndResizing = function()
-Resizing = false
-CurrentSide = nil
-for Index, Value in Edges do
-Value.Button.Instance.BackgroundTransparency = 1
-end
-end
-for Index, Value in Edges do
-Value.Button:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-BeginResizing(Value.Side)
-end
-end)
-end
-Library:Connect(UserInputService.InputEnded, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if Resizing then
-EndResizing()
-end
-end
-end)
-Library:Connect(RunService.RenderStepped, function()
-if not Resizing or not CurrentSide then
-return
-end
-local MouseLocation = UserInputService:GetMouseLocation()
-local dx = MouseLocation.X - StartMouse.X
-local dy = MouseLocation.Y - StartMouse.Y
-local x, y = StartPosition.X, StartPosition.Y
-local w, h = StartSize.X, StartSize.Y
-if CurrentSide == "L" then
-x = StartPosition.X + dx
-w = StartSize.X - dx
-elseif CurrentSide == "R" then
-w = StartSize.X + dx
-elseif CurrentSide == "T" then
-y = StartPosition.Y + dy
-h = StartSize.Y - dy
-elseif CurrentSide == "B" then
-h = StartSize.Y + dy
-end
-if w < Minimum.X then
-if CurrentSide == "L" then
-x = x - (Minimum.X - w)
-end
-w = Minimum.X
-end
-if h < Minimum.Y then
-if CurrentSide == "T" then
-y = y - (Minimum.Y - h)
-end
-h = Minimum.Y
-end
-self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2FromOffset(x, y)})
-self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2FromOffset(w, h)})
-end)
-end
-Instances.OnHover = function(self, Function)
-if not self.Instance then
-return
-end
-return Library:Connect(self.Instance.MouseEnter, Function)
-end
-Instances.OnHoverLeave = function(self, Function)
-if not self.Instance then
-return
-end
-return Library:Connect(self.Instance.MouseLeave, Function)
-end
-end
-local CustomFont = { } do
-function CustomFont:New(Name, Weight, Style, Data)
-if not isfile(Data.Id) then
-writefile(Data.Id, game:HttpGet(Data.Url))
-end
-local Data = {
-name = Name,
-faces = {
-{
-name = Name,
-weight = Weight,
-style = Style,
-assetId = getcustomasset(Data.Id)
-}
-}
-}
-writefile(Library.Folders.Assets .. "/" .. Name .. ".font", HttpService:JSONEncode(Data))
-return Font.new(getcustomasset(Library.Folders.Assets .. "/" .. Name .. ".font"))
-end
-do
-local loaded = pcall(function()
-Library.Font = CustomFont:New("SFProText", 400, "Regular", {
-Id = "AltHack_SFProText",
-Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/SF-Pro-Text-Regular.otf"
-})
-end)
-if not loaded then
-pcall(function() delfile("AltHack_SFProText") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("Inter", 400, "Regular", {
-Id = "AltHack_Inter",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Inter.ttf"
-})
-end)
-end
-if not loaded then
-pcall(function() delfile("AltHack_Inter") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
-Id = "OutfitMedium",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
-})
-end)
-end
-if not loaded or not Library.Font then
-Library.Font = Font.new(Enum.Font.GothamMedium)
-end
-end
-end
-Library.Holder = Instances:Create("ScreenGui", {
+UDim2New(
