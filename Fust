@@ -40,8 +40,9 @@
     • КНОПКА МЕНЬШЕ + СКРЫТИЕ ИКОНКИ: floating-кнопка 30×30 (была 50).
       Настраиваемый хоткей открытия меню (по умолчанию RightControl).
       Тумблер «Скрыть кнопку-петух» — если вкл, меню только по хоткею.
-    • ИКОНКА ПЕТУХА ЗАМЕНЕНА: встроенный PNG (256×256, base64) через
-      getcustomasset. Старый rbxassetid://134242818164054 убран.
+    • ИКОНКА ПЕТУХА: getcustomasset УБРАН полностью (детектился анти-читом
+      "Exploit detected; getcustomasset"). Теперь rbxassetid напрямую —
+      работает везде, не палится.
     • БЕЗОПАСНАЯ ЗАГРУЗКА: при старте — экран с петухом + анимация
       загрузки (3с). В это время скрипт проверяет executor и детект-
       риски функций (Drawing, hookmetamethod, sethiddenproperty и т.д.).
@@ -446,10 +447,12 @@
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
-LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
-pcall(function()
-if type(readfile) == "function" and isfile and isfile("FUST_noLoadScreen.txt") then
+-- 0.39v4: экран загрузки ОТКЛЮЧЕН по умолчанию — на Xeno он может блокировать
+-- запуск. Включается toggle в настройках (если работает — будет при следующем запуске).
 LoadScreenEnabled = false
+pcall(function()
+if type(readfile) == "function" and isfile and isfile("FUST_loadScreen_ON.txt") then
+LoadScreenEnabled = true
 end
 end)
 local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
@@ -473,7 +476,7 @@ bg.Size = UDim2.fromScale(1, 1)
 bg.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
 bg.BorderSizePixel = 0
 bg.Parent = loadScreenGui
--- петух по центру (используем эмблем через getcustomasset если уже создан, иначе fallback)
+-- петух по центру (rbxassetid — без getcustomasset, не палится анти-читом)
 loadScreenPetuh = Instance.new("ImageLabel")
 loadScreenPetuh.Size = UDim2.fromOffset(180, 180)
 loadScreenPetuh.Position = UDim2.new(0.5, -90, 0.45, -90)
@@ -535,20 +538,19 @@ loadScreenText.Parent = bg
 end)
 end
 local function hideLoadScreen()
+-- 0.39 FIX: task.wait в RenderStepped запрещён — loadScreenGui:Destroy()
+-- после него никогда не выполнялся, чёрный экран висел вечно. Убираем
+-- wait и бесполезный tween, уничтожаем GUI сразу.
 pcall(function()
 if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
 if loadScreenGui then
-local tween = Instance.new("TweenInfo")
--- fade out 0.4с
-local okT, TS = pcall(function() return game:GetService("TweenService") end)
-if okT and TS then
-local t = TS:Create(loadScreenGui, TweenInfo.new(0.4), { DisplayOrder = 0 })
--- ScreenGui не имеет Transparency, используем child frames
-end
-task.wait(0.3)
 loadScreenGui:Destroy()
 end
 loadScreenGui = nil
+loadScreenPetuh = nil
+loadScreenBar = nil
+loadScreenText = nil
+loadScreenStatus = nil
 end)
 end
 local function setLoadProgress(pct, status)
@@ -595,6 +597,8 @@ table.insert(loadScreenDetected, "camera.CFrame: используем лерп (
 end)
 end
 local function updateLoadScreen()
+-- 0.39v4: pcall вокруг — если что-то упадёт, экран всё равно скроется через 3с
+pcall(function()
 if not LoadScreenEnabled then return end
 local now = os.clock()
 local elapsed = now - loadScreenStart
@@ -616,6 +620,7 @@ end
 if elapsed >= 3.0 then
 hideLoadScreen()
 end
+end)
 end
 if LoadScreenEnabled then
 showLoadScreen()
@@ -1249,51 +1254,14 @@ end
 end
 local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
-if not isfile(Data.Id) then
-writefile(Data.Id, game:HttpGet(Data.Url))
-end
-local Data = {
-name = Name,
-faces = {
-{
-name = Name,
-weight = Weight,
-style = Style,
-assetId = getcustomasset(Data.Id)
-}
-}
-}
-writefile(Library.Folders.Assets .. "/" .. Name .. ".font", HttpService:JSONEncode(Data))
-return Font.new(getcustomasset(Library.Folders.Assets .. "/" .. Name .. ".font"))
+-- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
+-- Возвращаем Roblox шрифт, кастомные не грузим.
+return Font.new(Enum.Font.GothamMedium)
 end
 do
-local loaded = pcall(function()
-Library.Font = CustomFont:New("SFProText", 400, "Regular", {
-Id = "AltHack_SFProText",
-Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/SF-Pro-Text-Regular.otf"
-})
-end)
-if not loaded then
-pcall(function() delfile("AltHack_SFProText") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("Inter", 400, "Regular", {
-Id = "AltHack_Inter",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Inter.ttf"
-})
-end)
-end
-if not loaded then
-pcall(function() delfile("AltHack_Inter") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
-Id = "OutfitMedium",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
-})
-end)
-end
-if not loaded or not Library.Font then
+-- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
+-- который детектится анти-читом. Используем Roblox GothamMedium.
 Library.Font = Font.new(Enum.Font.GothamMedium)
-end
 end
 end
 Library.Holder = Instances:Create("ScreenGui", {
@@ -4338,32 +4306,43 @@ Callback = function(state)
 petuhSetBtnHidden(state)
 end
 })
-MenuSection:Keybind({
+MenuSection:Label("Клавиша меню (назначить)"):Keybind({
 Name = "Клавиша открытия/закрытия меню",
 Flag = "PetuhMenuKey",
 Default = Enum.KeyCode.RightControl,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then PETUH_MENU_KEY = key end
+Callback = function(state)
+-- 0.39v3 FIX: правильно извлекаем имя клавиши
+pcall(function()
+local f = Library.Flags and Library.Flags["PetuhMenuKey"]
+if f and f.Key then
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
+if kc then
+PETUH_MENU_KEY = kc
+journal("МЕНЮ: клавиша = " .. keyName)
+end
+end
+end)
 end
 })
 MenuSection:Toggle({
 Name = "Экран загрузки при старте (петух + проверки)",
 Flag = "LoadScreenEnabled",
-Default = true,
+Default = false,
 Callback = function(state)
 LoadScreenEnabled = state
--- 0.39: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
+-- 0.39v4: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
 pcall(function()
 if type(writefile) == "function" then
 if state then
-if type(delfile) == "function" then pcall(delfile, "FUST_noLoadScreen.txt") end
+writefile("FUST_loadScreen_ON.txt", "1")
 else
-writefile("FUST_noLoadScreen.txt", "1")
+if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
 end
 end
 end)
-journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ" or "ВЫКЛ (не будет при следующем запуске)"))
+journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ (при следующем запуске)" or "ВЫКЛ"))
 end
 })
 MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
@@ -4707,48 +4686,12 @@ reparent(Library.Holder)
 reparent(Library.UnusedHolder)
 end)
 print("[FUST] 2/4: библиотека готова, создаю окно...")
--- 0.39: ИКОНКА ПЕТУХА — встроенный PNG (128×128, base64) через getcustomasset
+-- 0.39v6: ИКОНКА ПЕТУХА — используем Roblox asset ID напрямую.
+-- getcustomasset убран — он детектится анти-читом ("Exploit detected;
+-- getcustomasset"). rbxassetid работает везде и не палится.
 PETUH_ICON_ASSET = "rbxassetid://134242818164054"
-pcall(function()
-local b64 = "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAvuElEQVR42t19eZhkRZX9OTeyuptuhGbfkVUYVgFZVFQUEEFHVFwZR1xxA1TAQeGHyziiOCruiNu4gigiCAMICigiq7LK0oCgIIsIdNPdtWRmvfP7I25kRmVlVr5cqvCb/L78qjLzvXjvRdy4cZdzTxCA".."kL3Y+kX2PTr8NuwXe7hOOpYt56lLu8yeKR2vDu0O8tzsci9z2a/tXlbmATjD5147YzaOTa+ih2Plxyt7cwjPxxLP0E3wOAv9x0Em26DSyhlml3qcPWW/QwkNoB6Py/+3bPYUbdrqtb9ahWJYGqbbcZWyswUdOh5tBrP1Yirx4L0MILvcSy/P1M+ykwa9VeOEFmFI92pt".."ZnqnWak+7qXM86lfDdDrLOUQNEQ/57UKBweYSa3C1G6gXgTgRSTuAHAbgBslTGaCMNlGOCb7uO4g2qOMxrNeJal1rSorad1mf6/rW6eH0xBmjDp8zr+7CcBiAN8ncAWJ35vhCBoWgph01UoAe5PYivG7UOK6vfYlO2gXdDCOZ7JDhvpmj8ewx7bZ5jMHuEd2+D0AqgAa".."8b8BkGXHfIiUDJJRMtONZtoHbJy/F6k7Ydqd8bswC33MwcZh8AFlnwLQ7jiWGPCy5w163ZneAdB8//8XBhUGrQyUjKox6EgLjWNvMdPjNO2MmYWAJYSefQ44Owh826WhV+u7Xwu2n6VimMZkt88LAbyMxJYkakWBURoegHATgL+oecazSVxugAmoA6gQqMBwRFHgqwB+".."ROLQosBdZnheITwKlTaSy/R1P3ETDGMJYB8qmCVm92zOYM4wG1o/zwf0WlKXmkmMKl5mWhZM59H0WlpcDghdxzj7J8wa70kz7W7U5wAVFn8/nTZNC7DPJYvDWUrKDyZnyVYY9GF6sSX6vc5rzfSwmSZJ1YxSiAJxpZmeR+oMRjtgLJiqZhoPUViuM9NlLhyjLgQHgAqA".."3kXTSElhHJZNMKMAcLiSNVTDb1iGZ6/tzcuMvj1ILbMoAGNGjdMk//uomepmqgZTLb1dY8hMNaPGjRKpy1wLXGumt/doHLKEJu2ljw1d3J3ZfPWybrEHt3BYMXIBqAIYAbAZiFsIfEbu4gkIFCYABAhrSSj8+2geECBQJVBj/BwQbYTnANgbxJoCTqRhkQeQOGDfdXOF".."OYwYzCABlrlIIPUTCOoUgFkE4FgjDoFhYwF1Cn+HsA2ZRhlQdh7TVwSnOdtq+uYiriWwPYTVQbxJwA9UoOLBIg347PgnHJ85zSz2E71sDZwsAHA2iQMYR7ZhgasZ0VM2sKnRwkc+tqOOAd8KiAkI80CcI+BVKmA9JrSG0bcVPEUvzbJUzpTAminiZj4L30jiAAArBYww".."H0Zl4VNCjMebLxWVhlog6gQmIc8HZHcioEqlFrALgKcBWD5DGFpD6tfW4yr9zqgyvj+7rFXokjziAO2zQ2y8VCcR2M0FwbLBZ4utNAlhvg88SKwA8BCAOoG1AawDxg6WMAHFtjTVxigArIV4/PIu4fWymq2X8arM9iwvM5s1oJHYi5HEkiffQU/gKP5lw5wmCgDzIIwA".."WAbi5xBOLwpcD2JMQoXEagA2B/B8AG+BsDUICZjwQJF89RDjsjGpcvmBQZc/zYK2nTMDby7tk8UELgbwrKTmFbVBUv/LQHxXwmcBPABhOxFvIrAHgLVoWEnglqLAhQBukHAggZNIrIEoBMFtiREKt4LYvRCqJaKwZXAMZTECbSOBnKXI3Vz794MkSJLfvz6hrxt1P6FR".."mlaa6RZSnzVqW/ffNwH0E5oUpkYLRUqMf+800xtAPcOoK/24cVJVxrjAe9h/jmBogaDZyPANO0jDPgWTfSRd8ozfGoB2JLUVqQXZ9/uS+ivjgI8bNWHUE8F0ipleYtTrg+nsQMmjhGcZtQGpb3tkUKS+BKri12OfUdQBx212Zy57FJ7U+ZZ1CockoOxDmEOH7z9Cqu6z".."eYxULcRI4JhRT5A6lSYjtBmow2laGiAR+hODdiL1clLP9Oxgmv3scQJxOGn32VPRLKluKy0zrlNb7WYKSz7sILOFjgdI2uAcH/gJxllf8zBwzUwTPrOvIrWpUSvMtCegLQGdTupBUq8B9TRCZ9H0UTNt6oJgQ8qjsLfl4qkJBKWwaP4aAbAmgbVArOI3tlTCIwBWtpyf".."/PVhQNLKhIULALuQOJ/E+oWwnDFSiBQoUgr8ROu+ILGPhL0kHEziSAm3uoX5dBBfB7EIwh4Qloo4hsSPVJSCjpUN/JQ5p3FMt4Z6vUgnC9ayBwwAdibxPBB7ANiewkYAFoENa7sG4FEId4C4SsDFEK7x6FuOyp0tryIN/stInAzgAhILBfwbgUVSo/PM8wCFT6sKgAcL".."4BiLHv/tRYGbAbyTxFdIBAEXUtitANYxgTC8qRB+6IGmYsAIXy/jOZsGRqOdfC3dCND7SV1h1MpkLXuqdJJULb2NmvTvE+RqwkyX0PRyTl0/Z8NKTsc9A9AxpNYGdCxjVq9GquqGX92oSTMtJVX3+67S7z0EfTeYFgP6KKn7zXQlqEtJLSH0qFE1RvtgmZk2b2OEoodl".."ro/UcfvKoGHF6/MLbEvigwDekodW21ysIBo+sYGQzzS51kiRt3MFHC3hz1BH1VnWd57Jp14FwCiBz4E4mnHpaqQACNQFHAfgfQC2QMz+FYoBn1sBPFfCmIAdADyNxJZGrAqgKIRREvNVYG+LSaHTCuBdXZ5nmDGSKecP0lEznbMmoip8HYAnFCFVSwAsI1CIWEBgPRV4".."Ooh/IbGt1Fhfa97Zed46dcx8EPcDeKOE30KotLEryixRMwl6GojPGPFBT+BU/J4mAcwncDSJiyaF25JwuADMJ3E4hG8WwvokvlEx7DtZYCGI2wJx+WSBmwVc7X2yuy8R75ewYg4DYLMCz0rvLQGdYKb3kNq4RFsLAG0D6L2kfusWdbK4q9nyUHX3S6SW07RfB8DlIAGh".."1Nbb3Y8fd3Vf96VIgbrFTCD0Sg8Ajfm9FqQeNNPagCqgLvJlrB6oJ820WYdrVRyEgrkDvvQeJCkrEAZoY0CrtDmm4oO9wLF37dodAXQQqMtdEOrJ7WJE2NRcCApSj5pp2zY2AftcS1Mb25FaanFQazbV35eZPmimNQEdTNOkw8ASUuhct1PewAghG3X0UN1MBzDCwips".."XivMAfKJ08ehfAKmFw8hqc4H0HR9diOwI4CtQWwg4WkWrf2ahMcA3A/iTxD+COBmV4MXQLioAI4l8XECCzyVag7EqACYILC2hO+QeJGEGmYumOiWdMnPO4nA6r5UjUOY78ifEQBPCnhMwgkkvgChDuIqCJsB2BTAHX4XbwagAjADBCGIeK2ACg3XosCjfr+TJT0udcE1".."zJSI65oLGFTKQksI9a2kziP1D1fXDYs+s/ynfh+t69vM9Fkz7ZFFy15A6G8hnhuXBFM1aQI//5gsrk70V3CSnuH5jGHcR4w6NZj+4V5J1e93iUV08AM0oWK60KgjCH3S4rO9m9R8Uo8HU5GWMIua7HEzHRWCPhsqDat/GLUOfXhuwxGA3HVZDOjDpO7JEiKTBo03wJTU".."uEfNUjQt/hZVazV3+2j6GU3P9oHdntRD7mKl5aDqbdRJPWKmDcm+QK5sEeIzfB3fHtBZCfaduadPmmlFiImgF4DaFdC/k1oN0OOkPgpokxDthlpDAGLeQEZ9l6YvkvoapgrtHKz7UwVg0MZz6X2VUbd7NqzwNXo8k/5a5itPf1vj70SKsVsTb/95miqAdidUDXHgq6m9".."ZBSa6Xjv0EMyQeh1jVyb0B+MegapV1rTEM3vPWoDU53ULVbRQjOt5oK6P6nTjNoC0ApQRcuz1kmNgno1oIlKRe9leyHggNVXHDQZxBKGXjLYvpDSoT4YE9Yc9BQ4GU9C4TO98fuUY635nav3WlZ7txmotzcEY+oMK0j9mVSF1NdIvXCGpM5MqeBnEzrQInz7LosDONEQ".."0CxYRY//h6AzLAh0KDmp9T14dI+XjCUNULPkwZg+GoK+bVEjbkH0nBMY1CC0btixmQyoFLJcDOAcEu8TMCGhyhgESb9PeqMj7jcvIBxKFW+fGeCy0TqnwpbkPvjOAK6m4XYBZxGYp2b7RAwgbU7iOQAekXAcbUbjtZNheJOAC4sC/0ZiKwE1AdaOy4MxaDNRFHg9hFNh".."qIJ4nxEVAv8g8AdFI3Ayu4L5COxYFLhSwHwKh/tdWUlcXzfDPLvLjudbN8yYZoiRA8CqBH5mxEEAxtz6jwMfLz2PxHxv/H4BF4M4RcDXBNzgF657NK3ugZxJekxduTwIAcQ4gPUo/AKG3xfEIy4gwfF7aUocCOBxAvtD2BxN4GZZGNqo98mh1sTupZ5iS8/GCGX0Et5F".."4ZRgeEAFzhawuogfFgJtqpAnkPgiMzzuXsIe3nYd/dPUoEfhsV5OZsv/BYBvkniR4uCPWHPg5gGokLhGwAkCXihhMwmvKAr8CcDOZtjGo2rz/b0ATe0wz9G4mhISjTi8GoU1UeAYAA8zFmXeBcOEItSKAPYksZE/4CvZfWa166j1AeypGO+dlxI+bQPlSRMQEwDeL+Eg".."GbYhcT6BXwC4RsB8yItEgMIIgri5EEhBjQKSme9TJbVzO5dW3dxA9ujqHe2uXTLyxhsunekcM73Ygx1olFZBN4WmyzdB6k5SF5M63UzfI/UDxgDKjYxWtqzpLo4nA8qa0bbkkl03MqJv+7GFRev9Sv/tQi/F6vX5XgKoAFUE0wMO9CgaNktup1jzu4QJMNNyxw0cRWqj".."QD1RMU94xecqKkG7GXUGYqTx7cGGziEwECSMM1j825FazpjJGncLWWa6ykz7ZZm6ilfPHp7iAIDON9N7jNoZ1KodjJ5VAG0B6g00/cCox1wIkmeRjMokEFUzvYbUzUYVPgjjLgwPm2mdHoS84n/fCUQhM9PxZnrIDbdk/NVbDdfMyp+wWCRaDVQtBB0QTFsSOofQ45WK".."bjXTK0htRuo3IehoNzhn2eVr5x307vIB0E8JidSou0Yy00lmms8muiWhaN7hodAfB9PufVq0mxP6OKFHGrkBqOru1Lhf/+NG/bv/PxGigFRpqgfTc7P7Ypc0cRKAD3sO4Bwz7ZW5mzWyOfjWnPmtQlDLPJ0JUkfRtEowrWbRPfX1pDHj5xJs25cApBt9NqAaoQnG/P1y".."ow4lp8TR07EvInVDMO3f0tZWoF5P6iRSp5P6X1IXGvVTB0q+m9RepBa1EYTvsKkNJrJl4GozPY3Unb7MRM0U1e3r/f4qJQQg+OB8w4VtM3gswNtsCkAa9Gw5aHUVjZoI1nBj77ag/zHT6cH0Owva1+9rpIMm5BBy/qUigexBAL7nHVMl9WQw7U9M61y6Gj/cqI39Iecj".."4uF+YaalIUxZ39uFhSfMdIuZPk1qp2xZAaHXk1EbuE89yQguWZvU+xDbGUsl2Ua9KxOAbkGW1Ok30nSC2w+f9nbGGjO7iQOstYBYah3iGxPp2UIe9jYdT5umYcsCWPol5UCrBiibBVwX0N+8w+sWZwYydZ+/52f//yupq4M18gCFB3FGp4SH49/RliigLGLyvwlq60wQ".."dnQjUoRWIrZ7AKC1AI16pG7UO/2oFg3AGWwcANoDMaafBP9SH7BmAMtaAkKcYgjWs98naXrUgp4IcfBX+H0lo1Yh6HQLWg3oCxzaL6yeveQC0sw5BNCkr40n2PRZ1aot1gP1vaxYYsIHuZqtj1VO78ikYqspD+8D+YiZDicb6+dmgG4DGqHn/3AN8SsfsBWurd7R8hzd".."nnsDT9WS0OaAlrIZzp30AZ6cZgvkApCFfY1aakEnWdA1fl81NqOYSUtdYaZ1WR4hTPQGf2P7SG453z+9didgJC4B8alCM5Ii7gziMkaoUw0xQmgAAlvadmRtKrCnl2MnfU8QdRIrCCyGcJoZvsGARQDuA/BSEEsQgy1bm4ECLiqmtr3U2+5UNNnq2T/kHyTgpUasTmBc".."MeCzBMDFysCbmhpGo5NAUc007+oo8EoAry2E4wGsNGIeYgAsCBgHsDeEn8OwuEQ8oCzCSWXT3zPx7uX/nw9okqZdOkhqmmHPRwQ8prW4nrlr05JAWYx8wlE1NbbYBqHFTqDpokrQ0/x6zyQ0Sup8v6/nZ7OzmqWVQ8mqopTdDICu9uum5eQQUiezuSTUHCFUt5gYqqf/".."XRPUsxjJj0iB1A7B9GuLYNBkxE76c53lSax+U9pl6gjYzQjspDruBHROh1q2nEvnMUMjSDTdQJq+TjYCSf6umeluoy400w9C0Gmkvm3UT436vVEPuRF5rQUtdoXxflJ/RFwe1ib0kHf6/Uat0SZzOVOBRXq2l/vystJtkdPdLviYG7BjvjSsCKYvJLUOa6j+JAB5tvJw".."5xB8C6CbR4JUMf2O1HWZgP9HH9xBLCHUaCcAZUuqRgDdaaaXcHqGzTLI972pALKtkdSc7cmKTgEbGXWXUR8ntTfZmN3t3otJHQToTDN9FdSafn8fIxsC8VvEGXauD5qhPGw8AJrn9G81eHQzVGQ+MAejGc2sMkYLdzPqFEJCHOx6JuTVLCX+OE2bAvpMCHq8UtEoTY/S".."9HKaTnPm0eWkduxQMdSN6q5MiRnLYgLzxlYD9HNSq3ewng3QeUntZ/j4vHSqZq0Rs9i5jwbTMaQWt7S7HqADjTrcqCMAvZ3US0itnx2zLaBN/T4XOc4QgE732Xuku1mVkqibJNgnZDPyKz7we5tpI4v3+VBmGK6gaStCixiZQZP2S89deAQxlY79MlS0VyVoEimQRV3j".."93m8B9l+wc4CAAyNLbX8urKYMTwaOnTYmzymPZqkHVkwhKZJ2pQlYNwH/1oz/UuLn78/qR+71V/kJdd+zhNmOp9sBHhy+yPdz6mMBI1btFH/nazk1Nmvc/fyOosCB0Bv8vzEiwGR1Pe98rdq1F/SxCC0A6lHGOljq0aNmulxXzIaQmCmo8lGvmLMBeOtfv1jvVjkBS3F".."o4NAxDpojfInVAitx/YXWR3Q3YQmW9f9TOrH3K2rm2ncB/XXXjWT2ns6qR+3JIEmCI0RGvOOmkiwMUIFTVdY0HPahKC/bNRVxp5KwgOgZwL6bjAdCAiubX5gzgFg1Kd8SdkJUJUm0XRZMK3qcDAA2ofQck8UTdD0RTMtyWIJk0bdR9O1lcyWIHWTUQu9jZOtsxbop3C0".."ow3QD5yIWcUuAL3Xjb6xlsFPcfoLzPQT952Tyrs5REg1MxDmfdasvG0EXVLcIPcOWr0EC/oIbUol7xcJHd9S3dspvzFNqxHahdDXSC1jc5DqpB426qM0bQ9qz2C63oV2Q0AXWNDqPmivICNjaKDOdyj4RApfWzOb2Zgo3lcHkw0K2i+Q2o6DEXB3GdPBVcoIoOv9gVJq".."uJoGmtR/k3ouqcfyoo4QGhTqKVK4wjLjsRV65cIwQWoJqO+Y6X1mOjSYDiX1QaPOIfUWM414hx1DaL8ZYFathuwiQC830+dA3ZLXK2Yh4BQIivj/oOMtaEOjDia0vQfIvuluHAC9JYWQYdqE1Em+vk9khmESgrGGq9gMDW9IaldOXcKI3nGA7NUGYIkoUuq8vd3nzh8o".."re+f8EG+3gd3hXfI57P053N98BPurt4moVL1NO9fzfQ9C/pUCPoAqNcZtQOibw1Aq5Naxb2U54DatMOanwvEdoyEzn8F9WQIjWqkqg981W2WpIUmPFxd87B2IoB+aSWmgEXqdZlwH+texBsY1ftDTiQ90VLplDAODzBqxkGoYtgvHoA9/J/U/8cTUXKu9oPpqz7Ib/eO".."Sj7zP8y0sbezEaH7UorX7YN6aPEWmHsQ1jAE8/e9FqlZtsk6fmGL6m/F/S8EdBLZqOg5FdFmSFW/U1K9bQJYVabgkOlwM+3nzzlJ6k6LmcwkaGcb9XWPUXzCTII1PKValmqeMKqg6QCwVOi6HwKJoTCE5I1fmNRatr5fadR8xozgH12yV3pnfcOaCJ0fZxm9RkeH6Z1e".."zRIoE/l7StIoglS+TNNGbK/uQ0O1Qr8xkzy2sY8FnW3NLOfUCGWnd7yvSVJ3m+kdnvhJZWNvygy4DQEdR8oYvZJlXtuQbJxRM9VpMall1HEcTAA4LFh4twssBHR3NoNrRq0007P8AV7smcOqu0uFmV7mv73cqMIRRSlqNn3WTQ0UyVVy1ajlZnqSzUBLHkK+h6a3mWk9".."UvNaOmFvUjd6W9cH0xqAvmvWyPfXE9pnWvDKpgWxEsZ/wky/dk9ngvE5z/eI3zxQC2gKSTuRutiXihRePs+CfsX0nKZvtcEvcAhZQMzEFt5P0mE9AuuyiZytAPgfAdcrUqQe0GAFIUYAPCThSsUk0ofARg5oijhCjWsUiGXWK0H8EMSbATxHwpaFcDCA31lMpoBNAsYV".."AraA8C0SH3aouAAcQOJnRlxqwM4C7hXxYgBvNOIwARNe09+g82ybDmuCQvPEiwl4AYmKPzcg7KYiJnYIvFPAhgI2ZUT+XlXETJEcYiwIX6CcMFJYpw37iUrA2tkF5Y2ytYFloWG7EF6i5dUuZtoObLiI17l2GPVEx+Wu/l+CzA1y+NbUWecGVQg629vMr38MTfcy8vPX".."kxGaIos0/d5Me3vaeH9Sv3IvJRl3tUpMEG0FqOZVRtPyFZyu8muNEG+GCrKpbmqK/1dp2sviPXyN1P+GoDPdYDzMNVBiSPldMI0Yda0vQxdnew71q/rLHF/pdda3TadmZAm/AXCbH7URgGfk85nCfX7e2wLBIu61VxExAqHqtKxJm8wD8AkJHyma82AbEt8jsafL7qRi".."bjmlX0cInAzgQ0WBxQC+a4bDfC5VneZ1gYAvibiWBS6DoVJE3v/KFN0TVRfz+oRpU49TzjAnhpAriRECa/pOkksNeLcEQTjTDA/ljRKog6hJOMuJIqpZu72QRPS6fZ6VVfWdBGFFSyHDJdlgbQlg1VT27Af8TcJCAPsqYuGNhEm4EMTKjERqHoAvAvhIEXn0QWBrEheR".."2FPCOOTsIWqsGkbg3QI+pAIvInETDYdJqEqogjAjlpN41AwnTk7iEBL7+KYPiXZmyhM7oS9bEPVq6Zn062ibEu7UwfNckGjEe0EsTkRXfsnHFSXnckbQxHIVA2MCyuwfbGWBIJ2k6xEBT3jBxiSIW9g8cwPGB5yEP72AlSB2J7GGgHER84w4hcTDKrAGgHEvDLkewHGF".."GrNyLQHnGLFZUWDMiZzNZ1ohoGLEeyF8XcJRJH5JYFNEQQGEeQXwaxEP+zFPgjhRrXX0yjpP06op1KYPCgAjJH4B4kk1wS4QMFlEBnAAWF8AKdQk7CzhdWYNzQUBf/UtQ26T8Nik8KDKl+mVLelrZ9n0vXNoej0J4G4vaRoF8Nfst1X9CXMSonkAdnWUzjwAlxfCORQO".."dX6d4Bx7JzjFOl2wPk1iu0IYNWK+gBFF/qCoLYivCPh6ARxvxBcRhWICQGCq0RPOKiaxpoTPFwUOMWJnEDUftPYzSI5UcqQTYz2j/L7qPrMvE3E5YyVR1RVghcAoI4EVAGzmlm6hSDhxMIFasgIJLHH++BUSbgGwBDMjmLqNWTdOJ80kACppOabZeU1kScRKCcuytS1k".."d5xmxboktnbVKsYyqlcUkfBpHJGG/bcSLpGXgQF4PoG3Uljpy8c4DV8F8JgXh95N4KiiwHtJfNLbSQM2KcBEnGoB2xrxKxBLARxRCDJNV22+TqsF5AWvd/yNW+11L2d7kIbDVeA1aqrzwleTP4P4m4B1CGwDQCSCewGF19DNY2QcuTHrtyUk/sj2E7AfxpOZbDgbRL2k".."xs53NbxKVggKRJwbWvB/2ypSqMCI8wDcDuA1rimCr8M/wlT2uKN8CBYGw30CnqcCCoaN/Jj/KIRnGfAlElUJC9wlhNcoPuxFrEcFw39J2NmIvd3HtNTRztufR0bkHya9hvGkQrjfq4HnA3gMwP6TBZ7BuC9A1bVJ4W1f7fbJ3iDWmkJd47hBRozhfYqUOKkS+ioJd/jn".."okfMZj9MaAMTQVYAXeN5+12zUOwrmBVveMTsH6T+Vomh14NA7WKUKtENmyS1zII2y9rYmtBST7n+LZi2NmhnIIaAK9StNG0E6G5P2tRI/TlzJ4sMU3AmTSD1fccJ3JDB21PKumiBeCeY2hdIbUXEhJVR9wbTLqAWEbrXsYDVrGStMNP+7rp+MwPJ1BsgETYiht/KNpOs".."eGq9V2KrAcZwMKx5Cq2+2n3sV2UX3MmjfK3snxHnH7SY1Fv8vJUeEfu92ZQ08+E+KMtIPdtTpBebSZ5gOY6mT2bA0e+FEOlc2MQNFMG0lKZ1jXpGJehPjPjBv1RCI9Mno+6l6T5OzWrKTKc4piBVCl0UTJu7kJ7LZvq6lhWt/iEEjQBaB9DDHsmsZuHleoMKx3TQDEUr".."GA7qZ/YEIEfRXE3ofzzwQQ8T3+V5gqqHg8e9VGtJiPx6/xkdrUaW8JuNKiIHdfhsP94DI7v64EwatZKmd5H6u0USpmtJPdeoFUTUBg48KUaCflKJ57+S1F7BdEYKULk2+mMIOtyoxxqMH/E6R/v97EfqIaOOzXIM32rQwuXIp5QHMA9YNZlMahmGcMK1xI0WGjR5g4Z8".."+0wND0cA6DP+FpuK8Pl+xhVUzUAPl/qs+qp30HKfDcd6hyeyxIsc1bvQr3GiD1xhptvM9LPEIRioZxE6mhkwJRE6WtC+Ich88D4YKI2ERnLqAs8HXFJp7vRxfQh6blb48mozbeuf1yT1M2sOfp1NXqO4nWzQPMdQ3s2Uv4iqXxn/kcx0eAteca4qg3sWgLKsmm8k9DY2".."j39Dzq6VcALB9DMPCX/Zf1/hKeRD/fuUxr0M1P/L0LFpI+caqQctonNE6iwXnN9F5vaIJgoxlPxhNJMwL2TUHApUUQn6Tw8XfxDx+vcF07Fo7gzSytz5PIdtyVnPGrB2X9dHzbS7X+//ZSynqSbirx5CLoy6NRPsud6GpydQaA+ZJe8kNCDdawK637N+TRIJa6jk4xy5".."O+oa4GWcWmt4WgjaxRE2GyCWhxeuQicz7P0eTsj0pNscY15z9+lKmII3fHgkCtC1oPZ1QoZ9aLqC1DtJrZNhCPOBX5/Uf3u5+RTUUi7YZvqA3/8OoJ7MspQKcXOIC117qRL5AeaaEILDXgJmqDlrGDWfynL+Y/7/T0JoULklJHFB00tbDKIDyAY6Zh9SdS9Lr2VFGdf4".."OQe4cKQU68/NREbDcWNAfwb0j2D6ULCGgAZAmzDWAKBN/eBahI4x6t4skTTeglZK6vzrrs7XBXSl39uoa7yPktqCaNgcZ2RsIE8FL0DfBBG9IFCSbfB0Qo8lbjwfnFRdtLlRT9BUJaRgOqQFCZN7BIcSDdVbdai5aDqRFBkJpkU0loeNvK1tSZ0Xgj7nhSv5/S5gE4qe".."L2d7ePnXXxwbWHjpWdXyAtYmtP3H1twK/tVs0sIpmD7mWuV4J8q4K5jWazGgn4olALMhAJ1sg4833L2o8n+T+IMInesVPDLTm2cQgMM9ozDqavQOo0ZD5CKCVwXJoiC9JzOunglMiS2sReidpI4DpwBbnkvqRN/vp5pzE03hPLRGvWGCtv/ATPMyPqTvuxfxeDC92b2X".."1QD9mdDKYHo2hzP7OZx4wOxdNN8BbHVSS1yFFwbdE6yBoX+tYwplbIBIK202bHq3C8CYr/En0XQ7faYTOtlx+38y0yKHVuf3uQGpj5F6gNASQtuA2pPU54261S15ZeXbY8bI8WNZnt9n/aTP7pPNptzv23z2X8HIgdTEL0TBfFXLul92wy0Ob5/A4QhAP8GiV/pMr3op".."VaJ3X4XUdSHO3p+0gXGnzj0McQmok7qfEWd/mVkspCD0Ce/8D2ezPw9U3dNAJpuOMdOZDvpQhgUcy3z2+jQwaJMB7DEzvaVlMJ9H6q8WdDw5RYA3I/SXYHrDADN/FjmEZ39nzxyJ+wPv7Enn7UlkSQe4N3CPNQ20VhTvAXRyClJXk9qU0GlkI2h0nAvA9t5u0hwntlDY".."Lg2mMS/YGPUoZCvRQ17iXbOmlS+L6J0dWjB7CxGXle0yrqQRRG/o5BAay1RlFnZgHYoGYJ83VrZIIanjdUHd4+r+Gy30Mp934dg3G/jcUNoY0KPmu3Ai8gEfaU2OgLeaaQlNITvnhIzLcCKDbk1kAEwZ9YR/X28VgtCEnj9M03uyeoYNsgKQSovGSt+v4/c9m+7egMI0".."u/v8tqu5fzFTbVwsqGSmri8ldQnbEyYRaGD7flipNIRiQbaV69czY+/lXrY9niWkqqFZYHq3USf5cnCxWRMOnsXsCzM9RNNnjdqG1IakPsB43lYtbOT5jqedYiSzOJP7bWNuNnpuVecfIiVQb/VIXHKhVgN0NtkICIWWGXaUz+jvhTDtmhsCka6OcbOK2xNbWLBGraGM".."ujvEKp01SL3DqFu9Umc6u0d8X+Y+/rWuCa4Jpi0yVc82eZHQYR/i0gPEOVH/gwlAr5sxtJaUncnI4jnCqR01H9BLHc8/jaWM0GigzmtTNh088ghAH/Tl5CekbqgEFSFt0kAtJLUpGQtDfAmoZhtCTV3/p1YqX5lV74YOO6W8lNRuHUrS+dRE+wbfO5hDPC5pggWELib1".."qSzWb90IHAF9hnH5mCkaeY+ZvhKCDkwUchXTpzwDeSDYqNcfM2asXs3KpBz2Pebf3xmCNmjD7hmyHc++ROqXZlql5I7gfAoNwL4jgcNcq0YAnULqgBZjkTPEFNYAdCOpnVrW13TucwCd6QWjlztdzWm+NBzqan4yATQyF69Rkxhacf+m0YppT04lc84F9jmkrnVPZtcO".."Rh+Hb8ANY5u/p04d5bN9jxZiya5M3qQ+nLFp5e29wMPP2yASVtwSomewr8cgatkeQ/Vc9Qd/ZxphwhM3R7Z4LPm9H08PCRM6FdRxtAYp1bBZPv8pk0FlWKkGdSOnnxP9/QVt2mmEji3mCvYAtAGhB2lTonq1Ket+Uwukz8lo/Ka7fvNahHANQj91j6IK6gkz3RtMZw8x".."y9fLEtJn+fjwjLxBSI7Z4z2wC907AX0W0KWM6/65bO5lMJqp91TGVZ8iFF7hG0y/cHBHEqq1/O8mZCx7SxwCean4DMTUw9AKQ/bW+i8tHnbQqJdjOIPBmAbrS4D2A3SQ8/v8zUxfNtODCaeYVfomIchRS2eaaRGaSZ7DSL3TTOsCuiOr7q1nNYF/N9OG4KwMdD+TqK/y".."8NkaVM5SsKMT09fznGbuXlC/NtNODsiYQmCZaYLxjJz6ZLcvUltHOr/frmaNgtexrKB1zDOAJxlLxfvnSgBmxQsYEIAwJ0ZmI3BkptPcev+O4wXG8s0f0nZwPuvvM9MhLSTYBzGxhDqDWcaD2ICUG/WnELQGy7l/wxp4Dt5ng6tozoLLwj6FrJWu/kXOzXs0mtj8BpdR".."nuQJpm8ZtVHL+r0xoQd8a5w/ZwPeFJ4Y1l4erEF6FZ7iNZ/DMgJn2xcdJBde5vrJZdsPaW2HF2+gMXAKpiuCNXbuaE0jf43NvYrVQvlaTaHjEHSIdd7wiX0sZcM0yOc0F4AheA3DyH2HrLLoAQdwpK1fJ3wNX+pUc3n8Plffmzj45DFSf6dN4fTJjcW3dtg3gXMQSxmC".."IMyd+mEf7h7Q/ybQmyBCr/O9fiZ8Rt+TlbG18gWmgfwAoPsJvcepXuvZ7E8a4UNdXL65DvT8U2uAXnz6fjsmhWfXIXRjaBp9tZyt20w7ZvBztmmj4kUrOwL6fM5klmUVLzDre6v6OQz1lhcAzrGKmo1OSur8jEbFERoW/7ijco9pKT5hh/2ONgC0ljnDKZrr/4TjGV5c".."MuI3W+7v0AEhHIKrNxvYtrL0qGnwn+V0baeQ+rtX4aQSrvtIrVbCVWtgCX221zMBiBXHLL0Z5WzH/DmYxizPBlKGZmw2XmXbTg/zEgnvlvAXI9bxc+d7Lf73ncqlG/mSeV395oVQB3GbEUGRzIEClolY1iNx0zA2hGYf/TMTj0ClLBOYhjiY3b7v9R7Sb3UfuPMI3Cnh".."eufduQ8EJPydwBfzzZ66XENOLHG2EzbsgMg5uIzAGYr/t26axT6fRwP2X7/jVennAr1ehC2zQD1KeK+dchOA1QGcI2FbEItIHEbgtxLGpFIzNQ3qtQBugLDIABbEAjNcYMQptfq058r5ediBq4czzFgOqIk79cdMwmj9qrB+B1Elfh9EAxWIvEHLnEMoEFhPwlo++CM9".."LDkEcImASwVcXAAfN8AwiddNFnhXh43kW8+fbfXf68RRrxQxs1GcwFk0cPLjz3Wr/2GLu36wx7Bs6+eFjEWihWMDrUsGrpeQLOcoJzDN5WUPUqc+1iW2MUK6UZ+xDwOwVVusDmAnCCiAaxSJorppEnVQxfS1chTAhYz0cc8EsbNvcGltnkGc2hYH1Iwoee9ltAN7WQKG".."YfypSyeox+PLCOzuJDZ2irLLe1CTnGmAJJwtoS5iIYWDO+zwqTYPpQ5rvUo+5yC/a4YJZeqz4V7XHM2wvmPAh2/32tep3cZBXNmDMHfSOE75i98LuMu/+1fAGVLLtaUumlU9PD97nBAd3V1iOAbKsIwZtFjRvSwBiV6+AmA/v8q9aHLw9SrsrTM1+DJwOQAUwk4C9nZq".."XOtDI/ai3jWEwS/NFdyr3z7I4A8zeJTW4t0J7ORXug7COJos5IMGXAjgEkRe/wqBQ8meLH32Mdt7dfV66rPZjOB1c7HKSDw7dA47GH8FgDeCmGcx3HdVodIdqy73MN+/+4OA5YxsVAcL2Mhp6DmHfVgm6qcSwSbDU/TSgOeoQ1TrPUa8lcREETn4byIba3irVd6rNtgc".."xLdAXApiMeJ28usAeH3mDZR5BnYzNgfUrr0udT2DLjm7EKW+UK8vBPRjNOFak6QeyAimbEip7D28sPWCbGeQJaRWyVBIeZVwviNp6BIjmKtCka6FIRzgM2cx753v/BXa1N4d6OidBNa4PgNrhGwg+sHqt6Z8D/V9kld4EeppYOkdvkKbEriyBZ3DTr0PJc/TKdY/rNh2".."t7ZWJ/ASEZ+ksCWICUbjZimJvYomZ3/rcjFZUl3mz7Mqgc1JnCphN+fEhYAFAG4xw7cK4Q8q8HcCY74sLBSwPoknAfwxy0WUTUrNtkem2Th4WMe2Dvw+JF7j1us8AOsbsYOETX1jinEC8wgEnye3EPgahdsBjBdx/4Ebsv0AusXr02+vAXAkiU0ArG3EqlJj/lRBLA+G".."FSrw9JQv9hhEAcBQwGQoACyRcAuJT0C4c4bM5GwPJoeZC8Aswp6a9DBsFHU035F5S6SutKATne+nFkzfDqZ/ZOxjYizzrhv1Gws6DJzG0cc2sfx5gH7p6OHIEwDVCd1upo8F0x98uVnplUTvC6ZPkjrPqLtIPRSCVgRTQdOjIejmYJogtIyRbh4z7GuMWQSGzApR5LCF".."IRlQCwDdRGopqe+a6UpQV4TIxvU6Mm4dT+qLXgx6H00LAO1F6htmupjU/YiJoceC6QlCoulcmiod6vjTmn8Eoy2xD6kdSf27Qc/OjL5NQP3S2U4UqHuN+hKoQ529bHVS2zBujr2LmUhqDUDHgfpZqGhhh+tzlhBAPRNEzDXer12V7xtInRGaJdeVNkbZMwA95jTx/5UR".."OaX3OoQOJrUrqTUZ27yf1BG0jpBuelXQqjMUoab/32jUZV4injTOZ2gzPuu/kA1mdc4hBnOaFzCblvswhGH7NqXZyJi8Kyn1S6gI1H4Z5fxMNXpbEDqSNsVlwwwEV63uHNqcdwSpO8x0vxNJvq+xfexUN7Ayi/3NkmnqOVsChlVFzA4PEghd4XbBvUZtDLatSwyZf14p".."yWNgM7hh7SqS4URXWzJqhAfRXC7YBsHMAWInQ1pih5fE6TXD1st12SGzSMSdwR4nUCPwmkJ4ANG6bn36Sbe4C/+/Xbvtkkvd8iEJj5hcuycB3CPhpUXcKXW7DlZ6mbb7tfZZMpo6tFBwuzg9S8SryySIOqWR8/PWFfC/ihtOhhKuVbdMI2dIXc+E50s5gQQgOZ7AEy3n".."cQh9Wzbk3K3NSi/S1StyVSVTlIPkBSo++27wPD27CN4gWcyyQaOkEQjgcmngjF27HEiZ+xk2grhU9K/XCwwa9UqBlB1ILARwbZvgSi/3N6yoZidU8D/ba6D7a4VC9wN1HkYnDytDpj6fvd++mfUBKjmBhrr+D2IAaoBrs4PtoR7udxBAB3tIXfeCwuo1PdyrfVHpVeLK".."oIQ7qVWW6Bz12PHq0iaHIXzZjuDosh73uzbPpFHKHs9haIAyN9+rW1cGCEp0x7Cph3ZbcYW93k/Ze2gnfP1kQYdVQNKrFn1KbJSZDK9hZRR7wR6yz5n5f+HF/yvPNpsPwv/DAvD/AWg87mxGN4SKAAAAAElFTkSuQmCC"
-local function b64decode(s)
-local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-local lookup = {}
-for i = 1, #chars do lookup[chars:byte(i)] = i - 1 end
-local out = {}
-local buffer, bits = 0, 0
-for i = 1, #s do
-local c = s:byte(i)
-if c == 61 then break end
-local v = lookup[c]
-if v then
-buffer = (buffer << 6) | v
-bits = bits + 6
-if bits >= 8 then
-bits = bits - 8
-local byte = (buffer >> bits) & 0xFF
-table.insert(out, string.char(byte))
-end
-end
-end
-return table.concat(out)
-end
-local png = b64decode(b64)
-if png and #png > 1000 and type(writefile) == "function" then
-writefile("Petuh_Icon_039.png", png)
-if type(getcustomasset) == "function" then
-PETUH_ICON_ASSET = getcustomasset("Petuh_Icon_039.png")
-print("[FUST] Иконка петуха: загружена через getcustomasset")
--- 0.39: обновим картинку на экране загрузки если он ещё показан
-if loadScreenPetuh then
-pcall(function() loadScreenPetuh.Image = PETUH_ICON_ASSET end)
-end
-else
-PETUH_ICON_ASSET = "rbxassetid://134242818164054"
-print("[FUST] Иконка петуха: getcustomasset недоступен, fallback")
-end
-end
-end)
+print("[FUST] Иконка петуха: rbxassetid (безопасно)")
+
 Window = Library:Window({
 Name = "Пьяный Петух",
 SubName = "FUST Survival · на основе VOMAGLA",
@@ -5023,40 +4966,68 @@ end
 FreeCamSection:Label("Xeno: WASD — лететь, Space/Ctrl — вверх/вниз, Shift — ускорение, ОБЗОР — зажать ПКМ и вести мышью. Телефон: тело стоит на месте; левый джойстик — полёт, палец по ПРАВОЙ половине экрана — обзор, кнопка прыжка — вверх. КЛАВИШИ ВКЛ/СКРОСТЬ — назначаются ниже.")
 -- 0.39: настраиваемые клавиши фрикама
 FreeCamKeys = { Toggle = Enum.KeyCode.K, Slow = Enum.KeyCode.Z, Fast = Enum.KeyCode.X }
-UIRegistry.FreeCamKeyToggle = FreeCamSection:Keybind({
+local FC_KEY_OBJ = nil
+UIRegistry.FreeCamKeyToggle = FreeCamSection:Label("Клавиша: вкл/выкл фрикам"):Keybind({
 Name = "Клавиша: вкл/выкл фрикам",
 Flag = "FreeCamKeyToggle",
 Default = Enum.KeyCode.K,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Toggle = key
-FC_KEY_TOGGLE = key
+Callback = function(state)
+-- 0.39v3 FIX: правильно извлекаем имя клавиши из строки "Enum.KeyCode.K"
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeyToggle"]
+if f and f.Key then
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
+if kc then
+FreeCamKeys.Toggle = kc
+FC_KEY_TOGGLE = kc
+journal("ФРИКАМ: клавиша toggle = " .. keyName)
 end
+end
+end)
 end
 })
-UIRegistry.FreeCamKeySlow = FreeCamSection:Keybind({
+local FC_KEY_SLOW_OBJ = nil
+UIRegistry.FreeCamKeySlow = FreeCamSection:Label("Клавиша: скорость МЕНЬШЕ"):Keybind({
 Name = "Клавиша: скорость МЕНЬШЕ",
 Flag = "FreeCamKeySlow",
 Default = Enum.KeyCode.Z,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Slow = key
-FC_KEY_SLOW = key
+Callback = function(state)
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeySlow"]
+if f and f.Key then
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
+if kc then
+FreeCamKeys.Slow = kc
+FC_KEY_SLOW = kc
+journal("ФРИКАМ: клавиша slow = " .. keyName)
 end
+end
+end)
 end
 })
-UIRegistry.FreeCamKeyFast = FreeCamSection:Keybind({
+local FC_KEY_FAST_OBJ = nil
+UIRegistry.FreeCamKeyFast = FreeCamSection:Label("Клавиша: скорость БОЛЬШЕ"):Keybind({
 Name = "Клавиша: скорость БОЛЬШЕ",
 Flag = "FreeCamKeyFast",
 Default = Enum.KeyCode.X,
 Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Fast = key
-FC_KEY_FAST = key
+Callback = function(state)
+pcall(function()
+local f = Library.Flags and Library.Flags["FreeCamKeyFast"]
+if f and f.Key then
+local keyName = tostring(f.Key):match("%.([%w]+)$") or ""
+local kc = Enum.KeyCode[keyName]
+if kc then
+FreeCamKeys.Fast = kc
+FC_KEY_FAST = kc
+journal("ФРИКАМ: клавиша fast = " .. keyName)
 end
+end
+end)
 end
 })
 uiStep("Вкладка Аимбот", function()
@@ -5440,7 +5411,7 @@ end
 })
 -- 0.39: цвет предмета в руках
 ESPItemColor = Color3.fromRGB(255, 215, 90)
-UIRegistry.ESPItemColor = EspSection:Colorpicker({
+UIRegistry.ESPItemColor = EspSection:Label("Цвет предмета в руках"):Colorpicker({
 Name = "Цвет предмета в руках",
 Flag = "ESPItemColor",
 Default = ESPItemColor,
@@ -5449,47 +5420,116 @@ ESPItemColor = c
 end
 })
 -- 0.39: перевод названий предметов на русский (вкл/выкл)
+-- 0.39v6: расширено под Rust (FUST Survival — раст-подобная игра)
 ItemRuTranslate = false
 ITEM_RU_DICT = {
--- оружие
-["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["m4a1"] = "М4А1",
-["m4a4"] = "М4А4", ["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90",
+-- оружие дальнобойное
+["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["ak-74"] = "АК-74",
+["m4a1"] = "М4А1", ["m4a4"] = "М4А4", ["m4"] = "М4", ["m16"] = "М16",
+["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90", ["mac-10"] = "МАК-10",
+["thompson"] = "Томпсон", ["custom smg"] = "Кастомный ПП", ["vector"] = "Вектор",
 ["awp"] = "АВП", ["awm"] = "АВМ", ["mosin"] = "Мосина", ["kar98"] = "Кар98",
+["bolt rifle"] = "Винтовка с продольным затвором", ["l96"] = "Л96",
+["semi-auto rifle"] = "Полуавтоматическая винтовка", ["sar"] = "САВ",
 ["shotgun"] = "Дробовик", ["pump shotgun"] = "Помповый дробовик",
 ["auto shotgun"] = "Авто-дробовик", ["double barrel"] = "Двустволка",
+["spas-12"] = "СПАС-12", ["m870"] = "М870", ["sawn off"] = "Обрез",
 ["pistol"] = "Пистолет", ["glock"] = "Глок", ["deagle"] = "Дезерт Игл",
 ["revolver"] = "Револьвер", ["sniper"] = "Снайперка", ["rifle"] = "Винтовка",
-["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт", ["grenade"] = "Граната",
-["flashbang"] = "Слеповая", ["smoke"] = "Дымовая", ["molotov"] = "Коктейл Молотова",
-["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
-["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
+["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт",
+["m249"] = "М249", ["rp"] = "РП", ["bolt action"] = "Болтовка",
+["crossbow"] = "Арбалет", ["bow"] = "Лук", ["compound bow"] = "Блочный лук",
 -- патроны
 ["9mm"] = "9мм патроны", ["45acp"] = ".45 патроны", ["556"] = "5.56 патроны",
-["762"] = "7.62 патроны", ["12gauge"] = "12 калибр", ["shells"] = "Патроны",
+["5.56"] = "5.56 патроны", ["762"] = "7.62 патроны", ["7.62"] = "7.62 патроны",
+["12gauge"] = "12 калибр", ["12 gauge"] = "12 калибр", ["shells"] = "Патроны",
 ["ammo"] = "Патроны", ["magazine"] = "Магазин",
--- еда/вода
+["12.7mm"] = "12.7мм патроны", ["308"] = ".308 патроны",
+["arrow"] = "Стрела", ["bolts"] = "Болты",
+-- еда/вода (Rust)
 ["water"] = "Вода", ["water bottle"] = "Бутылка воды", ["cola"] = "Кола",
+["bottled water"] = "Бутылка воды", ["water jug"] = "Канистра воды",
+["water barrel"] = "Бочка воды", ["salt water"] = "Солёная вода",
 ["bread"] = "Хлеб", ["can"] = "Консерва", ["canned food"] = "Консерва",
 ["meat"] = "Мясо", ["cooked meat"] = "Жареное мясо", ["raw meat"] = "Сырое мясо",
+["bear meat"] = "Медвежатина", ["wolf meat"] = "Волчатина", ["chicken meat"] = "Курица",
+["deer meat"] = "Оленина", ["boar meat"] = "Кабанина",
 ["apple"] = "Яблоко", ["banana"] = "Банан", ["chocolate"] = "Шоколад",
-["energy bar"] = "Энергетический батончик",
--- броня
+["energy bar"] = "Энергетический батончик", ["granola bar"] = "Гранола",
+["corn"] = "Кукуруза", ["potato"] = "Картофель", ["pumpkin"] = "Тыква",
+["mushroom"] = "Гриб", ["berries"] = "Ягоды",
+["cooked corn"] = "Варёная кукуруза", ["cooked potato"] = "Варёная картошка",
+["fish"] = "Рыба", ["cooked fish"] = "Жареная рыба",
+["small water bottle"] = "Малая бутылка воды", ["large water bottle"] = "Большая бутылка воды",
+-- броня (Rust)
 ["helmet"] = "Шлем", ["kevlar"] = "Кевлар", ["vest"] = "Жилет",
 ["armor"] = "Броня", ["bulletproof vest"] = "Бронежилет",
--- лут/ресурсы
+["metal helmet"] = "Металлический шлем", ["metal vest"] = "Металлический жилет",
+["road sign helmet"] = "Шлем из дорожного знака", ["road sign vest"] = "Жилет из дорожного знака",
+["coconut helmet"] = "Кокосовый шлем", ["wood helmet"] = "Деревянный шлем",
+["bone helmet"] = "Костяной шлем", ["bone vest"] = "Костяной жилет",
+["coffee can helmet"] = "Шлем из кофейной банки",
+-- лут/ресурсы (Rust)
 ["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
+["metal fragments"] = "Металлические фрагменты", ["metal ore"] = "Руда металла",
 ["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
 ["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
-["blood bag"] = "Пакет крови",
--- инструменты
+["blood bag"] = "Пакет крови", ["syringe"] = "Шприц",
+["wood planks"] = "Доски", ["wooden planks"] = "Доски",
+["stone ore"] = "Каменная руда", ["sulfur ore"] = "Серная руда",
+["sulfur"] = "Сера", ["charcoal"] = "Древесный уголь",
+["gunpowder"] = "Порох", ["explosives"] = "Взрывчатка",
+["low grade fuel"] = "Низкосортное топливо", ["fuel"] = "Топливо",
+["crude oil"] = "Сырая нефть", ["oil"] = "Нефть",
+["hemp"] = "Конопля", ["hemp fiber"] = "Конопляное волокно",
+["scrap"] = "Хлам", ["metal pipe"] = "Металлическая труба",
+["sewing kit"] = "Швейный набор",
+["gears"] = "Шестерёнки", ["springs"] = "Пружины",
+["rifle body"] = "Корпус винтовки", ["smg body"] = "Корпус ПП",
+["semi auto body"] = "Корпус полуавтомата",
+-- инструменты (Rust)
 ["pickaxe"] = "Кирка", ["hatchet"] = "Топорик", ["hammer"] = "Молоток",
 ["screwdriver"] = "Отвёртка", ["wrench"] = "Гаечный ключ",
 ["lockpick"] = "Отмычка", ["flashlight"] = "Фонарик",
 ["map"] = "Карта", ["compass"] = "Компас", ["radio"] = "Радио",
 ["binoculars"] = "Бинокль", ["scope"] = "Прицел",
+["chainsaw"] = "Бензопила", ["jackhammer"] = "Отбойный молоток",
+["bone club"] = "Костяная дубина", ["stone pickaxe"] = "Каменная кирка",
+["stone hatchet"] = "Каменный топор", ["metal pickaxe"] = "Металлическая кирка",
+["metal hatchet"] = "Металлический топор",
+["salvaged hammer"] = "Восстановленный молоток", ["salvaged axe"] = "Восстановленный топор",
+["salvaged cleaver"] = "Восстановленный тесак", ["salvaged sword"] = "Восстановленный меч",
+-- холодное оружие
+["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
+["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
+["bone knife"] = "Костяной нож", ["stone spear"] = "Каменное копьё",
+["wooden spear"] = "Деревянное копьё", ["metal spear"] = "Металлическое копьё",
+["longsword"] = "Длинный меч", ["mace"] = "Булава",
 -- расходники
 ["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
 ["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
+["large backpack"] = "Большой рюкзак",
+["small bag"] = "Маленькая сумка", ["leather bag"] = "Кожаная сумка",
+-- медицина (Rust)
+["large bandage"] = "Большой бинт",
+["medical syringe"] = "Медицинский шприц", ["anti-rad pills"] = "Анти-рад таблетки",
+["antirad pills"] = "Анти-рад таблетки", ["radiation pills"] = "Противорадиационные таблетки",
+-- расходники для базы (Rust)
+["wood wall"] = "Деревянная стена", ["stone wall"] = "Каменная стена",
+["metal wall"] = "Металлическая стена", ["armored wall"] = "Бронированная стена",
+["wood door"] = "Деревянная дверь", ["metal door"] = "Металлическая дверь",
+["key lock"] = "Замок с ключом", ["code lock"] = "Кодовый замок",
+["wood ladder"] = "Деревянная лестница", ["wood stairs"] = "Деревянные ступени",
+["toolbox"] = "Ящик с инструментами", ["wood box"] = "Деревянный ящик",
+["large wood box"] = "Большой деревянный ящик", ["storage box"] = "Ящик для хранения",
+["vending machine"] = "Торговый автомат",
+-- гранаты/взрывчатка (Rust)
+["grenade"] = "Граната", ["frag grenade"] = "Осколочная граната",
+["flashbang"] = "Светошумовая", ["smoke"] = "Дымовая",
+["molotov"] = "Коктейль Молотова", ["incendiary grenade"] = "Зажигательная граната",
+["c4"] = "С4", ["satchel charge"] = "Разрывной заряд",
+["timed explosive"] = "Тайм-взрывчатка", ["rocket"] = "Ракета",
+["rockets"] = "Ракеты", ["rocket launcher"] = "Ракетница",
 }
 function translateItemName(name)
 if not ItemRuTranslate or type(name) ~= "string" then
@@ -5953,7 +5993,7 @@ hudApplyStyle()
 end
 })
 -- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
-UIRegistry.HUDBgColor = HudSection:Colorpicker({
+UIRegistry.HUDBgColor = HudSection:Label("Цвет фона HUD"):Colorpicker({
 Name = "Цвет фона HUD",
 Flag = "HUDBgColor",
 Default = Color3.fromRGB(12, 12, 16),
@@ -5962,7 +6002,7 @@ S.HUD.ColorBg = c
 hudApplyStyle()
 end
 })
-UIRegistry.HUDTextColor = HudSection:Colorpicker({
+UIRegistry.HUDTextColor = HudSection:Label("Цвет текста HUD"):Colorpicker({
 Name = "Цвет текста HUD",
 Flag = "HUDTextColor",
 Default = Color3.fromRGB(235, 235, 240),
@@ -5971,7 +6011,7 @@ S.HUD.ColorText = c
 hudApplyStyle()
 end
 })
-UIRegistry.HUDStrokeColor = HudSection:Colorpicker({
+UIRegistry.HUDStrokeColor = HudSection:Label("Цвет обводки HUD"):Colorpicker({
 Name = "Цвет обводки HUD",
 Flag = "HUDStrokeColor",
 Default = Color3.fromRGB(255, 170, 40),
@@ -6607,6 +6647,307 @@ end
 end)
 end
 })
+-- 0.39v2: ULTRA ОПТИМИЗАЦИЯ — максимальный FPS ценой визуала
+UltraOpt = false
+function applyUltraOpt(state)
+UltraOpt = state
+pcall(function()
+if state then
+-- 1. Текстуры выкл
+applyTextureDegradation(true)
+UIRegistry.TextureDegradation:Set(true) if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(true) end) end
+-- 2. FullBright (больше света — меньше теней)
+if not S.FullBright then
+UIRegistry.FullBright:Set(true) if UIRegistry.FullBright and UIRegistry.FullBright.Set then pcall(function() UIRegistry.FullBright:Set(true) end) end
+end
+-- 3. NoFog
+if not S.NoFog then
+if UIRegistry.NoFog and UIRegistry.NoFog.Set then pcall(function() UIRegistry.NoFog:Set(true) end) end
+end
+-- 4. NoGrass
+if not S.NoGrass then
+if UIRegistry.NoGrass and UIRegistry.NoGrass.Set then pcall(function() UIRegistry.NoGrass:Set(true) end) end
+end
+-- 5. NoDecoration
+if not S.NoDecoration then
+if UIRegistry.NoDecoration and UIRegistry.NoDecoration.Set then pcall(function() UIRegistry.NoDecoration:Set(true) end) end
+end
+-- 6. Уменьшить дальность ESP (меньше raycast)
+if S.ESP.MaxDistance > 800 then
+S.ESP.MaxDistance = 800
+if UIRegistry.ESPMaxDistance and UIRegistry.ESPMaxDistance.Set then pcall(function() UIRegistry.ESPMaxDistance:Set(800) end) end
+end
+-- 7. Уменьшить дальность лута
+if S.Loot.MaxDistance > 400 then
+S.Loot.MaxDistance = 400
+if UIRegistry.LootMaxDistance and UIRegistry.LootMaxDistance.Set then pcall(function() UIRegistry.LootMaxDistance:Set(400) end) end
+end
+-- 8. Уменьшить дальность НПС
+if S.NPC.MaxDistance > 1500 then
+S.NPC.MaxDistance = 1500
+if UIRegistry.NPCMaxDistance and UIRegistry.NPCMaxDistance.Set then pcall(function() UIRegistry.NPCMaxDistance:Set(1500) end) end
+end
+-- 9. Отключить трассеры (большой overhead)
+if S.Bullets.Enabled then
+if UIRegistry.BulletsEnabled and UIRegistry.BulletsEnabled.Set then pcall(function() UIRegistry.BulletsEnabled:Set(false) end) end
+end
+-- 10. Отключить чамсы лута (Highlight pool)
+if S.Loot.Chams then
+if UIRegistry.LootChams and UIRegistry.LootChams.Set then pcall(function() UIRegistry.LootChams:Set(false) end) end
+end
+if S.LootC.Chams then
+if UIRegistry.LootCChams and UIRegistry.LootCChams.Set then pcall(function() UIRegistry.LootCChams:Set(false) end) end
+end
+-- 11. Увеличить интервалы сканеров
+LOOT_POOL_INTERVAL = 2.5
+-- 12. GraphicsQuality минимум
+pcall(function()
+settings().Studio.GraphicsQuality = 1
+end)
+pcall(function()
+LocalPlayer.DeviceCameraMode = nil
+end)
+journal("ULTRA ОПТИМИЗАЦИЯ ВКЛ — максимальный FPS, визуал урезан")
+else
+-- Возврат к норме
+LOOT_POOL_INTERVAL = 1.2
+applyTextureDegradation(false)
+if UIRegistry.TextureDegradation and UIRegistry.TextureDegradation.Set then pcall(function() UIRegistry.TextureDegradation:Set(false) end) end
+journal("ULTRA ОПТИМИЗАЦИЯ ВЫКЛ — визуал восстановлен")
+end
+end)
+end
+UIRegistry.UltraOpt = WorldSection:Toggle({
+Name = "ULTRA ОПТИМИЗАЦИЯ (макс FPS)",
+Flag = "UltraOpt",
+Default = false,
+Callback = function(state)
+S.UltraOpt = state
+applyUltraOpt(state)
+end
+})
+-- 0.39v6: X-RAY — прозрачность стен/пола/потолка
+XRayState = { Enabled = false, Transparency = 0.8, Originals = {} }
+function applyXRay(state)
+pcall(function()
+if state then
+-- делаем все BasePart в Workspace прозрачными (кроме Terrain, Characters, Tools)
+XRayState.Originals = {}
+local count = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+if d:IsA("BasePart") and not d:IsA("Terrain") then
+-- пропускаем персонажей и их части
+local isChar = false
+local p = d
+for _ = 1, 5 do
+if not p then break end
+if p:IsA("Model") and Players:GetPlayerFromCharacter(p) then
+isChar = true break
+end
+p = p.Parent
+end
+if not isChar and not d:IsDescendantOf(LocalPlayer.Character or Instance.new("Folder")) then
+XRayState.Originals[d] = d.Transparency
+d.Transparency = XRayState.Transparency
+count = count + 1
+if count > 2000 then break end -- лимит для FPS
+end
+end
+end
+journal("X-RAY ВКЛ — прозрачно " .. count .. " объектов")
+else
+-- восстанавливаем
+for part, orig in pairs(XRayState.Originals) do
+pcall(function() part.Transparency = orig end)
+end
+XRayState.Originals = {}
+journal("X-RAY ВЫКЛ")
+end
+end)
+end
+UIRegistry.XRay = WorldSection:Toggle({
+Name = "X-Ray (прозрачность стен/пола)",
+Flag = "XRay",
+Default = false,
+Callback = function(state)
+XRayState.Enabled = state
+applyXRay(state)
+end
+})
+UIRegistry.XRayTransparency = WorldSection:Slider({
+Name = "X-Ray: прозрачность",
+Flag = "XRayTransparency",
+Default = 0.8,
+Min = 0.3,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+XRayState.Transparency = v
+if XRayState.Enabled then
+-- обновить на лету
+applyXRay(false)
+applyXRay(true)
+end
+end
+})
+
+-- 0.39v6: ЧАМСЫ НА МЕБЕЛЬ (шкафы, ящики, локеры, гардеробы)
+FurnitureChams = { Enabled = false, Color = Color3.fromRGB(100, 200, 255), Transparency = 0.4 }
+FURNITURE_PATTERNS = {
+"шкаф", "кухонный шкаф", "навесной шкаф", "напольный шкаф", "стеллаж",
+"ящик", "большой ящик", "маленький ящик", "сундук", "контейнер",
+"локер", "локеры", "locker", "lockers",
+"металлический шкаф", "metal cabinet", "металл шкаф",
+"шкаф для базы", "base cabinet", "базовый шкаф",
+"гардероб", "wardrobe", "closet",
+"полка", "shelf", "стеллаж",
+"комод", "chest", "тумба",
+"стол", "table", "стул", "chair",
+"кровать", "bed", "диван", "couch",
+"дверь", "door", "ворота", "gate",
+}
+FURNITURE_TAGS = { "FustFurniture", "FustContainer", "FustStorage", "Furniture", "Container" }
+furnitureChamsPool = {}
+furnitureChamsAt = 0
+function furnitureScan()
+local now = os.clock()
+if now - furnitureChamsAt < 1.0 then return end
+furnitureChamsAt = now
+local found = {}
+pcall(function()
+-- 1. по тегам
+for _, tag in ipairs(FURNITURE_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst:IsA("Model") and inst.Parent then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. по имени в Workspace (верхние 2 уровня)
+for _, d in ipairs(Workspace:GetChildren()) do
+if d:IsA("Model") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN then
+for _, pat in ipairs(FURNITURE_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+-- проверяем детей модели
+for _, child in ipairs(d:GetChildren()) do
+if child:IsA("Model") or child:IsA("BasePart") then
+local okN2, name2 = pcall(function() return string.lower(tostring(child.Name)) end)
+if okN2 then
+for _, pat in ipairs(FURNITURE_PATTERNS) do
+if string.find(name2, pat, 1, true) then
+table.insert(found, child)
+break
+end
+end
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, f in ipairs(found) do
+if not seen[f] then seen[f] = true table.insert(unique, f) end
+end
+-- обновляем пул Highlight
+local POOL_MAX = 20
+for i = 1, math.min(#unique, POOL_MAX) do
+local inst = unique[i]
+local h = furnitureChamsPool[i]
+if not h then
+local okH, created = pcall(function()
+local nh = Instance.new("Highlight")
+nh.Name = "PETUH_FurnitureChams"
+nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+nh.FillTransparency = FurnitureChams.Transparency
+nh.OutlineTransparency = 0
+nh.Parent = Workspace
+return nh
+end)
+if okH and created then
+h = created
+furnitureChamsPool[i] = created
+end
+end
+if h then
+pcall(function()
+h.Adornee = inst
+h.FillColor = FurnitureChams.Color
+h.OutlineColor = FurnitureChams.Color
+h.Enabled = true
+end)
+end
+end
+-- скрыть неиспользуемые
+for i = math.min(#unique, POOL_MAX) + 1, #furnitureChamsPool do
+pcall(function()
+furnitureChamsPool[i].Enabled = false
+furnitureChamsPool[i].Adornee = nil
+end)
+end
+if #unique == 0 then
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i].Enabled = false end)
+end
+end
+end
+function furnitureChamsCleanup()
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i]:Destroy() end)
+furnitureChamsPool[i] = nil
+end
+end
+UIRegistry.FurnitureChams = WorldSection:Toggle({
+Name = "Чамсы мебели (шкафы/ящики/локеры)",
+Flag = "FurnitureChams",
+Default = false,
+Callback = function(state)
+FurnitureChams.Enabled = state
+if not state then
+for i = 1, #furnitureChamsPool do
+pcall(function() furnitureChamsPool[i].Enabled = false end)
+end
+end
+journal("ЧАМСЫ МЕБЕЛИ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FurnitureChamsColor = WorldSection:Label("Цвет чамсов мебели"):Colorpicker({
+Name = "Цвет чамсов мебели",
+Flag = "FurnitureChamsColor",
+Default = Color3.fromRGB(100, 200, 255),
+Callback = function(c) FurnitureChams.Color = c end
+})
+UIRegistry.FurnitureChamsTransparency = WorldSection:Slider({
+Name = "Прозрачность чамсов мебели",
+Flag = "FurnitureChamsTransparency",
+Default = 0.4,
+Min = 0,
+Max = 0.9,
+Decimals = 0.05,
+Callback = function(v) FurnitureChams.Transparency = v end
+})
+-- фоновый сканер мебели
+task.spawn(function()
+while true do
+task.wait(1)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+if FurnitureChams.Enabled then
+pcall(furnitureScan)
+end
+end
+end)
 function normalizeName(raw)
 if type(raw) ~= "string" then
 return ""
@@ -6883,6 +7224,7 @@ TargetsPlayers = true,
 TargetsNPC = false, 
 TargetsAnimals = false, 
 TargetsSleepers = false, 
+TargetsHelis = false, -- 0.39v2: вертолёты
 AutoPredict = false, 
 AutoPredictK = 1, 
 }
@@ -6896,10 +7238,115 @@ AutoAim = {
 Enabled = false, 
 Radius = 500, 
 }
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFire = {
+Enabled = false,
+Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
+OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
+WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
+PCKey = nil,        -- не используется (всегда автомат)
+}
+AF_LastShot = 0
+AF_LastTargetPart = nil
 AA_EnemyNear = false 
 AA_NearestDist = nil 
 AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
 AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+-- 0.39v2: паттерны вертолётов для поиска в Workspace
+HELI_PATTERNS = {
+"вертолет", "вертолёт", "верталёт", "helicopter", "heli", "chopper",
+"боевой вертолет", "combat heli", "attack heli", "military heli",
+"transport heli", "грузовой вертолет", "mi-8", "mi-24", "ka-50", "ka-52",
+"uh-60", "ah-64", "ah-1", "bell", "robinson", "apache", "hind",
+}
+HELI_TAGS = { "FustHeli", "FustVehicle", "FustHelicopter", "Vehicle", "Heli" }
+HELI_FOLDER_NAMES = { "Helicopters", "Vehicles", "Heli", "Helis", "Авиация", "Транспорт" }
+trackedHelis = {} -- кэш найденных вертолётов
+heliScanAt = 0
+function heliScanWorkspace()
+local now = os.clock()
+if now - heliScanAt < 2.0 then return end -- раз в 2с
+heliScanAt = now
+local found = {}
+pcall(function()
+-- 1. По тегам CollectionService
+for _, tag in ipairs(HELI_TAGS) do
+local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
+if ok and items then
+for _, inst in ipairs(items) do
+if inst:IsA("Model") and inst.Parent then
+table.insert(found, inst)
+end
+end
+end
+end
+-- 2. Поиск по папкам
+for _, folder in ipairs(HELI_FOLDER_NAMES) do
+local okF, f = pcall(function()
+return Workspace:FindFirstChild(folder, true)
+end)
+if okF and f then
+for _, d in ipairs(f:GetDescendants()) do
+if d:IsA("Model") then
+table.insert(found, d)
+end
+end
+end
+end
+-- 3. Поиск по имени в верхнем уровне Workspace
+for _, d in ipairs(Workspace:GetChildren()) do
+if d:IsA("Model") then
+local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
+if okN then
+for _, pat in ipairs(HELI_PATTERNS) do
+if string.find(name, pat, 1, true) then
+table.insert(found, d)
+break
+end
+end
+end
+end
+end
+end)
+-- дедуп
+local seen = {}
+local unique = {}
+for _, h in ipairs(found) do
+if not seen[h] then
+seen[h] = true
+table.insert(unique, h)
+end
+end
+trackedHelis = unique
+end
+function heliFindAimPart(heli)
+-- ищем BodyPart / Seat / Main rotor для прицеливания
+local bestPart = nil
+local bestScore = -math.huge
+pcall(function()
+-- приоритет: PilotSeat, DriverSeat, Main, Body, HeliBody
+local priority = { "PilotSeat", "DriverSeat", "Main", "Body", "HeliBody", "Cabin", "Tail", "Rotor", "MainRotor" }
+for _, p in ipairs(heli:GetDescendants()) do
+if p:IsA("BasePart") then
+local name = string.lower(tostring(p.Name))
+local score = 0
+for i, pn in ipairs(priority) do
+if string.find(name, string.lower(pn), 1, true) then
+score = 100 - i
+break
+end
+end
+if score == 0 then score = 10 end -- любой BasePart подходит
+if score > bestScore then
+bestScore = score
+bestPart = p
+end
+end
+end
+end)
+return bestPart
+end
 AimHotkeyObj = nil 
 AimHotkeyBusy = false 
 UIRegistry.AimEnabled = AimSection:Toggle({
@@ -7006,11 +7453,51 @@ Flag = "CHOutline",
 Default = true,
 Callback = function(state) CH.Outline = state end
 })
-UIRegistry.CHColor = AimSection:Colorpicker({
+UIRegistry.CHColor = AimSection:Label("Прицел: цвет"):Colorpicker({
 Name = "Прицел: цвет",
 Flag = "CHColor",
 Default = Color3.fromRGB(255, 30, 30),
 Callback = function(c) CH.Color = c end
+})
+-- 0.39v2: расширенные настройки CS2
+UIRegistry.CHTStyle = AimSection:Toggle({
+Name = "Прицел: T-стиль (без верха, как AWP)",
+Flag = "CHTStyle",
+Default = false,
+Callback = function(state) CH.TStyle = state end
+})
+UIRegistry.CHDotSize = AimSection:Slider({
+Name = "Прицел: размер точки",
+Flag = "CHDotSize",
+Default = 1,
+Min = 1,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.DotSize = v end
+})
+UIRegistry.CHOutlineThickness = AimSection:Slider({
+Name = "Прицел: толщина обводки",
+Flag = "CHOutlineThickness",
+Default = 1,
+Min = 1,
+Max = 3,
+Decimals = 0.5,
+Callback = function(v) CH.OutlineThickness = v end
+})
+UIRegistry.CHAlpha = AimSection:Slider({
+Name = "Прицел: прозрачность (0-1)",
+Flag = "CHAlpha",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v) CH.Alpha = v end
+})
+UIRegistry.CHRecoilFollow = AimSection:Toggle({
+Name = "Прицел: следует за отдачей (CS recoil)",
+Flag = "CHRecoilFollow",
+Default = false,
+Callback = function(state) CH.RecoilFollow = state end
 })
 UIRegistry.AimFOV = AimSection:Slider({
 Name = "FOV радиус",
@@ -7179,6 +7666,45 @@ Callback = function(Value)
 AutoAim.Radius = Value
 end
 })
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
+Name = "Авто-стрельба (когда есть цель)",
+Flag = "AutoFireEnabled",
+Default = false,
+Callback = function(state)
+AutoFire.Enabled = state
+journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoFireDelay = AutoFireSection:Slider({
+Name = "Задержка между выстрелами (0 = макс)",
+Flag = "AutoFireDelay",
+Default = 0,
+Min = 0,
+Max = 0.5,
+Decimals = 0.01,
+Callback = function(v) AutoFire.Delay = v end
+})
+UIRegistry.AutoFireOnlyOnTarget = AutoFireSection:Toggle({
+Name = "Стрелять только при захвате цели",
+Flag = "AutoFireOnlyOnTarget",
+Default = true,
+Callback = function(state) AutoFire.OnlyOnTarget = state end
+})
+UIRegistry.AutoFireUntilDead = AutoFireSection:Toggle({
+Name = "Стрелять пока цель не умрёт",
+Flag = "AutoFireUntilDead",
+Default = true,
+Callback = function(state) AutoFire.UntilDead = state end
+})
+UIRegistry.AutoFireWallCheck = AutoFireSection:Toggle({
+Name = "Не стрелять через стены (WallCheck)",
+Flag = "AutoFireWallCheck",
+Default = true,
+Callback = function(state) AutoFire.WallCheck = state end
+})
+AutoFireSection:Label("ПК: mouse1click / VirtualInputManager. Телефон: Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -7581,12 +8107,12 @@ end
 })
 UIRegistry.AimTargets = TargetSection:Dropdown({
 Name = "Кого аимить",
-Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы" },
+Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Вертолёты" },
 Default = { "Игроки" },
 Flag = "AimTargets",
 Multi = true,
 Callback = function(list)
-local players, npc, animals, sleepers = false, false, false, false
+local players, npc, animals, sleepers, helis = false, false, false, false, false
 if type(list) == "table" then
 for _, v in ipairs(list) do
 if v == "Игроки" then
@@ -7597,6 +8123,8 @@ elseif v == "Животные" then
 animals = true
 elseif v == "Слиперы" then
 sleepers = true
+elseif v == "Вертолёты" then
+helis = true
 end
 end
 end
@@ -7604,6 +8132,7 @@ Aim.TargetsPlayers = players
 Aim.TargetsNPC = npc
 Aim.TargetsAnimals = animals
 Aim.TargetsSleepers = sleepers
+Aim.TargetsHelis = helis
 local labels = {}
 if players then
 table.insert(labels, "игроки")
@@ -7616,6 +8145,9 @@ table.insert(labels, "животные")
 end
 if sleepers then
 table.insert(labels, "слиперы")
+end
+if helis then
+table.insert(labels, "вертолёты")
 end
 journal("АИМ ЦЕЛИ: " .. (#labels > 0 and table.concat(labels, " + ") or "никого"))
 end
@@ -7665,6 +8197,12 @@ Thickness = 2,  -- толщина линий
 Dot = false,    -- точка в центре
 Outline = true, -- обводка (чёрная за цветом)
 Color = Color3.fromRGB(255, 30, 30),
+-- 0.39v2: расширенные настройки CS2
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
 }
 CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
 chLines = {}
@@ -7700,13 +8238,18 @@ function updateCrosshair(center, visible)
 local gap = CH.Gap
 local len = CH.Length
 local th = CH.Thickness
--- top
-if chLines[1] then
+local alpha = CH.Alpha or 1
+-- 0.39v2: T-style — верхняя линия не рисуется (как AWP)
+-- top (skipped if TStyle)
+if chLines[1] and not CH.TStyle then
 chLines[1].From = Vector2.new(center.X, center.Y - gap)
 chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
 chLines[1].Thickness = th
 chLines[1].Color = CH.Color
+chLines[1].Transparency = 1 - alpha
 chLines[1].Visible = visible
+elseif chLines[1] then
+chLines[1].Visible = false
 end
 -- bottom
 if chLines[2] then
@@ -7714,6 +8257,7 @@ chLines[2].From = Vector2.new(center.X, center.Y + gap)
 chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
 chLines[2].Thickness = th
 chLines[2].Color = CH.Color
+chLines[2].Transparency = 1 - alpha
 chLines[2].Visible = visible
 end
 -- left
@@ -7722,6 +8266,7 @@ chLines[3].From = Vector2.new(center.X - gap, center.Y)
 chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
 chLines[3].Thickness = th
 chLines[3].Color = CH.Color
+chLines[3].Transparency = 1 - alpha
 chLines[3].Visible = visible
 end
 -- right
@@ -7730,36 +8275,39 @@ chLines[4].From = Vector2.new(center.X + gap, center.Y)
 chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
 chLines[4].Thickness = th
 chLines[4].Color = CH.Color
+chLines[4].Transparency = 1 - alpha
 chLines[4].Visible = visible
 end
--- точка
+-- точка (размер через DotSize)
 if chDot then
 chDot.Position = center
-chDot.Radius = math.max(1, math.floor(th / 2))
+chDot.Radius = math.max(1, CH.DotSize or 1)
 chDot.Color = CH.Color
+chDot.Transparency = 1 - alpha
 chDot.Visible = visible and CH.Dot
 end
--- обводка (8 линий с микро-смещением вокруг основных)
+-- обводка (8 линий с микро-смещением вокруг основных; толщина через OutlineThickness)
 if CH.Outline and visible then
+local ot = CH.OutlineThickness or 1
 local offs = { {1,0}, {-1,0}, {0,1}, {0,-1} }
 local oi = 1
 for dir = 1, 4 do
 local base = chLines[dir]
-if base then
+if base and base.Visible then
 for _, off in ipairs(offs) do
 local o = chOutline[oi]
 if o then
-o.From = Vector2.new(base.From.X + off[1], base.From.Y + off[2])
-o.To = Vector2.new(base.To.X + off[1], base.To.Y + off[2])
-o.Thickness = th + 2
+o.From = Vector2.new(base.From.X + off[1] * ot, base.From.Y + off[2] * ot)
+o.To = Vector2.new(base.To.X + off[1] * ot, base.To.Y + off[2] * ot)
+o.Thickness = th + ot * 2
 o.Color = Color3.fromRGB(0, 0, 0)
+o.Transparency = 1 - alpha
 o.Visible = true
 end
 oi = oi + 1
 end
 end
 end
--- скрыть неиспользованные
 for i = oi, 8 do
 if chOutline[i] then chOutline[i].Visible = false end
 end
@@ -7845,7 +8393,8 @@ if hVel.Magnitude < 1 then
 return root, center 
 end
 local half = math.max(root.Size.X, root.Size.Z) * 0.5
-local lead = math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Evil.K or 1, 0.1, 5)
+-- 0.39v2: используем улучшенную autoLead с адаптивной коррекцией
+local lead = autoLead(dist, vel, nil) * math.clamp(Evil.K or 1, 0.1, 5)
 local dir = hVel.Unit
 return root, center + dir * half + vel * lead
 end
@@ -8815,6 +9364,9 @@ else
 FC_MOD.yaw, FC_MOD.pitch = 0, 0
 end
 pcall(function()
+-- 0.39v5: Scriptable НЕОБХОДИМ — без него Roblox каждый кадр возвращает
+-- камеру к персонажу (CameraType.Custom). Ставим один раз при включении.
+-- Восстанавливаем при выключении. Это не детектится если не каждый кадр.
 cam.CameraType = Enum.CameraType.Scriptable
 cam.Far = math.max(cam.Far or 1000, 8000)
 end)
@@ -8899,9 +9451,7 @@ local cam = Workspace.CurrentCamera
 if not cam then
 return
 end
-pcall(function()
-cam.CameraType = Enum.CameraType.Scriptable
-end)
+-- 0.39v3 STEALTH: НЕ трогаем CameraType каждый кадр — детект. Custom работает.
 local rot = CFrame.fromEulerAnglesYXZ(FC_MOD.pitch, FC_MOD.yaw, 0)
 local fwd = rot.LookVector
 local flat = Vector3.new(fwd.X, 0, fwd.Z)
@@ -9399,7 +9949,7 @@ trackedBackpacks[inst] = nil
 end
 end
 walkTick = walkTick + 1
-if walkTick >= 3 then
+if walkTick >= 6 then -- 0.39v2: было 3 — лагало. 6 = реже полный обход Workspace.
 walkTick = 0
 bpScanContainer(Workspace, 3)
 end
@@ -9575,8 +10125,31 @@ end
 end)
 velEMA = {} 
 velEMALastClean = 0
-function autoLead(dist)
-return math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+-- 0.39v2: УЛУЧШЕННАЯ ПРЕДИКЦИЯ
+-- Старая: фиксированный lead = dist/900. Проблема: при быстрой цели наводились
+-- слишком вперёд, не успевали скорректировать. Новая: адаптивная — учитываем
+-- скорость цели относительно камеры + clamp по дальности + множитель.
+-- Если цель БЫСТРО движется перпендикулярно — упреждение больше.
+-- Если цель идёт НА нас или ОТ нас — упреждение меньше (не нужно).
+function autoLead(dist, targetVel, camLook)
+local base = math.clamp(dist / 900, 0.05, 1.2) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+-- если передана скорость цели и направление камеры — корректируем
+if targetVel and camLook then
+local vMag = targetVel.Magnitude
+if vMag > 0.1 then
+-- перпендикулярная составляющая скорости к camLook — её и нужно упреждать
+local perp = targetVel - camLook * targetVel:Dot(camLook)
+local perpMag = perp.Magnitude
+-- если цель идёт почти на нас — упреждение минимально
+if perpMag < 2 then
+base = base * 0.3
+elseif perpMag > 30 then
+-- быстрая перпендикулярная цель — упреждение больше
+base = base * 1.4
+end
+end
+end
+return base
 end
 function getSmoothedVelocity(root, vel)
 if not Aim.AutoPredict then
@@ -9710,6 +10283,42 @@ end
 end
 end
 end
+-- 0.39v2: вертолёты
+if Aim.TargetsHelis then
+heliScanWorkspace()
+for _, heli in ipairs(trackedHelis) do
+if heli.Parent and heli:IsA("Model") then
+local part = heliFindAimPart(heli)
+if part then
+local okD, d = pcall(function() return (part.Position - camPos).Magnitude end)
+if okD and d and d <= Aim.Distance then
+local vel = Vector3.new(0, 0, 0)
+pcall(function()
+vel = part.AssemblyLinearVelocity
+end)
+local lead = Aim.AutoPredict and autoLead(d) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, heli, aimPos) then
+local score = (Aim.Priority == "Дистанция") and d or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "вертолёт"
+end
+end
+end
+end
+end
+end
+end
+end
+end
 return bestPart, bestPoint, bestType
 end
 if getgenv().FUST_AimCleanup then
@@ -9764,10 +10373,77 @@ if dist < 30 then baseA = 0.92
 elseif dist < 80 then baseA = 0.85
 end
 if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
+-- 0.39v2: КОРРЕКЦИЯ ПЕРЕЛЁТА. Если угол между текущим LookVector и
+-- aimPos уже маленький (цель почти в прицеле) — уменьшаем alpha,
+-- чтобы не проскочить. Если угол большой — alpha максимум.
+local currentLook = camera.CFrame.LookVector
+local toAim = (aimPos - camera.CFrame.Position).Unit
+local dot = currentLook:Dot(toAim)
+if dot > 0.98 then
+-- уже почти навелись — плавная коррекция
+baseA = baseA * 0.5
+end
 camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
 else
 local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
 camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
+end
+-- 0.39v2: АВТО-СТРЕЛЬБА
+-- 0.39v4: WallCheck — не стрелять если цель за стеной
+local afCanFire = AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part)
+if afCanFire and AutoFire.WallCheck and part and aimPos then
+-- ищем модель цели для raycast (part.Parent обычно модель игрока/НПС/вертолёта)
+local targetModel = part.Parent
+if not targetModel or not targetModel:IsA("Model") then
+targetModel = part:FindFirstAncestorOfClass("Model")
+end
+if targetModel then
+local camPos2 = camera.CFrame.Position
+if wallBetween(camPos2, targetModel, aimPos) then
+afCanFire = false
+end
+end
+end
+if afCanFire then
+local now = os.clock()
+if now - AF_LastShot >= AutoFire.Delay then
+AF_LastShot = now
+AF_LastTargetPart = part
+pcall(function()
+-- ПК: симулируем левый клик мышью через mouse1click (если есть)
+-- или VirtualInputManager. НЕ перехватываем управление телефоном.
+local hasKeyboard = UserInputService.KeyboardEnabled
+if hasKeyboard then
+-- Xeno: mouse1click / mouse1press / mouse1release
+local m1c = getgenv().mouse1click
+if type(m1c) == "function" then
+m1c()
+else
+-- фолбэк: VirtualInputManager (Roblox)
+local okV, vim = pcall(function()
+return game:GetService("VirtualInputManager")
+end)
+if okV and vim then
+-- 0.39v4 FIX: task.wait здесь ЗАПРЕЩЁН (yield в RenderStepped ломает
+-- весь aim loop). Шлём press+release без задержки — Roblox сам
+-- обработает порядок.
+vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
+end
+else
+-- Телефон: НЕ перехватываем управление. Авто-стрельба только если
+-- в игре есть Tool с Activate() — вызываем его напрямую.
+local char = LocalPlayer.Character
+local tool = char and char:FindFirstChildOfClass("Tool")
+if tool then
+pcall(function()
+tool:Activate()
+end)
+end
+end
+end)
+end
 end
 end
 end)
@@ -11633,7 +12309,11 @@ NpcHitboxAppliedCount = 0
 end
 if myRoot then
 lootPoolUpdate(myRoot, os.clock())
+-- 0.39v2: лут ESP не каждый кадр — раз в 0.15с. Было каждый кадр = лаги.
+if not FUST_LootEspAt or os.clock() - FUST_LootEspAt > 0.15 then
+FUST_LootEspAt = os.clock()
 updateBackpackEsp(Camera, myRoot)
+end
 else
 bpHideAll()
 lootPoolDisableAll()
@@ -11927,36 +12607,58 @@ end
 local function klScanKickBanner()
 local found = nil
 pcall(function()
-local promptRoot
-pcall(function()
-promptRoot = game:GetService("CoreGui"):FindFirstChild("RobloxPromptDialog")
-end)
-if not promptRoot then
-pcall(function()
-for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
-if gui:IsA("ScreenGui") then
-local p = gui:FindFirstChild("PromptDialog") or gui:FindFirstChild("RobloxPromptDialog")
-or gui:FindFirstChildWhichIsA("Frame")
-if p then promptRoot = p break end
-end
-end
-end)
-end
-if promptRoot then
-local scanned = 0
-for _, desc in ipairs(promptRoot:GetDescendants()) do
-scanned = scanned + 1
-if scanned > 60 then break end
+-- 0.39v3: ищем по всем ScreenGui в CoreGui, не только RobloxPromptDialog
+local coreGui = game:GetService("CoreGui")
+local scannedTotal = 0
+for _, gui in ipairs(coreGui:GetChildren()) do
+if gui:IsA("ScreenGui") and gui.Name ~= "PetuhMenuToggle" and gui.Name ~= "PetuhHUD" and gui.Name ~= "PetuhLoadScreen" then
+-- проверяем имя gui тоже
+local guiName = string.lower(tostring(gui.Name))
+if guiName:find("prompt") or guiName:find("dialog") or guiName:find("message") or guiName:find("error") then
+for _, desc in ipairs(gui:GetDescendants()) do
+scannedTotal = scannedTotal + 1
+if scannedTotal > 120 then break end
 if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
 local t = desc.Text
-if t:lower():find("kick") or t:lower():find("ban")
-or t:lower():find("вы kicked") or t:lower():find("вы ban")
-or t:lower():find("обнаружен") or t:lower():find("detect")
-or t:lower():find("cheat") or t:lower():find("чит")
-or t:lower():find("exploit") or t:lower():find("hack")
-or t:lower():find("разблокирован") or t:lower():find("нарушен") then
+local tl = string.lower(t)
+if tl:find("kick") or tl:find("ban")
+or tl:find("вы ") or tl:find("ты ")
+or tl:find("обнаружен") or tl:find("detect")
+or tl:find("cheat") or tl:find("чит")
+or tl:find("exploit") or tl:find("hack")
+or tl:find("разблокирован") or tl:find("нарушен")
+or tl:find("disconnect") or tl:find("timed out")
+or tl:find("соединение") or tl:find("потеряно")
+or tl:find("вышли") or tl:find("покинул") then
 found = t
 break
+end
+end
+end
+end
+if found then break end
+end
+end
+-- 0.39v3: если не нашли в CoreGui, проверим PlayerGui
+if not found then
+local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then
+for _, gui in ipairs(pg:GetChildren()) do
+if gui:IsA("ScreenGui") then
+for _, desc in ipairs(gui:GetDescendants()) do
+scannedTotal = scannedTotal + 1
+if scannedTotal > 200 then break end
+if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
+local t = desc.Text
+local tl = string.lower(t)
+if tl:find("kick") or tl:find("ban") or tl:find("чит") or tl:find("cheat")
+or tl:find("detect") or tl:find("обнаружен") then
+found = t
+break
+end
+end
+end
+if found then break end
 end
 end
 end
@@ -12037,14 +12739,38 @@ end
 
 -- Главный слушатель: PlayerRemoving для LocalPlayer = кик/бан/выход
 local klPlayerRemoved = false
-Players.PlayerRemoving:Connect(function(player)
-if player == LocalPlayer and not klPlayerRemoved then
+local function klCheckAndLog(reason, banner)
+if klPlayerRemoved then return end
 klPlayerRemoved = true
+klLogExit(reason, banner)
+end
+Players.PlayerRemoving:Connect(function(player)
+if player == LocalPlayer then
 -- Даём CoreGui 0.3с на отрисовку баннера кика
 task.delay(0.3, function()
 local banner = klScanKickBanner()
 local reason = banner and "KICK/BAN (найден баннер в CoreGui)" or "EXIT/QUIT (баннер не найден — возможно ручной выход)"
-klLogExit(reason, banner)
+klCheckAndLog(reason, banner)
+end)
+-- 0.39v3: логируем СРАЗУ тоже, без delay — вдруг delay не выполнится
+local banner2 = klScanKickBanner()
+klCheckAndLog("PLAYER_REMOVING (без баннера, мгновенный лог)", banner2)
+end
+end)
+-- 0.39v3: перехват Player:Kick убран — на Delta hookfunction на Instance-методах
+-- может ломать загрузку. PlayerRemoving + heartbeat достаточно.
+-- 0.39v3: также слушаем сообщения в чат (некоторые анти-читы пишут причину туда)
+pcall(function()
+TextChatService = game:GetService("TextChatService")
+if TextChatService and TextChatService.MessageReceived then
+TextChatService.MessageReceived:Connect(function(msg)
+local txt = tostring(msg.Text or "")
+if txt:lower():find("kick") or txt:lower():find("ban")
+or txt:lower():find("detect") or txt:lower():find("cheat") then
+pcall(function()
+klAppend("[" .. klTimestamp() .. "] CHAT_MSG: " .. txt)
+end)
+end
 end)
 end
 end)
@@ -12054,11 +12780,12 @@ klRotateIfNeeded()
 klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.39, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
--- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
+-- Тихий фоновый heartbeat: раз в 2с проверяем, что LocalPlayer ещё в игре.
 -- Если LocalPlayer.Parent ~= Players (вдруг PlayerRemoving не успел) — лог.
+-- 0.39v3: было 30с — слишком поздно ловило. 2с = быстро и безопасно.
 task.spawn(function()
 while true do
-task.wait(30)
+task.wait(2)
 if getgenv().FUST_SESSION ~= FUST_SESSION then break end
 local p = LocalPlayer
 if not p or not p.Parent or not p.Parent:IsA("Players") then
@@ -12075,6 +12802,87 @@ end)
 journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
 print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
 -- /FUST KICK/BAN LOGGER ======================================================
+
+-- ============================================================================
+-- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
+-- ============================================================================
+pcall(function()
+LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
+LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
+LogSection:Label("Лог сохраняется в FUST_kicks.log и переживает перезапуск чита и перезаход в игру.")
+-- Кнопка обновить
+UIRegistry.LogRefresh = LogSection:Button({
+Name = "Обновить лог",
+Callback = function()
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+-- последние 4000 символов (для UI)
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+})
+-- Кнопка очистить
+UIRegistry.LogClear = LogSection:Button({
+Name = "Очистить лог",
+Callback = function()
+pcall(function()
+if type(writefile) == "function" then
+writefile(KICKLOG_FILE, "")
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set("(лог очищен)")
+end
+journal("ЛОГ ОЧИЩЕН вручную")
+end)
+end
+})
+-- Многострочное текстовое поле с логом
+local logText = ""
+pcall(function()
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+logText = readfile(KICKLOG_FILE) or ""
+end
+if #logText > 4000 then
+logText = "...(предыдущие записи скрыты)...\n" .. logText:sub(#logText - 3900)
+end
+end)
+UIRegistry.LogText = LogSection:Textbox({
+Name = "Содержимое лога",
+Default = logText,
+Placeholder = "(лог пуст — ещё не было киков/банов)",
+MultiLine = true,
+})
+LogSection:Label("При кике/бане здесь появится запись: время, place, что было включено, причина если найдена.")
+-- Авто-обновление каждые 5 сек
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+end)
+end)
+-- /UI ЛОГОВ =================================================================
+
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
@@ -12092,6 +12900,8 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
+-- 0.39v4: гарантированно скрыть экран загрузки при ошибке
+pcall(hideLoadScreen)
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then

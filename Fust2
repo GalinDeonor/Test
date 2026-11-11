@@ -1,98 +1,4 @@
-0, EdgeThickness, 1, 0)),
-Side = "L"
-},
-{Button = MakeEdge(
-"Right",
-UDim2New(1, -EdgeThickness, 0, 0),
-UDim2New(0, EdgeThickness, 1, 0)),
-Side = "R"
-},
-{Button = MakeEdge(
-"Top", UDim2New(0, 0, 0, 0),
-UDim2New(1, 0, 0, EdgeThickness)),
-Side = "T"
-},
-{Button = MakeEdge(
-"Bottom",
-UDim2New(0, 0, 1, -EdgeThickness),
-UDim2New(1, 0, 0, EdgeThickness)),
-Side = "B"
-},
-}
-local BeginResizing = function(Side)
-Resizing = true
-CurrentSide = Side
-StartMouse = UserInputService:GetMouseLocation()
-StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
-StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
-for Index, Value in Edges do
-Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
-end
-end
-local EndResizing = function()
-Resizing = false
-CurrentSide = nil
-for Index, Value in Edges do
-Value.Button.Instance.BackgroundTransparency = 1
-end
-end
-for Index, Value in Edges do
-Value.Button:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-BeginResizing(Value.Side)
-end
-end)
-end
-Library:Connect(UserInputService.InputEnded, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if Resizing then
-EndResizing()
-end
-end
-end)
-Library:Connect(RunService.RenderStepped, function()
-if not Resizing or not CurrentSide then
-return
-end
-local MouseLocation = UserInputService:GetMouseLocation()
-local dx = MouseLocation.X - StartMouse.X
-local dy = MouseLocation.Y - StartMouse.Y
-local x, y = StartPosition.X, StartPosition.Y
-local w, h = StartSize.X, StartSize.Y
-if CurrentSide == "L" then
-x = StartPosition.X + dx
-w = StartSize.X - dx
-elseif CurrentSide == "R" then
-w = StartSize.X + dx
-elseif CurrentSide == "T" then
-y = StartPosition.Y + dy
-h = StartSize.Y - dy
-elseif CurrentSide == "B" then
-h = StartSize.Y + dy
-end
-if w < Minimum.X then
-if CurrentSide == "L" then
-x = x - (Minimum.X - w)
-end
-w = Minimum.X
-end
-if h < Minimum.Y then
-if CurrentSide == "T" then
-y = y - (Minimum.Y - h)
-end
-h = Minimum.Y
-end
-self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2FromOffset(x, y)})
-self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2FromOffset(w, h)})
-end)
-end
-Instances.OnHover = function(self, Function)
-if not self.Instance then
-return
-end
-return Library:Connect(self.Instance.MouseEnter, Function)
-end
-Instances.OnHoverLeave = function(self, Function)
+rLeave = function(self, Function)
 if not self.Instance then
 return
 end
@@ -101,51 +7,14 @@ end
 end
 local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
-if not isfile(Data.Id) then
-writefile(Data.Id, game:HttpGet(Data.Url))
-end
-local Data = {
-name = Name,
-faces = {
-{
-name = Name,
-weight = Weight,
-style = Style,
-assetId = getcustomasset(Data.Id)
-}
-}
-}
-writefile(Library.Folders.Assets .. "/" .. Name .. ".font", HttpService:JSONEncode(Data))
-return Font.new(getcustomasset(Library.Folders.Assets .. "/" .. Name .. ".font"))
+-- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
+-- Возвращаем Roblox шрифт, кастомные не грузим.
+return Font.new(Enum.Font.GothamMedium)
 end
 do
-local loaded = pcall(function()
-Library.Font = CustomFont:New("SFProText", 400, "Regular", {
-Id = "AltHack_SFProText",
-Url = "https://github.com/sahibjotsaggu/San-Francisco-Pro-Fonts/raw/master/SF-Pro-Text-Regular.otf"
-})
-end)
-if not loaded then
-pcall(function() delfile("AltHack_SFProText") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("Inter", 400, "Regular", {
-Id = "AltHack_Inter",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Inter.ttf"
-})
-end)
-end
-if not loaded then
-pcall(function() delfile("AltHack_Inter") end)
-loaded = pcall(function()
-Library.Font = CustomFont:New("OutfitMedium", 400, "Regular", {
-Id = "OutfitMedium",
-Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Outfit-Medium.ttf"
-})
-end)
-end
-if not loaded or not Library.Font then
+-- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
+-- который детектится анти-читом. Используем Roblox GothamMedium.
 Library.Font = Font.new(Enum.Font.GothamMedium)
-end
 end
 end
 Library.Holder = Instances:Create("ScreenGui", {
@@ -2234,4 +2103,214 @@ local Items = { } do
 Items["Button"] = Instances:Create("TextButton", {
 Parent = Button.Section.Items["Content"].Instance,
 Name = "\0",
-TextColor3 = Library.
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(1, 0, 0, 30),
+Selectable = false,
+Active = false,
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Button.Name,
+AnchorPoint = Vector2New(0.5, 0.5),
+Size = UDim2New(0, 0, 0, 15),
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+BorderSizePixel = 0,
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 16
+}):AddToTheme({TextColor3 = 'Text'})
+Instances:Create("UICorner", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 6)
+})
+Items["Stroke"] = Instances:Create("UIStroke", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Icon"] = Instances:Create("ImageLabel", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 16, 0, 16),
+AnchorPoint = Vector2New(1, 0.5),
+Image = "rbxassetid://117716971575946",
+BackgroundTransparency = 1,
+Position = UDim2New(1, -6, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0
+}):AddToTheme({ImageColor3 = 'Text'})
+end
+function Button:SetVisibility(Bool)
+Items["Button"].Instance.Visible = Bool
+end
+function Button:Press()
+Items["Stroke"]:ChangeItemTheme({Color = "Accent"})
+Items["Stroke"]:Tween(nil, {Color = Library.Theme.Accent})
+task.wait(0.1)
+Library:SafeCall(Button.Callback)
+Items["Stroke"]:ChangeItemTheme({Color = "Outline"})
+Items["Stroke"]:Tween(nil, {Color = Library.Theme.Outline})
+end
+Items["Button"]:Connect("MouseButton1Down", function()
+Button:Press()
+end)
+return Button
+end
+Library.Sections.Slider = function(self, Data)
+Data = Data or { }
+local Slider = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Slider",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Min = Data.Min or Data.min or 0,
+Default = Data.Default or Data.default or 0,
+Max = Data.Max or Data.max or 100,
+Suffix = Data.Suffix or Data.suffix or "",
+Decimals = Data.Decimals or Data.decimals or 1,
+Callback = Data.Callback or Data.callback or function() end,
+Value = 0,
+Sliding = false
+}
+local Items = { } do
+Items["Slider"] = Instances:Create("Frame", {
+Parent = Slider.Section.Items["Content"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 32),
+BorderSizePixel = 0
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Slider"].Instance,
+Name = "\0",
+FillDirection = Enum.FillDirection.Vertical,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Padding = UDimNew(0, 4),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Header"] = Instances:Create("Frame", {
+Parent = Items["Slider"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 15),
+BorderSizePixel = 0,
+LayoutOrder = 1
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Header"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Slider.Name,
+Size = UDim2New(1, -56, 0, 15),
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+TextXAlignment = Enum.TextXAlignment.Left,
+TextTruncate = Enum.TextTruncate.AtEnd,
+TextSize = 14
+}):AddToTheme({TextColor3 = 'Text'})
+Items["Value"] = Instances:Create("TextLabel", {
+Parent = Items["Header"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+Text = "50%",
+Size = UDim2New(0, 48, 0, 15),
+AnchorPoint = Vector2New(1, 0),
+Position = UDim2New(1, 0, 0, 0),
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Element"],
+TextXAlignment = Enum.TextXAlignment.Center,
+TextTruncate = Enum.TextTruncate.AtEnd,
+TextSize = 12
+}):AddToTheme({BackgroundColor3 = 'Element', TextColor3 = 'Text'})
+Instances:Create("UICorner", {
+Parent = Items["Value"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 6)
+})
+Items["RealSlider"] = Instances:Create("TextButton", {
+Parent = Items["Slider"].Instance,
+Name = "\0",
+Active = false,
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(1, 0, 0, 7),
+Selectable = false,
+BorderSizePixel = 0,
+LayoutOrder = 2,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+Instances:Create("UICorner", {
+Parent = Items["RealSlider"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Instances:Create("UIStroke", {
+Parent = Items["RealSlider"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Accent"] = Instances:Create("Frame", {
+Parent = Items["RealSlider"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0.6000000238418579, 0, 1, 0),
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Accent"]
+}):AddToTheme({BackgroundColor3 = 'Accent'})
+Instances:Create("UICorner", {
+Parent = Items["Accent"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow"] = Instances:Create("ImageLabel", {
+Parent = Items["Accent"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Accent"],
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 0.800000011920929,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0,
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+}):AddToTheme({ImageColor3 = 'Accent'})
+Items["Dragger"] = Instances:Create("Frame", {
+Parent = Items["Accent"].Instance,
+Name = "\0",
+AnchorPoint = Vector2New(0, 0.5),
+Position = UDim2New(1, -4, 0.5, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 13, 0, 13),
+BorderSizePixel = 0
+})
+Instances:Create("UICorner", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow2"] = Instances:Create("

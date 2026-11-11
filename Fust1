@@ -40,8 +40,9 @@
     • КНОПКА МЕНЬШЕ + СКРЫТИЕ ИКОНКИ: floating-кнопка 30×30 (была 50).
       Настраиваемый хоткей открытия меню (по умолчанию RightControl).
       Тумблер «Скрыть кнопку-петух» — если вкл, меню только по хоткею.
-    • ИКОНКА ПЕТУХА ЗАМЕНЕНА: встроенный PNG (256×256, base64) через
-      getcustomasset. Старый rbxassetid://134242818164054 убран.
+    • ИКОНКА ПЕТУХА: getcustomasset УБРАН полностью (детектился анти-читом
+      "Exploit detected; getcustomasset"). Теперь rbxassetid напрямую —
+      работает везде, не палится.
     • БЕЗОПАСНАЯ ЗАГРУЗКА: при старте — экран с петухом + анимация
       загрузки (3с). В это время скрипт проверяет executor и детект-
       риски функций (Drawing, hookmetamethod, sethiddenproperty и т.д.).
@@ -446,10 +447,12 @@
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
-LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
-pcall(function()
-if type(readfile) == "function" and isfile and isfile("FUST_noLoadScreen.txt") then
+-- 0.39v4: экран загрузки ОТКЛЮЧЕН по умолчанию — на Xeno он может блокировать
+-- запуск. Включается toggle в настройках (если работает — будет при следующем запуске).
 LoadScreenEnabled = false
+pcall(function()
+if type(readfile) == "function" and isfile and isfile("FUST_loadScreen_ON.txt") then
+LoadScreenEnabled = true
 end
 end)
 local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
@@ -473,7 +476,7 @@ bg.Size = UDim2.fromScale(1, 1)
 bg.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
 bg.BorderSizePixel = 0
 bg.Parent = loadScreenGui
--- петух по центру (используем эмблем через getcustomasset если уже создан, иначе fallback)
+-- петух по центру (rbxassetid — без getcustomasset, не палится анти-читом)
 loadScreenPetuh = Instance.new("ImageLabel")
 loadScreenPetuh.Size = UDim2.fromOffset(180, 180)
 loadScreenPetuh.Position = UDim2.new(0.5, -90, 0.45, -90)
@@ -535,20 +538,19 @@ loadScreenText.Parent = bg
 end)
 end
 local function hideLoadScreen()
+-- 0.39 FIX: task.wait в RenderStepped запрещён — loadScreenGui:Destroy()
+-- после него никогда не выполнялся, чёрный экран висел вечно. Убираем
+-- wait и бесполезный tween, уничтожаем GUI сразу.
 pcall(function()
 if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
 if loadScreenGui then
-local tween = Instance.new("TweenInfo")
--- fade out 0.4с
-local okT, TS = pcall(function() return game:GetService("TweenService") end)
-if okT and TS then
-local t = TS:Create(loadScreenGui, TweenInfo.new(0.4), { DisplayOrder = 0 })
--- ScreenGui не имеет Transparency, используем child frames
-end
-task.wait(0.3)
 loadScreenGui:Destroy()
 end
 loadScreenGui = nil
+loadScreenPetuh = nil
+loadScreenBar = nil
+loadScreenText = nil
+loadScreenStatus = nil
 end)
 end
 local function setLoadProgress(pct, status)
@@ -595,6 +597,8 @@ table.insert(loadScreenDetected, "camera.CFrame: используем лерп (
 end)
 end
 local function updateLoadScreen()
+-- 0.39v4: pcall вокруг — если что-то упадёт, экран всё равно скроется через 3с
+pcall(function()
 if not LoadScreenEnabled then return end
 local now = os.clock()
 local elapsed = now - loadScreenStart
@@ -616,6 +620,7 @@ end
 if elapsed >= 3.0 then
 hideLoadScreen()
 end
+end)
 end
 if LoadScreenEnabled then
 showLoadScreen()
@@ -1146,4 +1151,98 @@ local Edges = {
 {Button = MakeEdge(
 "Left",
 UDim2New(0, 0, 0, 0),
-UDim2New(
+UDim2New(0, EdgeThickness, 1, 0)),
+Side = "L"
+},
+{Button = MakeEdge(
+"Right",
+UDim2New(1, -EdgeThickness, 0, 0),
+UDim2New(0, EdgeThickness, 1, 0)),
+Side = "R"
+},
+{Button = MakeEdge(
+"Top", UDim2New(0, 0, 0, 0),
+UDim2New(1, 0, 0, EdgeThickness)),
+Side = "T"
+},
+{Button = MakeEdge(
+"Bottom",
+UDim2New(0, 0, 1, -EdgeThickness),
+UDim2New(1, 0, 0, EdgeThickness)),
+Side = "B"
+},
+}
+local BeginResizing = function(Side)
+Resizing = true
+CurrentSide = Side
+StartMouse = UserInputService:GetMouseLocation()
+StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
+StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
+for Index, Value in Edges do
+Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
+end
+end
+local EndResizing = function()
+Resizing = false
+CurrentSide = nil
+for Index, Value in Edges do
+Value.Button.Instance.BackgroundTransparency = 1
+end
+end
+for Index, Value in Edges do
+Value.Button:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+BeginResizing(Value.Side)
+end
+end)
+end
+Library:Connect(UserInputService.InputEnded, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+if Resizing then
+EndResizing()
+end
+end
+end)
+Library:Connect(RunService.RenderStepped, function()
+if not Resizing or not CurrentSide then
+return
+end
+local MouseLocation = UserInputService:GetMouseLocation()
+local dx = MouseLocation.X - StartMouse.X
+local dy = MouseLocation.Y - StartMouse.Y
+local x, y = StartPosition.X, StartPosition.Y
+local w, h = StartSize.X, StartSize.Y
+if CurrentSide == "L" then
+x = StartPosition.X + dx
+w = StartSize.X - dx
+elseif CurrentSide == "R" then
+w = StartSize.X + dx
+elseif CurrentSide == "T" then
+y = StartPosition.Y + dy
+h = StartSize.Y - dy
+elseif CurrentSide == "B" then
+h = StartSize.Y + dy
+end
+if w < Minimum.X then
+if CurrentSide == "L" then
+x = x - (Minimum.X - w)
+end
+w = Minimum.X
+end
+if h < Minimum.Y then
+if CurrentSide == "T" then
+y = y - (Minimum.Y - h)
+end
+h = Minimum.Y
+end
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2FromOffset(x, y)})
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2FromOffset(w, h)})
+end)
+end
+Instances.OnHover = function(self, Function)
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseEnter, Function)
+end
+Instances.OnHove

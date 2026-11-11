@@ -1,85 +1,4 @@
-» следа.
-task.wait(0.18 + math.random() * 0.06)
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-break
-end
-local okAA = pcall(autoAimTick)
-if not okAA then
-task.wait(1) 
-end
-end
-end)
-
--- 0.39: АДМИН/VIP ЧЕК — сканер игроков на права выше обычного
-AdminScan_Count = 0
-AdminScan_Names = ""
-AdminScan_List = {}
-local ADMIN_ATTRS = { "IsAdmin", "Admin", "IsModerator", "Moderator", "IsVIP", "VIP",
-"IsStaff", "Staff", "Role", "IsOwner", "Owner", "IsDeveloper", "Developer" }
-local ADMIN_TAGS = { "FustAdmin", "FustMod", "FustVIP", "Admin", "Moderator", "VIP",
-"Owner", "Staff", "Developer" }
-local ADMIN_GROUP_ROLES = { "Owner", "Admin", "Moderator", "Head Admin", "Staff" }
-
-function adminScanTick()
-local found = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-local isAdm = false
--- 1. Roblox admin badge (UserId < 1000 = старый акк, не админ; проверяем HasBadge)
-pcall(function()
-if plr.UserId < 1000 then
-isAdm = true
-table.insert(found, plr.Name .. " (Roblox staff)")
-end
-end)
--- 2. Атрибуты игрока
-if not isAdm then
-pcall(function()
-local attrs = plr:GetAttributes()
-for k, v in pairs(attrs) do
-local kl = string.lower(tostring(k))
-for _, attr in ipairs(ADMIN_ATTRS) do
-if kl == string.lower(attr) and v then
-isAdm = true
-table.insert(found, plr.Name .. " (attr:" .. k .. ")")
-break
-end
-end
-end
-end)
-end
--- 3. CollectionService теги
-if not isAdm then
-pcall(function()
-for _, tag in ipairs(ADMIN_TAGS) do
-if CollectionService:HasTag(plr, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (tag:" .. tag .. ")")
-break
-end
-end
-end)
-end
--- 4. FUST-специфичные теги/атрибуты на Character
-if not isAdm then
-pcall(function()
-local c = plr.Character
-if c then
-for _, tag in ipairs({ "FustAdmin", "FustMod", "Admin", "Moderator" }) do
-if CollectionService:HasTag(c, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (char:" .. tag .. ")")
-break
-end
-end
-end
-end)
-end
--- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем только если игра дала плейс-специфичную группу
+с-специфичную группу
 local placeGroup = nil
 pcall(function()
 -- FUST: пробуем common survival group IDs
@@ -1782,7 +1701,11 @@ NpcHitboxAppliedCount = 0
 end
 if myRoot then
 lootPoolUpdate(myRoot, os.clock())
+-- 0.39v2: лут ESP не каждый кадр — раз в 0.15с. Было каждый кадр = лаги.
+if not FUST_LootEspAt or os.clock() - FUST_LootEspAt > 0.15 then
+FUST_LootEspAt = os.clock()
 updateBackpackEsp(Camera, myRoot)
+end
 else
 bpHideAll()
 lootPoolDisableAll()
@@ -2076,36 +1999,58 @@ end
 local function klScanKickBanner()
 local found = nil
 pcall(function()
-local promptRoot
-pcall(function()
-promptRoot = game:GetService("CoreGui"):FindFirstChild("RobloxPromptDialog")
-end)
-if not promptRoot then
-pcall(function()
-for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
-if gui:IsA("ScreenGui") then
-local p = gui:FindFirstChild("PromptDialog") or gui:FindFirstChild("RobloxPromptDialog")
-or gui:FindFirstChildWhichIsA("Frame")
-if p then promptRoot = p break end
-end
-end
-end)
-end
-if promptRoot then
-local scanned = 0
-for _, desc in ipairs(promptRoot:GetDescendants()) do
-scanned = scanned + 1
-if scanned > 60 then break end
+-- 0.39v3: ищем по всем ScreenGui в CoreGui, не только RobloxPromptDialog
+local coreGui = game:GetService("CoreGui")
+local scannedTotal = 0
+for _, gui in ipairs(coreGui:GetChildren()) do
+if gui:IsA("ScreenGui") and gui.Name ~= "PetuhMenuToggle" and gui.Name ~= "PetuhHUD" and gui.Name ~= "PetuhLoadScreen" then
+-- проверяем имя gui тоже
+local guiName = string.lower(tostring(gui.Name))
+if guiName:find("prompt") or guiName:find("dialog") or guiName:find("message") or guiName:find("error") then
+for _, desc in ipairs(gui:GetDescendants()) do
+scannedTotal = scannedTotal + 1
+if scannedTotal > 120 then break end
 if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
 local t = desc.Text
-if t:lower():find("kick") or t:lower():find("ban")
-or t:lower():find("вы kicked") or t:lower():find("вы ban")
-or t:lower():find("обнаружен") or t:lower():find("detect")
-or t:lower():find("cheat") or t:lower():find("чит")
-or t:lower():find("exploit") or t:lower():find("hack")
-or t:lower():find("разблокирован") or t:lower():find("нарушен") then
+local tl = string.lower(t)
+if tl:find("kick") or tl:find("ban")
+or tl:find("вы ") or tl:find("ты ")
+or tl:find("обнаружен") or tl:find("detect")
+or tl:find("cheat") or tl:find("чит")
+or tl:find("exploit") or tl:find("hack")
+or tl:find("разблокирован") or tl:find("нарушен")
+or tl:find("disconnect") or tl:find("timed out")
+or tl:find("соединение") or tl:find("потеряно")
+or tl:find("вышли") or tl:find("покинул") then
 found = t
 break
+end
+end
+end
+end
+if found then break end
+end
+end
+-- 0.39v3: если не нашли в CoreGui, проверим PlayerGui
+if not found then
+local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if pg then
+for _, gui in ipairs(pg:GetChildren()) do
+if gui:IsA("ScreenGui") then
+for _, desc in ipairs(gui:GetDescendants()) do
+scannedTotal = scannedTotal + 1
+if scannedTotal > 200 then break end
+if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
+local t = desc.Text
+local tl = string.lower(t)
+if tl:find("kick") or tl:find("ban") or tl:find("чит") or tl:find("cheat")
+or tl:find("detect") or tl:find("обнаружен") then
+found = t
+break
+end
+end
+end
+if found then break end
 end
 end
 end
@@ -2186,14 +2131,38 @@ end
 
 -- Главный слушатель: PlayerRemoving для LocalPlayer = кик/бан/выход
 local klPlayerRemoved = false
-Players.PlayerRemoving:Connect(function(player)
-if player == LocalPlayer and not klPlayerRemoved then
+local function klCheckAndLog(reason, banner)
+if klPlayerRemoved then return end
 klPlayerRemoved = true
+klLogExit(reason, banner)
+end
+Players.PlayerRemoving:Connect(function(player)
+if player == LocalPlayer then
 -- Даём CoreGui 0.3с на отрисовку баннера кика
 task.delay(0.3, function()
 local banner = klScanKickBanner()
 local reason = banner and "KICK/BAN (найден баннер в CoreGui)" or "EXIT/QUIT (баннер не найден — возможно ручной выход)"
-klLogExit(reason, banner)
+klCheckAndLog(reason, banner)
+end)
+-- 0.39v3: логируем СРАЗУ тоже, без delay — вдруг delay не выполнится
+local banner2 = klScanKickBanner()
+klCheckAndLog("PLAYER_REMOVING (без баннера, мгновенный лог)", banner2)
+end
+end)
+-- 0.39v3: перехват Player:Kick убран — на Delta hookfunction на Instance-методах
+-- может ломать загрузку. PlayerRemoving + heartbeat достаточно.
+-- 0.39v3: также слушаем сообщения в чат (некоторые анти-читы пишут причину туда)
+pcall(function()
+TextChatService = game:GetService("TextChatService")
+if TextChatService and TextChatService.MessageReceived then
+TextChatService.MessageReceived:Connect(function(msg)
+local txt = tostring(msg.Text or "")
+if txt:lower():find("kick") or txt:lower():find("ban")
+or txt:lower():find("detect") or txt:lower():find("cheat") then
+pcall(function()
+klAppend("[" .. klTimestamp() .. "] CHAT_MSG: " .. txt)
+end)
+end
 end)
 end
 end)
@@ -2203,11 +2172,12 @@ klRotateIfNeeded()
 klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.39, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
--- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
+-- Тихий фоновый heartbeat: раз в 2с проверяем, что LocalPlayer ещё в игре.
 -- Если LocalPlayer.Parent ~= Players (вдруг PlayerRemoving не успел) — лог.
+-- 0.39v3: было 30с — слишком поздно ловило. 2с = быстро и безопасно.
 task.spawn(function()
 while true do
-task.wait(30)
+task.wait(2)
 if getgenv().FUST_SESSION ~= FUST_SESSION then break end
 local p = LocalPlayer
 if not p or not p.Parent or not p.Parent:IsA("Players") then
@@ -2224,6 +2194,87 @@ end)
 journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
 print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
 -- /FUST KICK/BAN LOGGER ======================================================
+
+-- ============================================================================
+-- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
+-- ============================================================================
+pcall(function()
+LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
+LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
+LogSection:Label("Лог сохраняется в FUST_kicks.log и переживает перезапуск чита и перезаход в игру.")
+-- Кнопка обновить
+UIRegistry.LogRefresh = LogSection:Button({
+Name = "Обновить лог",
+Callback = function()
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+-- последние 4000 символов (для UI)
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+})
+-- Кнопка очистить
+UIRegistry.LogClear = LogSection:Button({
+Name = "Очистить лог",
+Callback = function()
+pcall(function()
+if type(writefile) == "function" then
+writefile(KICKLOG_FILE, "")
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set("(лог очищен)")
+end
+journal("ЛОГ ОЧИЩЕН вручную")
+end)
+end
+})
+-- Многострочное текстовое поле с логом
+local logText = ""
+pcall(function()
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+logText = readfile(KICKLOG_FILE) or ""
+end
+if #logText > 4000 then
+logText = "...(предыдущие записи скрыты)...\n" .. logText:sub(#logText - 3900)
+end
+end)
+UIRegistry.LogText = LogSection:Textbox({
+Name = "Содержимое лога",
+Default = logText,
+Placeholder = "(лог пуст — ещё не было киков/банов)",
+MultiLine = true,
+})
+LogSection:Label("При кике/бане здесь появится запись: время, place, что было включено, причина если найдена.")
+-- Авто-обновление каждые 5 сек
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+end)
+end)
+-- /UI ЛОГОВ =================================================================
+
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
@@ -2241,6 +2292,8 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
+-- 0.39v4: гарантированно скрыть экран загрузки при ошибке
+pcall(hideLoadScreen)
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then
