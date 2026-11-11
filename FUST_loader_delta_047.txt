@@ -6,8 +6,9 @@
 -- 0.47 DELTA = фрикам ВЫРЕЗАН (персонаж больше не замораживается),
 -- авто-стрельба починена для телефона, остальное как в 0.39-линии.
 -- Для XENO (ПК) есть отдельный файл FUST_xeno_047.lua — вставить целиком.
+print("[ПП 0.47] Лоадер запущен, качаю 6 частей с GitHub...")
 local B = "https://raw.githubusercontent.com/GalinDeonor/Test/refs/heads/main/Fust"
-local want = [66398, 66416, 66408, 66419, 66401, 66338]
+local want = {66398, 66416, 66408, 66419, 66401, 66338}
 local TOTAL = 398380
 local src = ""
 for i = 1, 6 do
