@@ -1,3 +1,609 @@
+ChamsTransparency = S.ESP.ChamsTransparency,
+Name = S.ESP.Name,
+Item = S.ESP.Item,
+Distance = S.ESP.Distance,
+HealthBar = S.ESP.HealthBar,
+MaxDistance = S.ESP.MaxDistance,
+DistanceScale = S.ESP.DistanceScale,
+TeamCheck = S.ESP.TeamCheck,
+},
+BoxColor = colorToTable(S.ESPColors.Box),
+NPCColors = {
+Guard = colorToTable(NPC_CAT_COLORS.Guard),
+Peaceful = colorToTable(NPC_CAT_COLORS.Peaceful),
+Animal = colorToTable(NPC_CAT_COLORS.Animal),
+Sleeper = colorToTable(NPC_CAT_COLORS.Sleeper),
+},
+Hitbox = {
+Enabled = S.Hitbox.Enabled,
+Size = S.Hitbox.Size,
+Transparency = S.Hitbox.Transparency,
+},
+FullBright = S.FullBright,
+NoDecoration = S.NoDecoration,
+NoGrass = S.NoGrass,
+NoFog = S.NoFog,
+Bullets = {
+Enabled = S.Bullets.Enabled,
+Style = S.Bullets.Style,
+Width = S.Bullets.Width,
+Transparency = S.Bullets.Transparency,
+Fade = S.Bullets.Fade,
+},
+NPC = {
+ESP = S.NPC.ESP,
+CatGuards = S.NPC.CatGuards,
+CatPeaceful = S.NPC.CatPeaceful,
+CatAnimals = S.NPC.CatAnimals,
+CatSleepers = S.NPC.CatSleepers,
+Box = S.NPC.Box,
+Name = S.NPC.Name,
+Item = S.NPC.Item,
+Distance = S.NPC.Distance,
+HealthBar = S.NPC.HealthBar,
+Chams = S.NPC.Chams,
+ChamsTransparency = S.NPC.ChamsTransparency,
+MaxDistance = S.NPC.MaxDistance,
+HitboxEnabled = S.NPC.HitboxEnabled,
+HitboxSize = S.NPC.HitboxSize,
+HitboxTransparency = S.NPC.HitboxTransparency,
+HitboxAnimals = S.NPC.HitboxAnimals,
+HitboxSleepers = S.NPC.HitboxSleepers,
+},
+Aim = {
+Enabled = Aim.Enabled,
+ShowFOV = Aim.ShowFOV,
+FOV = Aim.FOV,
+Distance = Aim.Distance,
+Smooth = Aim.Smooth,
+Prediction = Aim.Prediction,
+Part = Aim.Part,
+Priority = Aim.Priority,
+WallCheck = Aim.WallCheck,
+TeamCheck = Aim.TeamCheck,
+Crosshair = Aim.Crosshair,
+Targets = (function()
+local t = {}
+if Aim.TargetsPlayers then
+table.insert(t, "Игроки")
+end
+if Aim.TargetsNPC then
+table.insert(t, "Боты и НПС")
+end
+if Aim.TargetsAnimals then
+table.insert(t, "Животные")
+end
+if Aim.TargetsSleepers then
+table.insert(t, "Слиперы")
+end
+return t
+end)(),
+AutoPredict = Aim.AutoPredict,
+AutoPredictK = Aim.AutoPredictK,
+HotkeyKey = hotkeyKey,
+HotkeyMode = hotkeyMode,
+},
+AntiRecoil = {
+Enabled = AntiRecoil.Enabled,
+Rollback = AntiRecoil.Rollback,
+Offset = AntiRecoil.Offset,
+Drift = AntiRecoil.Drift,
+DriftStrength = AntiRecoil.DriftStrength,
+Threshold = AntiRecoil.Threshold,
+},
+AntiShake = {
+Enabled = AntiShake.Enabled,
+Roll = AntiShake.Roll,
+Position = AntiShake.Position,
+Oscillation = AntiShake.Oscillation,
+},
+AutoAim = {
+Enabled = AutoAim.Enabled,
+Radius = AutoAim.Radius,
+},
+Evil = {
+Enabled = Evil.Enabled,
+AutoPred = Evil.AutoPred,
+Snipe = Evil.Snipe,
+K = Evil.K,
+},
+HUD = {
+Enabled = S.HUD.Enabled,
+Size = S.HUD.Size,
+BgTransparency = S.HUD.BgTransparency,
+TextTransparency = S.HUD.TextTransparency,
+Corner = S.HUD.Corner,
+ShowTPS = S.HUD.ShowTPS,
+ShowBg = S.HUD.ShowBg,
+},
+Loot = {
+Enabled = S.Loot.Enabled,
+Owner = S.Loot.Owner,
+Slots = S.Loot.Slots,
+Distance = S.Loot.Distance,
+Box = S.Loot.Box,
+Chams = S.Loot.Chams,
+MaxDistance = S.Loot.MaxDistance,
+DebugLog = S.Loot.DebugLog,
+},
+LootColor = colorToTable(LOOT_COLOR),
+LootC = {
+Enabled = S.LootC.Enabled,
+Name = S.LootC.Name,
+Distance = S.LootC.Distance,
+Box = S.LootC.Box,
+MaxDistance = S.LootC.MaxDistance,
+},
+LootCColor = colorToTable(LOOTC_COLOR),
+Whitelist = wl,
+}
+writefile(CONFIG_FILE, HttpService:JSONEncode(cfg))
+journal("КОНФИГ СОХРАНЁН")
+end)
+return okFile, err
+end
+function applyFlag(key, value)
+local obj = UIRegistry[key]
+if obj and value ~= nil and obj.Set then
+pcall(function()
+obj:Set(value)
+end)
+end
+end
+function loadConfig()
+if type(isfile) ~= "function" or not isfile(CONFIG_FILE) then
+return false, "конфиг ещё не сохранялся"
+end
+local okFile, err = pcall(function()
+local cfg = HttpService:JSONDecode(readfile(CONFIG_FILE))
+if type(cfg.ESP) == "table" then
+applyFlag("ESPEnabled", cfg.ESP.Enabled)
+applyFlag("ESPBox", cfg.ESP.Box)
+applyFlag("ESPChams", cfg.ESP.Chams)
+applyFlag("ESPChamsTransparency", cfg.ESP.ChamsTransparency)
+applyFlag("ESPName", cfg.ESP.Name)
+applyFlag("ESPItem", cfg.ESP.Item)
+applyFlag("ESPDistance", cfg.ESP.Distance)
+applyFlag("ESPHealthBar", cfg.ESP.HealthBar)
+applyFlag("ESPMaxDistance", cfg.ESP.MaxDistance)
+if cfg.ESP.DistanceScale ~= nil then
+applyFlag("ESPDistanceScale", cfg.ESP.DistanceScale)
+end
+if cfg.ESP.TeamCheck ~= nil then
+applyFlag("ESPTeamCheck", cfg.ESP.TeamCheck)
+end
+end
+if type(cfg.NPC) == "table" then
+applyFlag("NPCEsp", cfg.NPC.ESP)
+applyFlag("NPCGuards", cfg.NPC.CatGuards)
+applyFlag("NPCPeaceful", cfg.NPC.CatPeaceful)
+applyFlag("NPCAnimals", cfg.NPC.CatAnimals)
+applyFlag("NPCSleepers", cfg.NPC.CatSleepers)
+applyFlag("NPCBox", cfg.NPC.Box)
+applyFlag("NPCName", cfg.NPC.Name)
+applyFlag("NPCItem", cfg.NPC.Item)
+applyFlag("NPCDistance", cfg.NPC.Distance)
+applyFlag("NPCHealthBar", cfg.NPC.HealthBar)
+applyFlag("NPCChams", cfg.NPC.Chams)
+applyFlag("NPCChamsTransparency", cfg.NPC.ChamsTransparency)
+applyFlag("NPCMaxDistance", cfg.NPC.MaxDistance)
+applyFlag("NPCHitboxEnabled", cfg.NPC.HitboxEnabled)
+applyFlag("NPCHitboxSize", cfg.NPC.HitboxSize)
+applyFlag("NPCHitboxTransparency", cfg.NPC.HitboxTransparency)
+if cfg.NPC.HitboxAnimals ~= nil then
+applyFlag("NPCHitboxAnimals", cfg.NPC.HitboxAnimals)
+end
+if cfg.NPC.HitboxSleepers ~= nil then
+applyFlag("NPCHitboxSleepers", cfg.NPC.HitboxSleepers)
+end
+end
+if type(cfg.NPCColors) == "table" then
+for _, catName in ipairs({ "Guard", "Peaceful", "Animal", "Sleeper" }) do
+local catColor = tableToColor(cfg.NPCColors[catName])
+if catColor and NPC_CAT_COLORS[catName] then
+NPC_CAT_COLORS[catName] = catColor
+local catPicker = UIRegistry["NPCColor" .. catName]
+if catPicker and catPicker.Set then
+pcall(function()
+catPicker:Set(catColor)
+end)
+end
+end
+end
+end
+local boxColor = tableToColor(cfg.BoxColor)
+if boxColor then
+S.ESPColors.Box = boxColor
+if UIRegistry.ESPBoxColor and UIRegistry.ESPBoxColor.Set then
+pcall(function()
+UIRegistry.ESPBoxColor:Set(boxColor)
+end)
+end
+end
+if type(cfg.Hitbox) == "table" then
+applyFlag("HitboxEnabled", cfg.Hitbox.Enabled)
+applyFlag("HitboxSize", cfg.Hitbox.Size)
+applyFlag("HitboxTransparency", cfg.Hitbox.Transparency)
+end
+applyFlag("FullBright", cfg.FullBright)
+applyFlag("NoDecoration", cfg.NoDecoration)
+applyFlag("NoGrass", cfg.NoGrass)
+applyFlag("NoFog", cfg.NoFog)
+if type(cfg.Bullets) == "table" then
+applyFlag("BulletsEnabled", cfg.Bullets.Enabled)
+applyFlag("BulletsStyle", cfg.Bullets.Style)
+applyFlag("BulletsWidth", cfg.Bullets.Width)
+applyFlag("BulletsTransparency", cfg.Bullets.Transparency)
+applyFlag("BulletsFade", cfg.Bullets.Fade)
+end
+if type(cfg.AntiRecoil) == "table" then
+applyFlag("AntiRecoilEnabled", cfg.AntiRecoil.Enabled)
+applyFlag("AntiRecoilRollback", cfg.AntiRecoil.Rollback)
+applyFlag("AntiRecoilOffset", cfg.AntiRecoil.Offset)
+applyFlag("AntiRecoilDrift", cfg.AntiRecoil.Drift)
+applyFlag("AntiRecoilDriftStrength", cfg.AntiRecoil.DriftStrength)
+applyFlag("AntiRecoilThreshold", cfg.AntiRecoil.Threshold)
+end
+if type(cfg.AntiShake) == "table" then
+applyFlag("AntiShakeEnabled", cfg.AntiShake.Enabled)
+applyFlag("AntiShakeRoll", cfg.AntiShake.Roll)
+applyFlag("AntiShakePosition", cfg.AntiShake.Position)
+applyFlag("AntiShakeOscillation", cfg.AntiShake.Oscillation)
+end
+if type(cfg.AutoAim) == "table" then
+applyFlag("AutoAimEnabled", cfg.AutoAim.Enabled)
+applyFlag("AutoAimRadius", cfg.AutoAim.Radius)
+end
+if type(cfg.HUD) == "table" then
+applyFlag("HUDEnabled", cfg.HUD.Enabled)
+applyFlag("HUDSize", cfg.HUD.Size)
+applyFlag("HUDBgTransparency", cfg.HUD.BgTransparency)
+applyFlag("HUDTextTransparency", cfg.HUD.TextTransparency)
+if cfg.HUD.Corner ~= nil then
+applyFlag("HUDCorner", cfg.HUD.Corner)
+end
+applyFlag("HUDShowTPS", cfg.HUD.ShowTPS)
+applyFlag("HUDShowBg", cfg.HUD.ShowBg)
+end
+if type(cfg.Loot) == "table" then
+applyFlag("LootEnabled", cfg.Loot.Enabled)
+applyFlag("LootOwner", cfg.Loot.Owner)
+applyFlag("LootSlots", cfg.Loot.Slots)
+applyFlag("LootDistance", cfg.Loot.Distance)
+applyFlag("LootBox", cfg.Loot.Box)
+applyFlag("LootChams", cfg.Loot.Chams)
+applyFlag("LootMaxDistance", cfg.Loot.MaxDistance)
+applyFlag("LootDebugLog", cfg.Loot.DebugLog)
+end
+if type(cfg.LootC) == "table" then
+applyFlag("LootCEnabled", cfg.LootC.Enabled)
+applyFlag("LootCName", cfg.LootC.Name)
+applyFlag("LootCDistance", cfg.LootC.Distance)
+applyFlag("LootCBox", cfg.LootC.Box)
+applyFlag("LootCMaxDistance", cfg.LootC.MaxDistance)
+end
+local lootColor = tableToColor(cfg.LootColor)
+if lootColor
+and math.abs(lootColor.R - 0 / 255) < 0.004
+and math.abs(lootColor.G - 105 / 255) < 0.004
+and math.abs(lootColor.B - 45 / 255) < 0.004 then
+lootColor = nil
+end
+if lootColor then
+LOOT_COLOR = lootColor
+if UIRegistry.LootColor and UIRegistry.LootColor.Set then
+pcall(function()
+UIRegistry.LootColor:Set(lootColor)
+end)
+end
+end
+local lootCColor = tableToColor(cfg.LootCColor)
+if lootCColor then
+LOOTC_COLOR = lootCColor
+if UIRegistry.LootCColor and UIRegistry.LootCColor.Set then
+pcall(function()
+UIRegistry.LootCColor:Set(lootCColor)
+end)
+end
+end
+if type(cfg.Aim) == "table" then
+local a = cfg.Aim
+applyFlag("AimEnabled", a.Enabled)
+applyFlag("AimShowFOV", a.ShowFOV)
+applyFlag("AimFOV", a.FOV)
+applyFlag("AimDistance", a.Distance)
+applyFlag("AimSmooth", a.Smooth)
+applyFlag("AimPrediction", a.Prediction)
+applyFlag("AimAutoPredict", a.AutoPredict)
+applyFlag("AimAutoPredictK", a.AutoPredictK)
+applyFlag("AimWallCheck", a.WallCheck)
+applyFlag("AimTeamCheck", a.TeamCheck)
+applyFlag("AimCrosshair", a.Crosshair)
+if a.Part and table.find(AIM_PARTS, a.Part) then
+applyFlag("AimPart", AIM_PART_TO_LABEL[a.Part])
+end
+if a.Priority == "Прицел" or a.Priority == "Дистанция" then
+applyFlag("AimPriority", a.Priority)
+end
+if type(a.Targets) == "table" then
+applyFlag("AimTargets", a.Targets)
+end
+if type(a.HotkeyKey) == "string" and UIRegistry.AimHotkey then
+local short = string.gsub(a.HotkeyKey, "^Enum%.KeyCode%.", "")
+if short ~= "" and short ~= "Backspace" then
+local okEnum, enumKey = pcall(function()
+return Enum.KeyCode[short]
+end)
+if okEnum and enumKey then
+local hkMode = (a.HotkeyMode == "Hold" or a.HotkeyMode == "Always") and a.HotkeyMode or "Toggle"
+AimHotkeyBusy = true
+applyFlag("AimHotkey", { Mode = hkMode, Key = enumKey })
+AimHotkeyBusy = false
+end
+end
+if type(cfg.Evil) == "table" then
+local ev = cfg.Evil
+applyFlag("EvilEnabled", ev.Enabled)
+applyFlag("EvilAutoPred", ev.AutoPred)
+applyFlag("EvilSnipe", ev.Snipe)
+applyFlag("EvilK", ev.K)
+end
+end
+end
+if type(cfg.Whitelist) == "table" then
+table.clear(Whitelist)
+for _, name in ipairs(cfg.Whitelist) do
+if type(name) == "string" then
+Whitelist[name] = true
+end
+end
+rebuildPlayerList()
+end
+end)
+return okFile, err
+end
+cfgStatus = Instance.new("TextLabel")
+cfgStatus.Name = "FustConfigStatus"
+cfgStatus.Font = Enum.Font.Gotham
+cfgStatus.TextSize = 12
+cfgStatus.Text = ""
+cfgStatus.TextColor3 = Color3.fromRGB(0, 255, 120)
+cfgStatus.BackgroundTransparency = 1
+cfgStatus.Size = UDim2.new(1, 0, 0, 16)
+cfgStatus.LayoutOrder = 92
+cfgStatus.Parent = ConfigSection.Items["Content"].Instance
+function flashStatus(text, isError)
+cfgStatus.Text = text
+cfgStatus.TextColor3 = isError and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(0, 255, 120)
+task.delay(2.5, function()
+if cfgStatus.Text == text then
+cfgStatus.Text = ""
+end
+end)
+end
+ConfigSection:Button({
+Name = "Сохранить конфиг",
+Callback = function()
+local okFile, err = saveConfig()
+if okFile then
+flashStatus("Конфиг сохранён ✓")
+print("[FUST] Конфиг сохранён: " .. CONFIG_FILE)
+else
+flashStatus("Ошибка сохранения!", true)
+warn("[FUST] Конфиг не сохранён: " .. tostring(err))
+end
+end
+})
+ConfigSection:Button({
+Name = "Загрузить конфиг",
+Callback = function()
+local okFile, err = loadConfig()
+if okFile then
+flashStatus("Конфиг загружен ✓")
+print("[FUST] Конфиг загружен: " .. CONFIG_FILE)
+else
+flashStatus("Конфиг не найден", true)
+warn("[FUST] Конфиг не загружен: " .. tostring(err))
+end
+end
+})
+ConfigSection:Button({
+Name = "ВЫКЛЮЧИТЬ СКРИПТ",
+Callback = function()
+pcall(function()
+getgenv().FUST_Deactivate()
+end)
+end
+})
+espDrawings = {}
+hitboxOriginals = {} 
+ChamsCreateBlocked = false 
+LootChamsBlocked = false 
+LootChamsBlockedAt = 0 
+botEspDrawings = {}
+npcHitboxOriginals = {}
+function botEnsureDrawings(model)
+local ed = botEspDrawings[model]
+if not ed then
+ed = {
+Box = Drawing.new("Square"),
+Name = Drawing.new("Text"),
+Distance = Drawing.new("Text"),
+Item = Drawing.new("Text"),
+HealthBarBg = Drawing.new("Line"),
+HealthBar = Drawing.new("Line"),
+HealthText = Drawing.new("Text"),
+}
+ed.Box.Filled = false
+ed.Box.Thickness = 1
+for _, key in ipairs({ "Name", "Distance", "HealthText", "Item" }) do
+ed[key].Center = true
+ed[key].Outline = true
+ed[key].Font = Drawing.Fonts.Plex
+end
+ed.Name.Size = 14
+ed.Distance.Size = 13
+ed.HealthText.Size = 11
+ed.HealthText.Center = false
+ed.Item.Size = 12
+ed.HealthBarBg.Thickness = 3
+ed.HealthBarBg.Color = Color3.fromRGB(0, 0, 0)
+ed.HealthBar.Thickness = 1.5
+botEspDrawings[model] = ed
+end
+return ed
+end
+function botRemoveDrawings(model)
+local ed = botEspDrawings[model]
+if ed then
+for _, obj in pairs(ed) do
+pcall(function()
+obj:Remove()
+end)
+end
+botEspDrawings[model] = nil
+end
+end
+BULLET_COLOR_ENEMY = Color3.fromRGB(255, 60, 60)
+BULLET_COLOR_TEAM = Color3.fromRGB(255, 215, 0)
+BULLET_TEXTURES = {
+["Луч"] = "rbxassetid://12781852245",
+["Молния"] = "rbxassetid://446111271",
+["Сердцебиение"] = "rbxassetid://5830549480",
+["Цепь"] = "rbxassetid://9632168658",
+["Глитч"] = "rbxassetid://8089467613",
+["Вихрь"] = "rbxassetid://5638168605",
+}
+bulletTracks = {} 
+bulletConn = nil
+bulletOn = false
+bulletPool = {} 
+bulletPoolSize = 0
+function bulletPoolGet(kind)
+if bulletPoolSize > 0 then
+for i = bulletPoolSize, 1, -1 do
+local item = bulletPool[i]
+if item and item.Kind == kind then
+bulletPool[i] = bulletPool[bulletPoolSize]
+bulletPool[bulletPoolSize] = nil
+bulletPoolSize = bulletPoolSize - 1
+return item.Part
+end
+end
+end
+local okP, p = pcall(function()
+local part = Instance.new("Part")
+part.Anchored = true
+part.CanCollide = false
+part.CanQuery = false
+part.CanTouch = false
+part.CastShadow = false
+part.Transparency = 1
+part.Size = Vector3.new(0.1, 0.1, 0.1)
+if kind == "square" then
+local c0 = Instance.new("Attachment")
+c0.Name = "C0"
+c0.Parent = part
+local c1 = Instance.new("Attachment")
+c1.Name = "C1"
+c1.Parent = part
+local core = Instance.new("Beam")
+core.Name = "Core"
+core.Attachment0 = c0
+core.Attachment1 = c1
+core.FaceCamera = true
+core.LightEmission = 1
+core.LightInfluence = 0
+core.Enabled = false
+core.Parent = part
+for idx, corner in ipairs({ { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }) do
+local a0 = Instance.new("Attachment")
+a0.Name = "E" .. idx .. "A"
+a0.Parent = part
+local a1 = Instance.new("Attachment")
+a1.Name = "E" .. idx .. "B"
+a1.Parent = part
+local b = Instance.new("Beam")
+b.Name = "E" .. idx
+b.Attachment0 = a0
+b.Attachment1 = a1
+b.FaceCamera = false
+b.LightEmission = 1
+b.LightInfluence = 0
+b.Enabled = false
+b.Parent = part
+end
+part:SetAttribute("PetuhKind", "square")
+return part
+end
+local a0 = Instance.new("Attachment")
+a0.Name = "A0"
+a0.Parent = part
+local a1 = Instance.new("Attachment")
+a1.Name = "A1"
+a1.Parent = part
+local b = Instance.new("Beam")
+b.Name = "B"
+b.Attachment0 = a0
+b.Attachment1 = a1
+b.FaceCamera = true
+b.LightEmission = 1
+b.LightInfluence = 0
+b.TextureLength = 2
+b.TextureSpeed = 2
+b.Enabled = false
+b.Parent = part
+part:SetAttribute("PetuhKind", "ribbon")
+return part
+end)
+if okP then
+return p
+end
+return nil
+end
+function bulletPoolRelease(p, kind)
+if p then
+pcall(function()
+p.Parent = nil
+end)
+bulletPoolSize = bulletPoolSize + 1
+bulletPool[bulletPoolSize] = {
+Part = p,
+Kind = kind or p:GetAttribute("PetuhKind") or "ribbon",
+}
+end
+end
+function bulletPoolDestroy()
+for i = 1, bulletPoolSize do
+local item = bulletPool[i]
+if item and item.Part then
+pcall(function()
+item.Part:Destroy()
+end)
+end
+end
+bulletPool = {}
+bulletPoolSize = 0
+end
+function setupTracerPart(t, square)
+local kind = square and "square" or "ribbon"
+local newPart = bulletPoolGet(kind)
+if not newPart then
+return false
+end
+local refsOk = true
+local core = nil
+local edges = {}
+local signs = { { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
+if square then
+core = newPart:FindFirstChild("Core")
+if not core then
+refsOk = false
+end
+for idx = 1, 4 do
+local b = newPart:FindFirstChild("E" .. idx)
+local a0 = newPart:FindFirstChild("E" .. idx .. "A")
+local a1 = newPart:FindFirstChild("E" .. idx .. "B")
 if not (b and a0 and a1) then
 refsOk = false
 else
@@ -552,6 +1158,8 @@ S.NPC.ESP and 1 or 0,
 S.NPC.Chams and 1 or 0,
 S.NPC.HitboxEnabled and 1 or 0,
 Aim.AutoPredict and 1 or 0,
+S.Loot.Enabled and 1 or 0,
+S.LootC.Enabled and 1 or 0,
 AutoAim.Enabled and 1 or 0,
 AA_EnemyNear and 1 or 0
 ))
@@ -1022,7 +1630,13 @@ botCleanupModel(model)
 end
 NpcHitboxAppliedCount = 0
 end
--- 0.48: вызовы ESP лута удалены из главного лупа.
+if myRoot then
+lootPoolUpdate(myRoot, os.clock())
+updateBackpackEsp(Camera, myRoot)
+else
+bpHideAll()
+lootPoolDisableAll()
+end
 if HitboxAnnouncePending then
 HitboxAnnouncePending = false
 print("[FUST] Хитбокс применён к " .. tostring(hitboxAppliedCount) .. " игрок(ам), размер " .. tostring(S.Hitbox.Size))
@@ -1104,12 +1718,18 @@ end
 end
 table.clear(npcHitboxOriginals)
 end)
+pcall(function()
+bpRemoveAll()
+end)
 end
 getgenv().FUST_Deactivate = function()
 pcall(function()
 journal("ДЕАКТИВАЦИЯ: скрипт выключен кнопкой")
 end)
 getgenv().FUST_SESSION = {}
+pcall(function()
+lootPoolCleanup()
+end)
 pcall(function()
 freecamDisable()
 end)
@@ -1430,7 +2050,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.48 DELTA, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.49 DELTA+XENO (без фрикама), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -1525,7 +2145,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.48 DELTA — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.49 DELTA+XENO (без фрикама) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

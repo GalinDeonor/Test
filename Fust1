@@ -1,26 +1,26 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.48 DELTA
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.49 DELTA+XENO (без фрикама)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
-    НОВОЕ В 0.48 — ПЕРЕСОБОРКА НА СТАБИЛЬНОЙ БАЗЕ (ТОЛЬКО АВТО-СТРЕЛЬБА):
-    • База = тот самый СТАБИЛЬНЫЙ 0.39 ДО партии правок (на нём телефон
-      работал). Из «обновы после которой всё сломалось» взят ТОЛЬКО блок
-      АВТО-СТРЕЛЬБЫ (0.39v2) с ПРОВЕРКОЙ СТЕН WallCheck (0.39v4).
-    • ВЫРЕЗАНО В ОБЕИХ СБОРКАХ (Delta и Xeno): ФРИКАМ полностью (UI +
-      движок — он заякоривал тело и забирал джойстик), ESP ЛУТА (мешки
-      с добычей + бочки/ящики, чамсы лута, пул Highlight-ов — тяжёлый
-      для телефона), UI/движок/конфиги/вызовы — всё.
-    • НЕ ВОШЛИ (их не было в стабильной базе): чамсы мебели (0.39v6),
-      обход анти-чита (0.39v3), правки шрифта (0.39v7), правки фрикама
-      (0.39v8) — от «сломанной обновы» осталось только авто-стрельба.
-    • АВТО-СТРЕЛЬБА НА ТЕЛЕФОНЕ ПОЧИНЕНА (фикс 0.47): выбор «телефон/ПК»
-      по TouchEnabled (Delta врёт в KeyboardEnabled), телефон стреляет
-      Tool:Activate(), ПК — mouse1click/VirtualInputManager + фолбэк.
-    • Остальное — как в стабильном 0.39: ESP игроков/НПС, хитбоксы,
-      аимбот + злой аим, анти-отдача и анти-тряска, трассеры, HUD,
-      CS2-прицел, админ-чек, вайтлист, FullBright/NoFog/NoGrass,
-      конфиги, кнопка-петух 30x30.
+    НОВОЕ В 0.49 — ОТКАТ НА СТАБИЛЬНУЮ БАЗУ, ОСТАВЛЕНА ТОЛЬКО АВТО-СТРЕЛЬБА:
+    • База — СТАБИЛЬНАЯ 0.39 (та, что работала ДО партии изменений,
+      после которой начались зависания игры). Все остальные «новые
+      функции» той партии УДАЛЕНЫ: есп лута (новый), чамсы шкафов,
+      обход анти-чита (лог чата/баннеров) — их в этой сборке НЕТ.
+    • ФРИКАМ ВЫРЕЗАН И НА DELTA, И НА XENO — и секция в меню, и весь
+      движок (он заякоривал персонажа и забирал левый джойстик).
+    • ОСТАВЛЕНА ТОЛЬКО АВТО-СТРЕЛЬБА (0.39v2-v4) с ПРОВЕРКОЙ СТЕН:
+      WallCheck — не тратит патроны на цели за стеной; телефон-фикс:
+      выбор ветки по TouchEnabled (не по лживому KeyboardEnabled),
+      стрельба Tool:Activate() на телефоне, mouse1click/VirtualInput-
+      Manager на ПК, фолбэк — Tool:Activate().
+    • b64-иконка заменена на rbxassetid: b64-декодер с битовыми
+      операторами НЕ парсится компилятором Delta — именно из-за него
+      0.48 умирала при компиляции (строка 4744, "got '6'").
+    • Всё остальное — как в стабильной 0.39: ESP игроков/НПС, мешки/
+      лут (слоты/владелец/чамсы как было), аимбот+злой аим, анти-отдача,
+      трассеры, хитбоксы, HUD, CS2-прицел, вайтлист, конфиги, кнопка-петух.
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -462,7 +462,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.48 DELTA...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.49 DELTA+XENO (без фрикама)...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
 LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
@@ -783,7 +783,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.48 DELTA | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.49 DELTA+XENO (без фрикама) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -794,3 +794,135 @@ local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local CoreGui = cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+gethui = gethui or function()
+return CoreGui
+end
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+local FromRGB = Color3.fromRGB
+local FromHSV = Color3.fromHSV
+local FromHex = Color3.fromHex
+local RGBSequence = ColorSequence.new
+local RGBSequenceKeypoint = ColorSequenceKeypoint.new
+local NumSequence = NumberSequence.new
+local NumSequenceKeypoint = NumberSequenceKeypoint.new
+local UDim2New = UDim2.new
+local UDimNew = UDim.new
+local UDim2FromOffset = UDim2.fromOffset
+local Vector2New = Vector2.new
+local Vector3New = Vector3.new
+local MathClamp = math.clamp
+local MathFloor = math.floor
+local MathAbs = math.abs
+local MathSin = math.sin
+local TableInsert = table.insert
+local TableFind = table.find
+local TableRemove = table.remove
+local TableConcat = table.concat
+local TableClone = table.clone
+local TableUnpack = table.unpack
+local StringFormat = string.format
+local StringFind = string.find
+local StringGSub = string.gsub
+local StringLower = string.lower
+local StringLen = string.len
+local InstanceNew = Instance.new
+local RectNew = Rect.new
+Library = {
+Theme = { },
+MenuKeybind = tostring(Enum.KeyCode.RightControl),
+Flags = { },
+Tween = {
+Time = 0.28,
+Style = Enum.EasingStyle.Quint,
+Direction = Enum.EasingDirection.Out
+},
+FadeSpeed = 0.2,
+Folders = {
+Directory = "Petuh",
+Configs = "Petuh/Configs",
+Assets = "Petuh/Assets",
+},
+Pages = { },
+Sections = { },
+Connections = { },
+Threads = { },
+ThemeMap = { },
+ThemeItems = { },
+OpenFrames = { },
+SetFlags = { },
+UnnamedConnections = 0,
+UnnamedFlags = 0,
+Holder = nil,
+NotifHolder = nil,
+UnusedHolder = nil,
+Font = nil
+}
+Library.__index = Library
+Library.Sections.__index = Library.Sections
+Library.Pages.__index = Library.Pages
+local Keys = {
+["Unknown"] = "Unknown",
+["Backspace"] = "Back",
+["Tab"] = "Tab",
+["Clear"] = "Clear",
+["Return"] = "Return",
+["Pause"] = "Pause",
+["Escape"] = "Escape",
+["Space"] = "Space",
+["QuotedDouble"] = '"',
+["Hash"] = "#",
+["Dollar"] = "$",
+["Percent"] = "%",
+["Ampersand"] = "&",
+["Quote"] = "'",
+["LeftParenthesis"] = "(",
+["RightParenthesis"] = " )",
+["Asterisk"] = "*",
+["Plus"] = "+",
+["Comma"] = ",",
+["Minus"] = "-",
+["Period"] = ".",
+["Slash"] = "`",
+["Three"] = "3",
+["Seven"] = "7",
+["Eight"] = "8",
+["Colon"] = ":",
+["Semicolon"] = ";",
+["LessThan"] = "<",
+["GreaterThan"] = ">",
+["Question"] = "?",
+["Equals"] = "=",
+["At"] = "@",
+["LeftBracket"] = "LeftBracket",
+["RightBracket"] = "RightBracked",
+["BackSlash"] = "BackSlash",
+["Caret"] = "^",
+["Underscore"] = "_",
+["Backquote"] = "`",
+["LeftCurly"] = "{",
+["Pipe"] = "|",
+["RightCurly"] = "}",
+["Tilde"] = "~",
+["Delete"] = "Delete",
+["End"] = "End",
+["KeypadZero"] = "Keypad0",
+["KeypadOne"] = "Keypad1",
+["KeypadTwo"] = "Keypad2",
+["KeypadThree"] = "Keypad3",
+["KeypadFour"] = "Keypad4",
+["KeypadFive"] = "Keypad5",
+["KeypadSix"] = "Keypad6",
+["KeypadSeven"] = "Keypad7",
+["KeypadEight"] = "Keypad8",
+["KeypadNine"] = "Keypad9",
+["KeypadPeriod"] = "KeypadP",
+["KeypadDivide"] = "KeypadD",
+["KeypadMultiply"] = "KeypadM",
+["KeypadMinus"] = "KeypadM",
+["KeypadPlus"] = "KeypadP",
