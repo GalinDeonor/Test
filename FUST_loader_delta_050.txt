@@ -1,0 +1,47 @@
+-- ЛОАДЕР «Пьяный Петух» 0.50 DELTA — ANDROID
+-- Скачивает 6 частей (Fust1..Fust6) с GitHub, склеивает и запускает.
+-- ПЕРЕД ЗАПУСКОМ: залей в КОРЕНЬ репозитория GalinDeonor/Test ОДНИМ КОММИТОМ:
+--   Fust1..Fust6, manifest.json, FUST_loader_delta_050.txt, BUGS.md
+-- СТАРЫЕ ЛОАДЕРЫ (049, 048, 047...) УДАЛИ. Файл BUGS.md НЕ переименовывай NEVER.
+-- 0.50 = фикс краша старта + экран загрузки + X-Ray + фрикам v13 + коптеры
+-- + красно-чёрная тема. XENO (ПК): файл FUST_xeno_050.lua целиком.
+print("[ПП 0.50] Лоадер запущен, качаю 6 частей с GitHub...")
+local B = "https://raw.githubusercontent.com/GalinDeonor/Test/refs/heads/main/Fust"
+local want = {69153, 69174, 69151, 69145, 69154, 69058}
+local TOTAL = 414835
+local src = ""
+for i = 1, 6 do
+        local r
+        local u = B .. i .. "?v=50"
+        local ok, rr = pcall(game.HttpGet, game, u)
+        if not ok or type(rr) ~= "string" or #rr < 1000 then
+                local rf = request or http_request
+                if rf then
+                        local ok2, rr2 = pcall(rf, {Url = u, Method = "GET"})
+                        if ok2 and type(rr2) == "table" then rr = rr2.Body or rr2.body end
+                end
+        end
+        if type(rr) == "string" and #rr >= want[i] then
+                r = rr
+                print("[ПП 0.50] Часть " .. i .. ": " .. #rr .. " байт")
+        else
+                warn("[ПП 0.50] Часть " .. i .. " битая или не залита (нужно " .. want[i] .. " байт). Перезалей Fust" .. i .. " на GitHub.")
+                return
+        end
+        src = src .. r
+end
+print("[ПП 0.50] Всего: " .. #src .. " байт")
+if #src < TOTAL then
+        warn("[ПП 0.50] Сумма меньше " .. TOTAL .. " -- какая-то часть битая, скинь скрин консоли.")
+        return
+end
+local fn, err = (loadstring or load)(src, "=Fust")
+if not fn then
+        warn("[ПП 0.50] Компиляция: " .. tostring(err))
+        return
+end
+local ok, rerr = pcall(fn)
+if not ok then
+        warn("[ПП 0.50] Выполнение: " .. tostring(rerr))
+        warn("[ПП 0.50] Скинь СКРИН консоли -- там будет строка [FUST] с местом падения.")
+end

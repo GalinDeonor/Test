@@ -1,3 +1,225 @@
+if fovCircle then
+fovCircle:Remove()
+end
+end)
+fovCircle = nil 
+for i = 1, 4 do
+pcall(function()
+if chLines[i] then
+chLines[i]:Remove()
+end
+end)
+chLines[i] = nil
+end
+end
+function autoAimTick()
+if not AutoAim.Enabled then
+AA_EnemyNear = false
+AA_NearestDist = nil
+return
+end
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+if not myRoot then
+return 
+end
+local bestDist = math.huge
+local bestName = nil
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
+local model = plr.Character
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local d = (root.Position - myRoot.Position).Magnitude
+if d < bestDist then
+bestDist = d
+bestName = plr.Name
+end
+end
+end
+end
+AA_NearestDist = (bestDist < math.huge) and bestDist or nil
+local want = AA_EnemyNear
+if want then
+if bestDist > AutoAim.Radius + 30 then
+want = false 
+end
+else
+if bestDist <= AutoAim.Radius then
+want = true 
+end
+end
+if want ~= AA_EnemyNear then
+AA_EnemyNear = want
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+pcall(function()
+UIRegistry.AimEnabled:Set(want)
+end)
+end
+if bestName then
+journal(string.format("АВТО-АИМ: %s — %s (%d м)",
+want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
+bestName, math.floor(bestDist + 0.5)))
+else
+journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
+end
+end
+end
+task.spawn(function()
+while true do
+-- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ровные
+-- интервалы сканера = бот-паттерн для эвристики. 0.18..0.24с неотличимо
+-- от человеческой реакции, но не даёт «ритмичного» следа.
+task.wait(0.18 + math.random() * 0.06)
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+break
+end
+local okAA = pcall(autoAimTick)
+if not okAA then
+task.wait(1) 
+end
+end
+end)
+
+-- 0.39: АДМИН/VIP ЧЕК — сканер игроков на права выше обычного
+AdminScan_Count = 0
+AdminScan_Names = ""
+AdminScan_List = {}
+local ADMIN_ATTRS = { "IsAdmin", "Admin", "IsModerator", "Moderator", "IsVIP", "VIP",
+"IsStaff", "Staff", "Role", "IsOwner", "Owner", "IsDeveloper", "Developer" }
+local ADMIN_TAGS = { "FustAdmin", "FustMod", "FustVIP", "Admin", "Moderator", "VIP",
+"Owner", "Staff", "Developer" }
+local ADMIN_GROUP_ROLES = { "Owner", "Admin", "Moderator", "Head Admin", "Staff" }
+
+function adminScanTick()
+local found = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+local isAdm = false
+-- 1. Roblox admin badge (UserId < 1000 = старый акк, не админ; проверяем HasBadge)
+pcall(function()
+if plr.UserId < 1000 then
+isAdm = true
+table.insert(found, plr.Name .. " (Roblox staff)")
+end
+end)
+-- 2. Атрибуты игрока
+if not isAdm then
+pcall(function()
+local attrs = plr:GetAttributes()
+for k, v in pairs(attrs) do
+local kl = string.lower(tostring(k))
+for _, attr in ipairs(ADMIN_ATTRS) do
+if kl == string.lower(attr) and v then
+isAdm = true
+table.insert(found, plr.Name .. " (attr:" .. k .. ")")
+break
+end
+end
+end
+end)
+end
+-- 3. CollectionService теги
+if not isAdm then
+pcall(function()
+for _, tag in ipairs(ADMIN_TAGS) do
+if CollectionService:HasTag(plr, tag) then
+isAdm = true
+table.insert(found, plr.Name .. " (tag:" .. tag .. ")")
+break
+end
+end
+end)
+end
+-- 4. FUST-специфичные теги/атрибуты на Character
+if not isAdm then
+pcall(function()
+local c = plr.Character
+if c then
+for _, tag in ipairs({ "FustAdmin", "FustMod", "Admin", "Moderator" }) do
+if CollectionService:HasTag(c, tag) then
+isAdm = true
+table.insert(found, plr.Name .. " (char:" .. tag .. ")")
+break
+end
+end
+end
+end)
+end
+-- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
+--    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
+if not isAdm then
+pcall(function()
+-- Проверяем только если игра дала плейс-специфичную группу
+local placeGroup = nil
+pcall(function()
+-- FUST: пробуем common survival group IDs
+for _, gid in ipairs({ 0 }) do
+-- placeholder: реальный group ID нужно узнать из игры
+end
+end)
+end)
+end
+end
+end
+AdminScan_List = found
+AdminScan_Count = #found
+if #found > 0 then
+AdminScan_Names = table.concat(found, ", ")
+if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
+AdminScan_LastJournal = os.clock()
+journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
+end
+else
+AdminScan_Names = ""
+end
+end
+AdminScan_LastJournal = 0
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(adminScanTick)
+end
+end)
+HttpService = game:GetService("HttpService")
+CONFIG_FILE = "FUST_config.json"
+function colorToTable(c)
+return {
+R = math.floor(c.R * 255 + 0.5),
+G = math.floor(c.G * 255 + 0.5),
+B = math.floor(c.B * 255 + 0.5),
+}
+end
+function tableToColor(t)
+if type(t) ~= "table" then
+return nil
+end
+return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
+end
+function saveConfig()
+local okFile, err = pcall(function()
+local wl = {}
+for name in pairs(Whitelist) do
+table.insert(wl, name)
+end
+table.sort(wl)
+local hotkeyKey, hotkeyMode = nil, nil
+if AimHotkeyObj and AimHotkeyObj.Value and AimHotkeyObj.Value ~= "None" and AimHotkeyObj.Get then
+local okHK, hkKey, hkMode = pcall(function()
+return AimHotkeyObj:Get()
+end)
+if okHK and type(hkKey) == "string" and hkKey ~= "" then
+hotkeyKey = hkKey
+hotkeyMode = (hkMode == "Hold" or hkMode == "Always") and hkMode or "Toggle"
+end
+end
+local cfg = {
+ESP = {
+Enabled = S.ESP.Enabled,
+Box = S.ESP.Box,
+Chams = S.ESP.Chams,
 ChamsTransparency = S.ESP.ChamsTransparency,
 Name = S.ESP.Name,
 Item = S.ESP.Item,
@@ -75,6 +297,9 @@ table.insert(t, "Животные")
 end
 if Aim.TargetsSleepers then
 table.insert(t, "Слиперы")
+end
+if Aim.TargetsCopters then
+table.insert(t, "Коптеры")
 end
 return t
 end)(),
@@ -2050,7 +2275,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.49 DELTA+XENO (без фрикама), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.50 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2091,6 +2316,11 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
+-- 0.50 FIX: при фатальной ошибке убираем экран загрузки сразу,
+-- а не через 3 секунды (и не «никогда», как было из-за TweenInfo-бага)
+pcall(function()
+if FUST_hideLoadScreen then FUST_hideLoadScreen() end
+end)
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then
@@ -2145,7 +2375,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.49 DELTA+XENO (без фрикама) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.50 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

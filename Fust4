@@ -1,3 +1,398 @@
+stopFreecam()
+toggleBtn.Text = "CAM: OFF"
+runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = Color3.fromRGB(245, 235, 235) })
+runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = Color3.fromRGB(255, 255, 255) })
+animateHud(false)
+journal("ФРИКАМ ВЫКЛ")
+end
+pcall(function()
+if UIRegistry.FCToggle and UIRegistry.FCToggle.Set then
+UIRegistry.FCToggle:Set(fcActive)
+end
+end)
+end
+toggleBtn.MouseButton1Click:Connect(function()
+fcSetEnabledInner(not fcActive)
+end)
+function fcSetEnabled(state)
+fcSetEnabledInner(state and true or false)
+end
+function fcSpeedStep(dir)
+flySpeed = math.clamp(flySpeed + dir * speedStep, minSpeed, maxSpeed)
+FreeCam.Speed = flySpeed
+pcall(function()
+speedLabel.Text = "SPD: " .. tostring(flySpeed)
+end)
+end
+function fcSetSpeed(v)
+flySpeed = math.clamp(math.floor(v), minSpeed, maxSpeed)
+FreeCam.Speed = flySpeed
+pcall(function()
+speedLabel.Text = "SPD: " .. tostring(flySpeed)
+end)
+end
+function fcSetPanelVisible(v)
+FreeCam.PanelVisible = v and true or false
+pcall(function()
+screenGui.Enabled = FreeCam.PanelVisible
+end)
+end
+freecamEnable = function()
+fcSetEnabled(true)
+end
+freecamDisable = function()
+fcSetEnabled(false)
+end
+getgenv().FUST_FreeCamCleanup = function()
+pcall(function()
+fcSetEnabledInner(false)
+screenGui:Destroy()
+end)
+end
+hudCanvasGroup.GroupTransparency = 1
+toggleBtn.Position = UDim2.new(1.2, 0, 0.22, 0)
+runSafeTween("spawn_anim", toggleBtn, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+Position = UDim2.new(1, -125, 0.22, 0),
+})
+print("[FUST] фрикам v13 подключён (красно-чёрная тема, без hookfunction по умолчанию)")
+end)
+if not fcOK then
+warn("[FUST] ФРИКАМ: ошибка движка — фрикам не работает, скрин в чат: " .. tostring(fcErr))
+end
+uiStep("Вкладка Аимбот", function()
+Window:Group("Бой")
+AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
+AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
+HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
+TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
+Window:Group("Визуал")
+EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
+EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
+VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
+WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
+uiStep("Вкладка Фрикам", function()
+Window:Group("Камера")
+FreeCamPage = Window:Page({ Name = "Фрикам", Icon = ICON_VISUALS })
+FreeCamSection = FreeCamPage:Section({ Name = "Свободная камера", Tab = "Фрикам", Side = 1 })
+FreeCamKeySection = FreeCamPage:Section({ Name = "Клавиши и скорость", Tab = "Фрикам", Side = 2 })
+-- управление
+UIRegistry.FCToggle = FreeCamSection:Toggle({
+Name = "Фрикам (свободный полёт камеры)",
+Flag = "FreeCamEnabled",
+Default = false,
+Callback = function(state)
+fcSetEnabled(state)
+end
+})
+UIRegistry.FCPanel = FreeCamSection:Toggle({
+Name = "Показывать панель фрикама (кнопка CAM)",
+Flag = "FreeCamPanel",
+Default = true,
+Callback = function(state)
+fcSetPanelVisible(state)
+end
+})
+UIRegistry.FCSpeed = FreeCamSection:Slider({
+Name = "Скорость полёта",
+Flag = "FreeCamSpeed",
+Default = 100,
+Min = 10,
+Max = 1000,
+Decimals = 1,
+Callback = function(v)
+fcSetSpeed(v)
+end
+})
+UIRegistry.FCTouchSens = FreeCamSection:Slider({
+Name = "Чувствительность касания (телефон)",
+Flag = "FreeCamTouchSens",
+Default = 0.35,
+Min = 0.05,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+FC_TouchSens = v
+end
+})
+UIRegistry.FCMouseSens = FreeCamSection:Slider({
+Name = "Чувствительность мыши (ПК)",
+Flag = "FreeCamMouseSens",
+Default = 0.20,
+Min = 0.05,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+FC_MouseSens = v
+end
+})
+UIRegistry.FCRemember = FreeCamSection:Toggle({
+Name = "Запоминать позицию камеры",
+Flag = "FreeCamRemember",
+Default = false,
+Callback = function(state)
+FC_RememberPos = state
+end
+})
+UIRegistry.FCHookKeys = FreeCamSection:Toggle({
+Name = "Подмена IsKeyDown (hookfunction) — РИСК",
+Flag = "FreeCamHookKeys",
+Default = false,
+Callback = function(state)
+FreeCam.HookKeys = state
+if state then
+-- hookfunction установится при следующем включении фрикама
+journal("ФРИКАМ: подмена IsKeyDown РАЗРЕШЕНА (хук-метод — анти-чит может детектить!)")
+else
+journal("ФРИКАМ: подмена IsKeyDown запрещена (безопасный режим)")
+end
+end
+})
+FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
+FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Телепорт — кнопка на панели CAM.")
+FreeCamSection:Label("Персонаж стоит на месте (якорь). Аимбот и анти-тряска на время фрикама отключаются.")
+-- кейбинды (ПК/Xeno): вкл/выкл + скорость
+local fcHasKb = false
+pcall(function()
+fcHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
+end)
+if fcHasKb then
+FCHotkeyBusy = true
+UIRegistry.FCKey = UIRegistry.FCToggle:Keybind({
+Flag = "FreeCamToggleKey",
+Default = Enum.KeyCode.P,
+Mode = "Toggle",
+Callback = function(state)
+if FCHotkeyBusy then return end
+fcSetEnabled(state)
+end
+})
+FCHotkeyBusy = false
+UIRegistry.FCSpeedUpLabel = FreeCamKeySection:Label("Скорость + (клавиша)")
+UIRegistry.FCSpeedUpKey = UIRegistry.FCSpeedUpLabel:Keybind({
+Flag = "FreeCamSpeedUpKey",
+Default = Enum.KeyCode.RightBracket,
+Mode = "Always",
+Callback = function(state)
+if state then fcSpeedStep(1) end
+end
+})
+UIRegistry.FCSpeedDownLabel = FreeCamKeySection:Label("Скорость - (клавиша)")
+UIRegistry.FCSpeedDownKey = UIRegistry.FCSpeedDownLabel:Keybind({
+Flag = "FreeCamSpeedDownKey",
+Default = Enum.KeyCode.LeftBracket,
+Mode = "Always",
+Callback = function(state)
+if state then fcSpeedStep(-1) end
+end
+})
+FreeCamKeySection:Label("Смена клавиши: тапни по кнопке [..] и нажми новую. Backspace = убрать.")
+else
+FreeCamKeySection:Label("Клавиши доступны только на ПК (Xeno). На телефоне — кнопка CAM и панель.")
+end
+end)
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 5,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+-- 0.39: новые поля
+ColorBg = Color3.fromRGB(12, 12, 16),
+ColorText = Color3.fromRGB(235, 235, 240),
+ColorStroke = Color3.fromRGB(255, 170, 40),
+ShowAdmin = true, 
+Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+Chams = false, 
+},
+}
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
+CollectionService = game:GetService("CollectionService")
+NPC_COLOR = Color3.fromRGB(255, 145, 0) 
+NPC_CAT_COLORS = {
+Guard = Color3.fromRGB(255, 145, 0), 
+Peaceful = Color3.fromRGB(80, 255, 140), 
+Animal = Color3.fromRGB(255, 80, 95), 
+Sleeper = Color3.fromRGB(80, 190, 255), 
+}
+NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
+NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
+SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
+SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
+ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
+GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
+SLEEPER_PATTERNS = { "sleeper", "пящ" }
+WEAPON_PATTERNS = {
+"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
+"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
+"меч", "сабл", "катан",
+"rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
+}
+npcCategoryCache = {} 
+npcHorizontalSince = {} 
+NPC_CAT_TTL = 0.75 
+function npcNameMatches(model, patterns)
+local okN, name = pcall(function()
+return string.lower(tostring(model.Name))
+end)
+if not okN then
+return false
+end
+for _, pat in ipairs(patterns) do
+if string.find(name, pat, 1, true) then
+return true
+end
+end
+return false
+end
+function npcHasAnyTag(model, tags)
+for _, tag in ipairs(tags) do
+local okT, has = pcall(CollectionService.HasTag, CollectionService, model, tag)
+if okT and has then
+return true
+end
+end
+return false
+end
+function npcInsideFolder(model, names)
+local p = model.Parent
+local depth = 0
+while p and p ~= Workspace and depth < 8 do
+for _, n in ipairs(names) do
+if p.Name == n then
+return true
+end
+end
+p = p.Parent
+depth = depth + 1
+end
+return false
+end
+function npcHasWeaponInHands(model)
+local okT, tool = pcall(function()
+return model:FindFirstChildOfClass("Tool")
+end)
+if okT and tool then
+local okN, tname = pcall(function()
+return string.lower(tostring(tool.Name))
+end)
+if okN and tname then
+for _, pat in ipairs(WEAPON_PATTERNS) do
+if string.find(tname, pat, 1, true) then
+return true
+end
+end
+end
+end
+return false
+end
+function npcSleeperMarked(model, hum, root)
+if npcHasAnyTag(model, SLEEPER_TAGS) then
+return true
+end
+if npcInsideFolder(model, { "Sleepers", "Sleeper", "Bodies", "SleepingPlayers", "Спящие" }) then
+return true
+end
+for _, inst in ipairs({ model, hum, root }) do
+if inst then
+for _, attr in ipairs(SLEEPER_ATTRS) do
+local okA, v = pcall(inst.GetAttribute, inst, attr)
+if okA and v == true then
+return true
+end
+end
+end
+end
+local okC, children = pcall(model.GetChildren, model)
+if okC and children then
+for _, child in ipairs(children) do
+if child:IsA("BoolValue") then
+local cn = string.lower(tostring(child.Name))
+if (string.find(cn, "sleep", 1, true) or string.find(cn, "пящ", 1, true))
+and child.Value == true then
+return true
+end
+end
+end
+end
+if npcNameMatches(model, SLEEPER_PATTERNS) then
+return true
+end
+return false
+end
+function npcGetCategory(model, hum, root)
+local now = os.clock()
 local cached = npcCategoryCache[model]
 if cached and cached.Cat and cached.Expire > now then
 local on = (
@@ -165,7 +560,7 @@ end
 })
 -- 0.39: цвет предмета в руках
 ESPItemColor = Color3.fromRGB(255, 215, 90)
-UIRegistry.ESPItemColor = EspSection:Colorpicker({
+UIRegistry.ESPItemColor = UIRegistry.ESPItem:Colorpicker({
 Name = "Цвет предмета в руках",
 Flag = "ESPItemColor",
 Default = ESPItemColor,
@@ -678,7 +1073,7 @@ hudApplyStyle()
 end
 })
 -- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
-UIRegistry.HUDBgColor = HudSection:Colorpicker({
+UIRegistry.HUDBgColor = UIRegistry.HUDEnabled:Colorpicker({
 Name = "Цвет фона HUD",
 Flag = "HUDBgColor",
 Default = Color3.fromRGB(12, 12, 16),
@@ -687,7 +1082,7 @@ S.HUD.ColorBg = c
 hudApplyStyle()
 end
 })
-UIRegistry.HUDTextColor = HudSection:Colorpicker({
+UIRegistry.HUDTextColor = UIRegistry.HUDEnabled:Colorpicker({
 Name = "Цвет текста HUD",
 Flag = "HUDTextColor",
 Default = Color3.fromRGB(235, 235, 240),
@@ -696,10 +1091,10 @@ S.HUD.ColorText = c
 hudApplyStyle()
 end
 })
-UIRegistry.HUDStrokeColor = HudSection:Colorpicker({
+UIRegistry.HUDStrokeColor = UIRegistry.HUDEnabled:Colorpicker({
 Name = "Цвет обводки HUD",
 Flag = "HUDStrokeColor",
-Default = Color3.fromRGB(255, 170, 40),
+Default = Color3.fromRGB(255, 60, 60),
 Callback = function(c)
 S.HUD.ColorStroke = c
 hudApplyStyle()
@@ -1332,6 +1727,99 @@ end
 end)
 end
 })
+-- 0.50: X-RAY — просвет стен-строений (twig). Взят из VOMAGLA (open source),
+-- адаптирован под «Пьяного Петуха». Клиентский LocalTransparencyModifier не
+-- используется — меняем Transparency напрямую с запоминанием оригинала
+-- (как в VOMAGLA). Сервер НЕ видит изменение Transparency чужих частей —
+-- свойство не реплицируется с клиента, анти-читу не на что детектить.
+XRay = { Enabled = false, Transparency = 0.5 }
+XRAY_KEYWORDS = { "TwigWall", "SoloTwigFrame", "TrigTwigRoof", "TwigFrame", "TwigWindow", "TwigRoof" }
+local xrayCache = {}
+local xrayConn = nil
+local function xrayIsTwig(name)
+for _, k in ipairs(XRAY_KEYWORDS) do
+if string.find(name, k, 1, true) then return true end
+end
+return false
+end
+local function xrayReg(o)
+if xrayCache[o] then return end
+if (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
+xrayCache[o] = { OT = o.Transparency }
+end
+end
+function setXrayState(on, t)
+for p, d in pairs(xrayCache) do
+if p and p.Parent and p:IsDescendantOf(Workspace) then
+p.Transparency = on and t or d.OT
+else
+xrayCache[p] = nil
+end
+end
+end
+-- пере-запуск скрипта: глушим старый коннект и возвращаем стены
+if getgenv().FUST_XRayCleanup then
+pcall(getgenv().FUST_XRayCleanup)
+end
+getgenv().FUST_XRayCleanup = function()
+pcall(function()
+if xrayConn then xrayConn:Disconnect() xrayConn = nil end
+end)
+pcall(setXrayState, false, 0.5)
+end
+task.spawn(function()
+for _, o in ipairs(Workspace:GetDescendants()) do pcall(xrayReg, o) end
+end)
+xrayConn = Workspace.DescendantAdded:Connect(function(o)
+pcall(xrayReg, o)
+if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
+o.Transparency = XRay.Transparency
+end
+end)
+-- UI: секция «Мир и освещение», вкладка «Визуалы»
+UIRegistry.XRayToggle = WorldSection:Toggle({
+Name = "X-Ray (просвет twig-стен)",
+Flag = "XRayEnabled",
+Default = false,
+Callback = function(state)
+XRay.Enabled = state
+pcall(setXrayState, state, XRay.Transparency)
+journal("X-RAY " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.XRayTrans = WorldSection:Slider({
+Name = "X-Ray: прозрачность стен",
+Flag = "XRayTransparency",
+Default = 0.5,
+Min = 0.1,
+Max = 0.95,
+Decimals = 0.05,
+Callback = function(v)
+XRay.Transparency = v
+if XRay.Enabled then pcall(setXrayState, true, v) end
+end
+})
+-- кейбинд (ПК/Xeno — обязательный по приказу, сменяемый: тапни по [X] и нажми клавишу)
+local xrayHasKb = false
+pcall(function()
+xrayHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
+end)
+if xrayHasKb then
+XRayKeyBusy = true
+UIRegistry.XRayKey = UIRegistry.XRayToggle:Keybind({
+Flag = "XRayKey",
+Default = Enum.KeyCode.X,
+Mode = "Toggle",
+Callback = function(state)
+if XRayKeyBusy then return end
+if UIRegistry.XRayToggle and UIRegistry.XRayToggle.Set then
+UIRegistry.XRayToggle:Set(state)
+end
+end
+})
+XRayKeyBusy = false
+end
+
 function normalizeName(raw)
 if type(raw) ~= "string" then
 return ""
@@ -1360,8 +1848,8 @@ return name
 end
 WL_BG = Color3.fromRGB(17, 18, 22)
 WL_ROW = Color3.fromRGB(28, 39, 45)
-WL_ACCENT = Color3.fromRGB(157, 53, 12)
-WL_BRIGHT = Color3.fromRGB(225, 66, 6)
+WL_ACCENT = Color3.fromRGB(150, 20, 20)
+WL_BRIGHT = Color3.fromRGB(235, 45, 45)
 WL_TEXT = Color3.fromRGB(199, 199, 212)
 WL_GRAY = Color3.fromRGB(117, 117, 131)
 wlHost = MiscSection.Items["Content"].Instance
@@ -1608,6 +2096,7 @@ TargetsPlayers = true,
 TargetsNPC = false, 
 TargetsAnimals = false, 
 TargetsSleepers = false, 
+TargetsCopters = false, -- 0.50: коптеры — отдельная цель (без лимита дистанции)
 AutoPredict = false, 
 AutoPredictK = 1, 
 }
@@ -1632,12 +2121,9 @@ PCKey = nil,        -- не используется (всегда автома�
 }
 AF_LastShot = 0
 AF_LastTargetPart = nil
-AA_EnemyNear = false 
-AA_NearestDist = nil 
-AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
-AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
-AA_EnemyNear = false 
-AA_NearestDist = nil 
+-- 0.50 CLEANUP: дублирующая инициализация AA_*/AIM_PART* удалена
+AA_EnemyNear = false
+AA_NearestDist = nil
 AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
 AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
 AimHotkeyObj = nil 
@@ -1746,7 +2232,7 @@ Flag = "CHOutline",
 Default = true,
 Callback = function(state) CH.Outline = state end
 })
-UIRegistry.CHColor = AimSection:Colorpicker({
+UIRegistry.CHColor = UIRegistry.AimCrosshair:Colorpicker({
 Name = "Прицел: цвет",
 Flag = "CHColor",
 Default = Color3.fromRGB(255, 30, 30),
@@ -1894,311 +2380,3 @@ end
 EvilSection:Label({
 Name = "Хитбокс целится, но видно ТЕЛО: за стеной = не аимим. Стоит — центр, бежит — край.",
 Color = Color3.fromRGB(200, 120, 255)
-})
-AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
-UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
-Name = "Авто вкл/выкл аима (враги в радиусе)",
-Flag = "AutoAimEnabled",
-Default = false,
-Callback = function(state)
-AutoAim.Enabled = state
-AA_EnemyNear = false 
-journal("АВТО-АИМ " .. (state and "ВКЛ (враг в радиусе включит аимбот сам)" or "ВЫКЛ"))
-print("[FUST] Авто-аим " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AutoAimRadius = AutoAimSection:Slider({
-Name = "Радиус авто-включения",
-Flag = "AutoAimRadius",
-Default = 500,
-Min = 50,
-Max = 2000,
-Decimals = 10,
-Suffix = "m",
-Callback = function(Value)
-AutoAim.Radius = Value
-end
-})
--- 0.39v2: АВТО-СТРЕЛЬБА
-AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "Аимбот", Side = 1 })
-UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
-Name = "Авто-стрельба (когда есть цель)",
-Flag = "AutoFireEnabled",
-Default = false,
-Callback = function(state)
-AutoFire.Enabled = state
-journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AutoFireDelay = AutoFireSection:Slider({
-Name = "Задержка между выстрелами (0 = макс)",
-Flag = "AutoFireDelay",
-Default = 0,
-Min = 0,
-Max = 0.5,
-Decimals = 0.01,
-Callback = function(v) AutoFire.Delay = v end
-})
-UIRegistry.AutoFireOnlyOnTarget = AutoFireSection:Toggle({
-Name = "Стрелять только при захвате цели",
-Flag = "AutoFireOnlyOnTarget",
-Default = true,
-Callback = function(state) AutoFire.OnlyOnTarget = state end
-})
-UIRegistry.AutoFireUntilDead = AutoFireSection:Toggle({
-Name = "Стрелять пока цель не умрёт",
-Flag = "AutoFireUntilDead",
-Default = true,
-Callback = function(state) AutoFire.UntilDead = state end
-})
-UIRegistry.AutoFireWallCheck = AutoFireSection:Toggle({
-Name = "Не стрелять через стены (WallCheck)",
-Flag = "AutoFireWallCheck",
-Default = true,
-Callback = function(state) AutoFire.WallCheck = state end
-})
-AutoFireSection:Label("ПК: mouse1click / VirtualInputManager. Телефон: Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
-RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
-UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
-Name = "Анти-отдача",
-Flag = "AntiRecoilEnabled",
-Default = false,
-Callback = function(state)
-AntiRecoil.Enabled = state
-journal("АНТИ-ОТДАЧА " .. (state and "ВКЛ" or "ВЫКЛ"))
-print("[FUST] Анти-отдача " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({
-Name = "АО: откат кика камеры",
-Flag = "AntiRecoilRollback",
-Default = true,
-Callback = function(state)
-AntiRecoil.Rollback = state
-journal("АО откат-камеры " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiRecoilOffset = RecoilSection:Toggle({
-Name = "АО: сброс CameraOffset",
-Flag = "AntiRecoilOffset",
-Default = true,
-Callback = function(state)
-AntiRecoil.Offset = state
-journal("АО cameraoffset " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiRecoilThreshold = RecoilSection:Slider({
-Name = "АО: порог кика",
-Flag = "AntiRecoilThreshold",
-Default = 1.2,
-Min = 0.3,
-Max = 5,
-Decimals = 0.1,
-Suffix = "°",
-Callback = function(Value)
-AntiRecoil.Threshold = Value
-end
-})
-UIRegistry.AntiRecoilDrift = RecoilSection:Toggle({
-Name = "АО: компенсация дрифта",
-Flag = "AntiRecoilDrift",
-Default = true,
-Callback = function(state)
-AntiRecoil.Drift = state
-journal("АО дрифт " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiRecoilDriftStrength = RecoilSection:Slider({
-Name = "АО: сила компенсации",
-Flag = "AntiRecoilDriftStrength",
-Default = 1,
-Min = 0.1,
-Max = 1,
-Decimals = 0.05,
-Suffix = "",
-Callback = function(Value)
-AntiRecoil.DriftStrength = Value
-end
-})
-UIRegistry.AntiShakeEnabled = RecoilSection:Toggle({
-Name = "Анти-тряска (выстрел)",
-Flag = "AntiShakeEnabled",
-Default = false,
-Callback = function(state)
-AntiShake.Enabled = state
-journal("АНТИ-ТРЯСКА " .. (state and "ВКЛ" or "ВЫКЛ"))
-print("[FUST] Анти-тряска " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiShakeRoll = RecoilSection:Toggle({
-Name = "АТ: крен (наклон вбок)",
-Flag = "AntiShakeRoll",
-Default = true,
-Callback = function(state)
-AntiShake.Roll = state
-journal("АТ крен " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiShakePosition = RecoilSection:Toggle({
-Name = "АТ: дёрганье позиции",
-Flag = "AntiShakePosition",
-Default = true,
-Callback = function(state)
-AntiShake.Position = state
-journal("АТ позиция " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AntiShakeOscillation = RecoilSection:Toggle({
-Name = "АТ: дрожь прицела",
-Flag = "AntiShakeOscillation",
-Default = true,
-Callback = function(state)
-AntiShake.Oscillation = state
-journal("АТ дрожь " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-function AR_DriftPass()
-if not (AntiRecoil.Enabled and AntiRecoil.Drift) then
-AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
-return
-end
-if os.clock() < AR_AimBusyUntil then
-AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
-return
-end
-if os.clock() >= FUST_FireUntil then
-AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
-return
-end
-local camera = Workspace.CurrentCamera
-local myChar = LocalPlayer.Character
-local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
-if not (camera and myTool) then
-AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
-return
-end
-pcall(function()
-local pitch = camera.CFrame.LookVector.Y
-local now = os.clock()
-if AR_LastPitch then
-local d = pitch - AR_LastPitch
-if d < -0.00005 or d > math.rad(2.5) then
-AR_DriftFrames = 0
-AR_Anchor = nil
-elseif d > 0.0001 then
-AR_LastDriftAt = now
-AR_DriftFrames = AR_DriftFrames + 1
-if not AR_Anchor then
-AR_Anchor = pitch - d
-end
-if AR_DriftFrames >= 2 then
-FUST_FireUntil = math.max(FUST_FireUntil, now + 0.35)
-end
-else
-if now - AR_LastDriftAt > 0.25 then
-AR_DriftFrames = 0
-AR_Anchor = nil
-end
-end
-end
-AR_LastPitch = pitch
-if AR_Anchor then
-local err = pitch - AR_Anchor
-if err > 0.0006 then
-local rate = 0.2 + 0.4 * math.clamp(AntiRecoil.DriftStrength, 0, 1)
-local theta = math.asin(math.clamp(err * rate, -1, 1))
-camera.CFrame = camera.CFrame * CFrame.Angles(-theta, 0, 0)
-AR_LastPitch = camera.CFrame.LookVector.Y
-end
-end
-end)
-end
-function FUST_BindFireTool(tool)
-if tool == FUST_FireTool then
-return
-end
-if FUST_FireConns then
-for _, c in ipairs(FUST_FireConns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-end
-FUST_FireConns = nil
-FUST_FireTool = tool
-if not tool then
-FUST_FireUntil = 0
-return
-end
-local conns = {}
-local function markFire()
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-for _, c in ipairs(conns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-return
-end
-FUST_FireUntil = os.clock() + 0.6
-end
-local function markStop()
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-return
-end
-FUST_FireUntil = math.max(FUST_FireUntil, os.clock() + 0.3)
-end
-table.insert(conns, tool.Activated:Connect(markFire))
-table.insert(conns, tool.Deactivated:Connect(markStop))
-FUST_FireConns = conns
-end
-getgenv().FUST_ASCleanup = function()
-if FUST_FireConns then
-for _, c in ipairs(FUST_FireConns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-end
-FUST_FireConns = nil
-FUST_FireTool = nil
-FUST_FireUntil = 0
-end
-function AS_Pass()
-local camera = Workspace.CurrentCamera
-local myChar = LocalPlayer.Character
-local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
-if FreeCam.Enabled then
-AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
-AS_LastLX, AS_LastLZ = nil, nil
-AS_AnchorLook, AS_SmoothPos = nil, nil
-AS_PitchFlips, AS_YawFlips = 0, 0
-return
-end
-if not (AntiShake.Enabled and camera and myTool) then
-AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
-AS_LastLX, AS_LastLZ = nil, nil
-AS_AnchorLook, AS_SmoothPos = nil, nil
-AS_PitchFlips, AS_YawFlips = 0, 0
-return
-end
-local aimBusy = os.clock() < AR_AimBusyUntil
-pcall(function()
-local cf = camera.CFrame
-local look = cf.LookVector
-local pos = cf.Position
-local now = os.clock()
-local firing = now < FUST_FireUntil
-if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
-local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
-if math.abs(roll) > math.rad(0.05) then
-camera.CFrame = CFrame.lookAt(pos, pos + look)
-cf = camera.CFrame
-end
-end
-if AntiShake.Position then
-if firing then
-if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
-AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
-camera.CFrame = CFrame.new(AS_SmoothPos) * (cf - cf.Position)
-cf = camera.CFrame

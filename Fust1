@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.49 DELTA+XENO (без фрикама)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.50 DELTA+XENO (красно-чёрная)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -21,6 +21,30 @@
     • Всё остальное — как в стабильной 0.39: ESP игроков/НПС, мешки/
       лут (слоты/владелец/чамсы как было), аимбот+злой аим, анти-отдача,
       трассеры, хитбоксы, HUD, CS2-прицел, вайтлист, конфиги, кнопка-петух.
+
+    НОВОЕ В 0.50 — БАГФИКСЫ + X-RAY + ФРИКАМ + КОПТЕРЫ + КРАСНО-ЧЁРНАЯ ТЕМА:
+    • ИСПРАВЛЕН КРАШ НА СТАРТЕ (стр.5321 «missing method Colorpicker»):
+      колорпикеры вызывались на СЕКЦИЯХ, у которых такого метода нет —
+      пересажены на тогглы (5 мест + Settings-страница). Полный список
+      найденных ошибок и их статус — в файле BUGS.md (на GitHub).
+    • ИСПРАВЛЕН ЭКРАН ЗАГРУЗКИ: не убирался из-за битого вызова
+      Instance.new с типом TweenInfo (это не Instance) внутри pcall.
+      Теперь убирается всегда, в т.ч. при фатальной ошибке, и
+      показывает актуальную версию.
+    • X-RAY (из VOMAGLA): просвет twig-стен — вкл/выкл, прозрачность,
+      кейбинд на ПК (Xeno) со сменой клавиши (тапни [X] и нажми новую).
+    • ФРИКАМ ВЕРНУЛСЯ (universal_freecam_v13, open source): отдельная
+      страница «Фрикам» в меню, плавающая панель CAM (скрывается),
+      кейбинды вкл/выкл (P) и скорость +/− ([ и ]), телефон — джойстик,
+      ПК — WASD/QE/Shift. Персонаж ставится на якорь; аимбот и
+      анти-тряска на время фрикама отключаются. hookfunction-подмена
+      IsKeyDown ВЫКЛЮЧЕНА по умолчанию (хук-методы детектит анти-чит).
+    • КОПТЕРЫ — отдельная цель аимбота БЕЗ проверки дистанции:
+      «Кого аимить» -> Коптеры. Лимит Aim.Distance на них не действует
+      (из-за него аим и не брал летающие коптеры). FOV/стены — как у всех.
+    • КРАСНО-ЧЁРНАЯ ТЕМА: меню, сплэш, кнопка-петух, HUD, панель фрикама.
+    • ЧИСТКА КОДА: дубли инициализации, мёртвые заглушки фрикама,
+      битый твин-код, кейбинд меню теперь реально меняет клавишу.
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -462,7 +486,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.49 DELTA+XENO (без фрикама)...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.50 DELTA+XENO (красно-чёрная)...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
 LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
@@ -509,8 +533,8 @@ title.Position = UDim2.new(0, 0, 0.62, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.TextSize = 22
-title.TextColor3 = Color3.fromRGB(240, 130, 30)
-title.Text = "ПЬЯНЫЙ ПЕТУХ 0.39"
+title.TextColor3 = Color3.fromRGB(255, 45, 45)
+title.Text = "ПЬЯНЫЙ ПЕТУХ 0.50"
 title.Parent = bg
 -- прогресс-бар фон
 local barBg = Instance.new("Frame")
@@ -524,7 +548,7 @@ barCorner.CornerRadius = UDim.new(1, 0)
 barCorner.Parent = barBg
 loadScreenBar = Instance.new("Frame")
 loadScreenBar.Size = UDim2.new(0, 0, 1, 0)
-loadScreenBar.BackgroundColor3 = Color3.fromRGB(240, 130, 30)
+loadScreenBar.BackgroundColor3 = Color3.fromRGB(255, 45, 45)
 loadScreenBar.BorderSizePixel = 0
 loadScreenBar.Parent = barBg
 local fillCorner = Instance.new("UICorner")
@@ -557,19 +581,18 @@ local function hideLoadScreen()
 pcall(function()
 if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
 if loadScreenGui then
-local tween = Instance.new("TweenInfo")
--- fade out 0.4с
-local okT, TS = pcall(function() return game:GetService("TweenService") end)
-if okT and TS then
-local t = TS:Create(loadScreenGui, TweenInfo.new(0.4), { DisplayOrder = 0 })
--- ScreenGui не имеет Transparency, используем child frames
-end
-task.wait(0.3)
+-- 0.50 FIX: здесь был вызов Instance.new с аргументом "TweenInfo" —
+-- TweenInfo НЕ Instance, вызов кидал ошибку, pcall её глотал и
+-- loadScreenGui:Destroy() НЕ выполнялся. Экран загрузки висел навсегда
+-- («Готово.» не исчезало). Мёртвый твин-код убран: пауза и Destroy.
+task.wait(0.15)
 loadScreenGui:Destroy()
 end
 loadScreenGui = nil
 end)
 end
+-- 0.50: экспорт — чтобы обработчик фатальной ошибки мог убрать экран
+FUST_hideLoadScreen = hideLoadScreen
 local function setLoadProgress(pct, status)
 pcall(function()
 if loadScreenBar then
@@ -783,7 +806,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.49 DELTA+XENO (без фрикама) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.50 DELTA+XENO (красно-чёрная) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -926,3 +949,150 @@ local Keys = {
 ["KeypadMultiply"] = "KeypadM",
 ["KeypadMinus"] = "KeypadM",
 ["KeypadPlus"] = "KeypadP",
+["KeypadEnter"] = "KeypadE",
+["KeypadEquals"] = "KeypadE",
+["Insert"] = "Insert",
+["Home"] = "Home",
+["PageUp"] = "PageUp",
+["PageDown"] = "PageDown",
+["RightShift"] = "RightShift",
+["LeftShift"] = "LeftShift",
+["RightControl"] = "RightControl",
+["LeftControl"] = "LeftControl",
+["LeftAlt"] = "LeftAlt",
+["RightAlt"] = "RightAlt"
+}
+local Themes = {
+["Preset"] = {
+["Background"] = FromRGB(9, 9, 12),
+["Outline"] = FromRGB(34, 34, 43),
+["Inline"] = FromRGB(20, 20, 26),
+["Accent"] = FromRGB(139, 149, 246),
+["Text"] = FromRGB(235, 235, 242),
+["Element"] = FromRGB(29, 29, 37)
+}
+}
+Library.Theme = TableClone(Themes["Preset"])
+for Index, Value in Library.Folders do
+pcall(function()
+if not isfolder(Value) then
+makefolder(Value)
+end
+end)
+end
+local Tween = { } do
+Tween.__index = Tween
+Tween.Create = function(self, Item, Info, Goal, IsRawItem)
+Item = IsRawItem and Item or Item.Instance
+Info = Info or TweenInfo.new(Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction)
+local NewTween = {
+Tween = TweenService:Create(Item, Info, Goal),
+Info = Info,
+Goal = Goal,
+Item = Item
+}
+NewTween.Tween:Play()
+setmetatable(NewTween, Tween)
+return NewTween
+end
+Tween.GetProperty = function(self, Item)
+Item = Item or self.Item
+if Item:IsA("Frame") then
+return { "BackgroundTransparency" }
+elseif Item:IsA("TextLabel") or Item:IsA("TextButton") then
+return { "TextTransparency", "BackgroundTransparency" }
+elseif Item:IsA("ImageLabel") or Item:IsA("ImageButton") then
+return { "BackgroundTransparency", "ImageTransparency" }
+elseif Item:IsA("ScrollingFrame") then
+return { "BackgroundTransparency", "ScrollBarImageTransparency" }
+elseif Item:IsA("TextBox") then
+return { "TextTransparency", "BackgroundTransparency" }
+elseif Item:IsA("UIStroke") then
+return { "Transparency" }
+end
+end
+Tween.FadeItem = function(self, Item, Property, Visibility, Speed)
+local Item = Item or self.Item
+local OldTransparency = Item[Property]
+Item[Property] = Visibility and 1 or OldTransparency
+local NewTween = Tween:Create(Item, TweenInfo.new(Speed or Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction), {
+[Property] = Visibility and OldTransparency or 1
+}, true)
+Library:Connect(NewTween.Tween.Completed, function()
+if not Visibility then
+task.wait()
+Item[Property] = OldTransparency
+end
+end)
+return NewTween
+end
+Tween.Get = function(self)
+if not self.Tween then
+return
+end
+return self.Tween, self.Info, self.Goal
+end
+Tween.Pause = function(self)
+if not self.Tween then
+return
+end
+self.Tween:Pause()
+end
+Tween.Play = function(self)
+if not self.Tween then
+return
+end
+self.Tween:Play()
+end
+Tween.Clean = function(self)
+if not self.Tween then
+return
+end
+Tween:Pause()
+self = nil
+end
+end
+local Instances = { } do
+Instances.__index = Instances
+Instances.Create = function(self, Class, Properties)
+local NewItem = {
+Instance = InstanceNew(Class),
+Properties = Properties,
+Class = Class
+}
+setmetatable(NewItem, Instances)
+for Property, Value in NewItem.Properties do
+NewItem.Instance[Property] = Value
+end
+return NewItem
+end
+Instances.AddToTheme = function(self, Properties)
+if not self.Instance then
+return
+end
+Library:AddToTheme(self, Properties)
+return self
+end
+Instances.ChangeItemTheme = function(self, Properties)
+if not self.Instance then
+return
+end
+Library:ChangeItemTheme(self, Properties)
+end
+Instances.Connect = function(self, Event, Callback, Name)
+if not self.Instance then
+return
+end
+if not self.Instance[Event] then
+return
+end
+return Library:Connect(self.Instance[Event], Callback, Name)
+end
+Instances.Tween = function(self, Info, Goal)
+if not self.Instance then
+return
+end
+return Tween:Create(self, Info, Goal)
+end
+Instances.Disconnect = function(self, Name)
+if not self.Instance then

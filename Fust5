@@ -1,3 +1,311 @@
+})
+AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
+Name = "Авто вкл/выкл аима (враги в радиусе)",
+Flag = "AutoAimEnabled",
+Default = false,
+Callback = function(state)
+AutoAim.Enabled = state
+AA_EnemyNear = false 
+journal("АВТО-АИМ " .. (state and "ВКЛ (враг в радиусе включит аимбот сам)" or "ВЫКЛ"))
+print("[FUST] Авто-аим " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoAimRadius = AutoAimSection:Slider({
+Name = "Радиус авто-включения",
+Flag = "AutoAimRadius",
+Default = 500,
+Min = 50,
+Max = 2000,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+AutoAim.Radius = Value
+end
+})
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "Аимбот", Side = 1 })
+UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
+Name = "Авто-стрельба (когда есть цель)",
+Flag = "AutoFireEnabled",
+Default = false,
+Callback = function(state)
+AutoFire.Enabled = state
+journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AutoFireDelay = AutoFireSection:Slider({
+Name = "Задержка между выстрелами (0 = макс)",
+Flag = "AutoFireDelay",
+Default = 0,
+Min = 0,
+Max = 0.5,
+Decimals = 0.01,
+Callback = function(v) AutoFire.Delay = v end
+})
+UIRegistry.AutoFireOnlyOnTarget = AutoFireSection:Toggle({
+Name = "Стрелять только при захвате цели",
+Flag = "AutoFireOnlyOnTarget",
+Default = true,
+Callback = function(state) AutoFire.OnlyOnTarget = state end
+})
+UIRegistry.AutoFireUntilDead = AutoFireSection:Toggle({
+Name = "Стрелять пока цель не умрёт",
+Flag = "AutoFireUntilDead",
+Default = true,
+Callback = function(state) AutoFire.UntilDead = state end
+})
+UIRegistry.AutoFireWallCheck = AutoFireSection:Toggle({
+Name = "Не стрелять через стены (WallCheck)",
+Flag = "AutoFireWallCheck",
+Default = true,
+Callback = function(state) AutoFire.WallCheck = state end
+})
+AutoFireSection:Label("ПК: mouse1click / VirtualInputManager. Телефон: Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
+RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
+UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
+Name = "Анти-отдача",
+Flag = "AntiRecoilEnabled",
+Default = false,
+Callback = function(state)
+AntiRecoil.Enabled = state
+journal("АНТИ-ОТДАЧА " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Анти-отдача " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({
+Name = "АО: откат кика камеры",
+Flag = "AntiRecoilRollback",
+Default = true,
+Callback = function(state)
+AntiRecoil.Rollback = state
+journal("АО откат-камеры " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilOffset = RecoilSection:Toggle({
+Name = "АО: сброс CameraOffset",
+Flag = "AntiRecoilOffset",
+Default = true,
+Callback = function(state)
+AntiRecoil.Offset = state
+journal("АО cameraoffset " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilThreshold = RecoilSection:Slider({
+Name = "АО: порог кика",
+Flag = "AntiRecoilThreshold",
+Default = 1.2,
+Min = 0.3,
+Max = 5,
+Decimals = 0.1,
+Suffix = "°",
+Callback = function(Value)
+AntiRecoil.Threshold = Value
+end
+})
+UIRegistry.AntiRecoilDrift = RecoilSection:Toggle({
+Name = "АО: компенсация дрифта",
+Flag = "AntiRecoilDrift",
+Default = true,
+Callback = function(state)
+AntiRecoil.Drift = state
+journal("АО дрифт " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiRecoilDriftStrength = RecoilSection:Slider({
+Name = "АО: сила компенсации",
+Flag = "AntiRecoilDriftStrength",
+Default = 1,
+Min = 0.1,
+Max = 1,
+Decimals = 0.05,
+Suffix = "",
+Callback = function(Value)
+AntiRecoil.DriftStrength = Value
+end
+})
+UIRegistry.AntiShakeEnabled = RecoilSection:Toggle({
+Name = "Анти-тряска (выстрел)",
+Flag = "AntiShakeEnabled",
+Default = false,
+Callback = function(state)
+AntiShake.Enabled = state
+journal("АНТИ-ТРЯСКА " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Анти-тряска " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiShakeRoll = RecoilSection:Toggle({
+Name = "АТ: крен (наклон вбок)",
+Flag = "AntiShakeRoll",
+Default = true,
+Callback = function(state)
+AntiShake.Roll = state
+journal("АТ крен " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiShakePosition = RecoilSection:Toggle({
+Name = "АТ: дёрганье позиции",
+Flag = "AntiShakePosition",
+Default = true,
+Callback = function(state)
+AntiShake.Position = state
+journal("АТ позиция " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AntiShakeOscillation = RecoilSection:Toggle({
+Name = "АТ: дрожь прицела",
+Flag = "AntiShakeOscillation",
+Default = true,
+Callback = function(state)
+AntiShake.Oscillation = state
+journal("АТ дрожь " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+function AR_DriftPass()
+if not (AntiRecoil.Enabled and AntiRecoil.Drift) then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+if os.clock() < AR_AimBusyUntil then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+if os.clock() >= FUST_FireUntil then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+local camera = Workspace.CurrentCamera
+local myChar = LocalPlayer.Character
+local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
+if not (camera and myTool) then
+AR_LastPitch, AR_DriftFrames, AR_Anchor = nil, 0, nil
+return
+end
+pcall(function()
+local pitch = camera.CFrame.LookVector.Y
+local now = os.clock()
+if AR_LastPitch then
+local d = pitch - AR_LastPitch
+if d < -0.00005 or d > math.rad(2.5) then
+AR_DriftFrames = 0
+AR_Anchor = nil
+elseif d > 0.0001 then
+AR_LastDriftAt = now
+AR_DriftFrames = AR_DriftFrames + 1
+if not AR_Anchor then
+AR_Anchor = pitch - d
+end
+if AR_DriftFrames >= 2 then
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.35)
+end
+else
+if now - AR_LastDriftAt > 0.25 then
+AR_DriftFrames = 0
+AR_Anchor = nil
+end
+end
+end
+AR_LastPitch = pitch
+if AR_Anchor then
+local err = pitch - AR_Anchor
+if err > 0.0006 then
+local rate = 0.2 + 0.4 * math.clamp(AntiRecoil.DriftStrength, 0, 1)
+local theta = math.asin(math.clamp(err * rate, -1, 1))
+camera.CFrame = camera.CFrame * CFrame.Angles(-theta, 0, 0)
+AR_LastPitch = camera.CFrame.LookVector.Y
+end
+end
+end)
+end
+function FUST_BindFireTool(tool)
+if tool == FUST_FireTool then
+return
+end
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+end
+FUST_FireConns = nil
+FUST_FireTool = tool
+if not tool then
+FUST_FireUntil = 0
+return
+end
+local conns = {}
+local function markFire()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+for _, c in ipairs(conns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+return
+end
+FUST_FireUntil = os.clock() + 0.6
+end
+local function markStop()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+FUST_FireUntil = math.max(FUST_FireUntil, os.clock() + 0.3)
+end
+table.insert(conns, tool.Activated:Connect(markFire))
+table.insert(conns, tool.Deactivated:Connect(markStop))
+FUST_FireConns = conns
+end
+getgenv().FUST_ASCleanup = function()
+if FUST_FireConns then
+for _, c in ipairs(FUST_FireConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+end
+FUST_FireConns = nil
+FUST_FireTool = nil
+FUST_FireUntil = 0
+end
+function AS_Pass()
+local camera = Workspace.CurrentCamera
+local myChar = LocalPlayer.Character
+local myTool = myChar and myChar:FindFirstChildOfClass("Tool")
+if FreeCam.Enabled then
+AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
+AS_LastLX, AS_LastLZ = nil, nil
+AS_AnchorLook, AS_SmoothPos = nil, nil
+AS_PitchFlips, AS_YawFlips = 0, 0
+return
+end
+if not (AntiShake.Enabled and camera and myTool) then
+AS_LastRawPitch, AS_LastDp, AS_LastDy = nil, nil, nil
+AS_LastLX, AS_LastLZ = nil, nil
+AS_AnchorLook, AS_SmoothPos = nil, nil
+AS_PitchFlips, AS_YawFlips = 0, 0
+return
+end
+local aimBusy = os.clock() < AR_AimBusyUntil
+pcall(function()
+local cf = camera.CFrame
+local look = cf.LookVector
+local pos = cf.Position
+local now = os.clock()
+local firing = now < FUST_FireUntil
+if AntiShake.Roll and firing and math.abs(look.Y) < 0.999 then
+local roll = math.asin(math.clamp(cf.RightVector.Y, -1, 1))
+if math.abs(roll) > math.rad(0.05) then
+camera.CFrame = CFrame.lookAt(pos, pos + look)
+cf = camera.CFrame
+end
+end
+if AntiShake.Position then
+if firing then
+if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
+AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
+camera.CFrame = CFrame.new(AS_SmoothPos) * (cf - cf.Position)
+cf = camera.CFrame
 else
 AS_SmoothPos = pos
 end
@@ -156,12 +464,12 @@ end
 })
 UIRegistry.AimTargets = TargetSection:Dropdown({
 Name = "Кого аимить",
-Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы" },
+Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Коптеры" },
 Default = { "Игроки" },
 Flag = "AimTargets",
 Multi = true,
 Callback = function(list)
-local players, npc, animals, sleepers = false, false, false, false
+local players, npc, animals, sleepers, copters = false, false, false, false, false
 if type(list) == "table" then
 for _, v in ipairs(list) do
 if v == "Игроки" then
@@ -172,6 +480,8 @@ elseif v == "Животные" then
 animals = true
 elseif v == "Слиперы" then
 sleepers = true
+elseif v == "Коптеры" then
+copters = true
 end
 end
 end
@@ -179,6 +489,7 @@ Aim.TargetsPlayers = players
 Aim.TargetsNPC = npc
 Aim.TargetsAnimals = animals
 Aim.TargetsSleepers = sleepers
+Aim.TargetsCopters = copters
 local labels = {}
 if players then
 table.insert(labels, "игроки")
@@ -191,6 +502,9 @@ table.insert(labels, "животные")
 end
 if sleepers then
 table.insert(labels, "слиперы")
+end
+if copters then
+table.insert(labels, "коптеры (без лимита дистанции)")
 end
 journal("АИМ ЦЕЛИ: " .. (#labels > 0 and table.concat(labels, " + ") or "никого"))
 end
@@ -1337,12 +1651,9 @@ slotsText = tostring(itemCount) .. " предм."
 end
 return { Owner = owner, Slots = slotsText }
 end
--- 0.49: движок фрикама ВЫРЕЗАН вместе с keybind-коннектом —
--- он заякоривал персонажа и забирал джойстик. Заглушки для ссылок;
--- FreeCam/freecamEnable/freecamDisable объявлены выше как no-op,
--- FreeCam.Enabled всегда false — аим-луп видит «фрикам выключен».
-freecamSyncToggleUI = function() end
-freecamToggle = function() end
+-- 0.50: старые заглушки фрикама удалены (чистка кода) — движок
+-- вернулся и объявлен выше (universal_freecam_v13): freecamEnable и
+-- freecamDisable теперь настоящие, FreeCam.Enabled синхронизируется.
 LOOT_POOL_SIZE = 12
 LOOT_POOL_INTERVAL = 1.2 -- 0.39: было 0.35 — лагало на ПК. 1.2с достаточно.
 lootChamPool = {}
@@ -1802,6 +2113,92 @@ local smooth = old:Lerp(vel, 0.35)
 velEMA[root] = smooth
 return smooth
 end
+-- 0.50: КОПТЕРЫ — отдельная цель аимбота. По приказу: БЕЗ проверки
+-- дистанции (лимит Aim.Distance срезал летающие далеко/высоко коптеры,
+-- из-за этого «аим не работал на коптеры»). FOV и проверка стен (если
+-- включены) остаются как у остальных целей.
+trackedCopters = {}
+local copterChecked = {}
+local lastCopterScan = 0
+function resolveCopterPart(model)
+local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
+if seat then return seat end
+local pp = model.PrimaryPart
+if pp and pp.Parent then return pp end
+local best = nil
+for _, d in ipairs(model:GetDescendants()) do
+if d:IsA("BasePart") and (not best or d.Size.Magnitude > best.Size.Magnitude) then
+best = d
+end
+end
+return best
+end
+function refreshCopters()
+local myChar = LocalPlayer.Character
+for model in pairs(trackedCopters) do
+if not model.Parent then
+trackedCopters[model] = nil
+end
+end
+for model in pairs(copterChecked) do
+if not model.Parent then
+copterChecked[model] = nil
+end
+end
+local function tryCopter(obj)
+if not obj:IsA("Model") or trackedCopters[obj] or copterChecked[obj] then
+return
+end
+if isPlayerCharacter(obj) then
+return
+end
+if myChar and obj:IsAncestorOf(myChar) then
+return
+end
+local name = string.lower(obj.Name)
+local byName = string.find(name, "copter", 1, true)
+or string.find(name, "heli", 1, true)
+or string.find(name, "вертол", 1, true)
+local isCopter = false
+if byName then
+isCopter = true
+else
+local seat = obj:FindFirstChildWhichIsA("VehicleSeat", true)
+if seat then
+isCopter = true
+end
+end
+if isCopter then
+local part = resolveCopterPart(obj)
+if part then
+trackedCopters[obj] = part
+end
+else
+copterChecked[obj] = true
+end
+end
+for _, obj in ipairs(Workspace:GetChildren()) do
+if obj:IsA("Model") then
+tryCopter(obj)
+elseif obj:IsA("Folder") then
+for _, obj2 in ipairs(obj:GetChildren()) do
+if obj2:IsA("Model") then
+tryCopter(obj2)
+end
+end
+end
+end
+end
+task.spawn(function()
+while getgenv().FUST_SESSION == FUST_SESSION do
+if Aim.TargetsCopters and os.clock() - lastCopterScan > 2 then
+lastCopterScan = os.clock()
+pcall(refreshCopters)
+end
+task.wait(1)
+end
+end)
+
 function getAimTarget(camera)
 local char = LocalPlayer.Character
 local localRoot = char and char:FindFirstChild("HumanoidRootPart")
@@ -1918,6 +2315,36 @@ end
 end
 end
 end
+end
+end
+end
+-- 0.50: КОПТЕРЫ как цель — БЕЗ проверки дистанции (по приказу).
+-- Стрелять можно и по пустому коптеру (чтобы сбить), поэтому
+-- занятость сиденья не проверяем. Свой коптер (в котором сидишь) исключён.
+if Aim.TargetsCopters then
+for model, part in pairs(trackedCopters) do
+if model.Parent and part and part.Parent then
+local aimPos = part.Position
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
+-- ДИСТАНЦИЯ НЕ ПРОВЕРЯЕТСЯ: коптеры далеко/высоко —
+-- лимит Aim.Distance их никогда не пропускал
+local score = (Aim.Priority == "Дистанция") and (aimPos - camPos).Magnitude or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "коптер"
+end
+end
+end
+end
+else
+trackedCopters[model] = nil
 end
 end
 end
@@ -2060,225 +2487,3 @@ aimConnection:Disconnect()
 aimConnection = nil
 end
 pcall(function()
-if fovCircle then
-fovCircle:Remove()
-end
-end)
-fovCircle = nil 
-for i = 1, 4 do
-pcall(function()
-if chLines[i] then
-chLines[i]:Remove()
-end
-end)
-chLines[i] = nil
-end
-end
-function autoAimTick()
-if not AutoAim.Enabled then
-AA_EnemyNear = false
-AA_NearestDist = nil
-return
-end
-local myChar = LocalPlayer.Character
-local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if not myRoot then
-return 
-end
-local bestDist = math.huge
-local bestName = nil
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
-local model = plr.Character
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local d = (root.Position - myRoot.Position).Magnitude
-if d < bestDist then
-bestDist = d
-bestName = plr.Name
-end
-end
-end
-end
-AA_NearestDist = (bestDist < math.huge) and bestDist or nil
-local want = AA_EnemyNear
-if want then
-if bestDist > AutoAim.Radius + 30 then
-want = false 
-end
-else
-if bestDist <= AutoAim.Radius then
-want = true 
-end
-end
-if want ~= AA_EnemyNear then
-AA_EnemyNear = want
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-pcall(function()
-UIRegistry.AimEnabled:Set(want)
-end)
-end
-if bestName then
-journal(string.format("АВТО-АИМ: %s — %s (%d м)",
-want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
-bestName, math.floor(bestDist + 0.5)))
-else
-journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
-end
-end
-end
-task.spawn(function()
-while true do
--- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ровные
--- интервалы сканера = бот-паттерн для эвристики. 0.18..0.24с неотличимо
--- от человеческой реакции, но не даёт «ритмичного» следа.
-task.wait(0.18 + math.random() * 0.06)
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-break
-end
-local okAA = pcall(autoAimTick)
-if not okAA then
-task.wait(1) 
-end
-end
-end)
-
--- 0.39: АДМИН/VIP ЧЕК — сканер игроков на права выше обычного
-AdminScan_Count = 0
-AdminScan_Names = ""
-AdminScan_List = {}
-local ADMIN_ATTRS = { "IsAdmin", "Admin", "IsModerator", "Moderator", "IsVIP", "VIP",
-"IsStaff", "Staff", "Role", "IsOwner", "Owner", "IsDeveloper", "Developer" }
-local ADMIN_TAGS = { "FustAdmin", "FustMod", "FustVIP", "Admin", "Moderator", "VIP",
-"Owner", "Staff", "Developer" }
-local ADMIN_GROUP_ROLES = { "Owner", "Admin", "Moderator", "Head Admin", "Staff" }
-
-function adminScanTick()
-local found = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-local isAdm = false
--- 1. Roblox admin badge (UserId < 1000 = старый акк, не админ; проверяем HasBadge)
-pcall(function()
-if plr.UserId < 1000 then
-isAdm = true
-table.insert(found, plr.Name .. " (Roblox staff)")
-end
-end)
--- 2. Атрибуты игрока
-if not isAdm then
-pcall(function()
-local attrs = plr:GetAttributes()
-for k, v in pairs(attrs) do
-local kl = string.lower(tostring(k))
-for _, attr in ipairs(ADMIN_ATTRS) do
-if kl == string.lower(attr) and v then
-isAdm = true
-table.insert(found, plr.Name .. " (attr:" .. k .. ")")
-break
-end
-end
-end
-end)
-end
--- 3. CollectionService теги
-if not isAdm then
-pcall(function()
-for _, tag in ipairs(ADMIN_TAGS) do
-if CollectionService:HasTag(plr, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (tag:" .. tag .. ")")
-break
-end
-end
-end)
-end
--- 4. FUST-специфичные теги/атрибуты на Character
-if not isAdm then
-pcall(function()
-local c = plr.Character
-if c then
-for _, tag in ipairs({ "FustAdmin", "FustMod", "Admin", "Moderator" }) do
-if CollectionService:HasTag(c, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (char:" .. tag .. ")")
-break
-end
-end
-end
-end)
-end
--- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем только если игра дала плейс-специфичную группу
-local placeGroup = nil
-pcall(function()
--- FUST: пробуем common survival group IDs
-for _, gid in ipairs({ 0 }) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
-if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
-AdminScan_LastJournal = os.clock()
-journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
-end
-else
-AdminScan_Names = ""
-end
-end
-AdminScan_LastJournal = 0
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
-end
-end)
-HttpService = game:GetService("HttpService")
-CONFIG_FILE = "FUST_config.json"
-function colorToTable(c)
-return {
-R = math.floor(c.R * 255 + 0.5),
-G = math.floor(c.G * 255 + 0.5),
-B = math.floor(c.B * 255 + 0.5),
-}
-end
-function tableToColor(t)
-if type(t) ~= "table" then
-return nil
-end
-return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
-end
-function saveConfig()
-local okFile, err = pcall(function()
-local wl = {}
-for name in pairs(Whitelist) do
-table.insert(wl, name)
-end
-table.sort(wl)
-local hotkeyKey, hotkeyMode = nil, nil
-if AimHotkeyObj and AimHotkeyObj.Value and AimHotkeyObj.Value ~= "None" and AimHotkeyObj.Get then
-local okHK, hkKey, hkMode = pcall(function()
-return AimHotkeyObj:Get()
-end)
-if okHK and type(hkKey) == "string" and hkKey ~= "" then
-hotkeyKey = hkKey
-hotkeyMode = (hkMode == "Hold" or hkMode == "Always") and hkMode or "Toggle"
-end
-end
-local cfg = {
-ESP = {
-Enabled = S.ESP.Enabled,
-Box = S.ESP.Box,
-Chams = S.ESP.Chams,
