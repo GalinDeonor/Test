@@ -1,5 +1,150 @@
-» следа.
-task.wait(0.18 + math.random() * 0.06)
+local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
+local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "бот/НПС"
+end
+end
+end
+end
+end
+end
+end
+end
+end
+return bestPart, bestPoint, bestType
+end
+if getgenv().FUST_AimCleanup then
+pcall(getgenv().FUST_AimCleanup)
+end
+aimConnection = nil
+aimConnection = RunService.RenderStepped:Connect(function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+aimConnection:Disconnect()
+return
+end
+local camera = Workspace.CurrentCamera
+if not camera then
+return
+end
+local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+updateCrosshair(center, Aim.Crosshair)
+if not Aim.Enabled then
+if fovCircle then
+fovCircle.Visible = false
+end
+return
+end
+if FreeCam.Enabled then
+if fovCircle then
+fovCircle.Visible = false
+end
+return
+end
+local part, aimPos = getAimTarget(camera)
+if fovCircle then
+fovCircle.Position = center
+fovCircle.Radius = Aim.FOV
+fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
+fovCircle.Visible = Aim.ShowFOV
+end
+if part and aimPos then
+AR_AimBusyUntil = os.clock() + 0.15
+local newCF = CFrame.new(camera.CFrame.Position, aimPos)
+if Evil.Enabled then
+camera.CFrame = newCF
+else
+local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
+camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
+end
+end
+end)
+getgenv().FUST_AimCleanup = function()
+if aimConnection then
+aimConnection:Disconnect()
+aimConnection = nil
+end
+pcall(function()
+if fovCircle then
+fovCircle:Remove()
+end
+end)
+fovCircle = nil 
+for i = 1, 4 do
+pcall(function()
+if chLines[i] then
+chLines[i]:Remove()
+end
+end)
+chLines[i] = nil
+end
+end
+function autoAimTick()
+if not AutoAim.Enabled then
+AA_EnemyNear = false
+AA_NearestDist = nil
+return
+end
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+if not myRoot then
+return 
+end
+local bestDist = math.huge
+local bestName = nil
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
+local model = plr.Character
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local d = (root.Position - myRoot.Position).Magnitude
+if d < bestDist then
+bestDist = d
+bestName = plr.Name
+end
+end
+end
+end
+AA_NearestDist = (bestDist < math.huge) and bestDist or nil
+local want = AA_EnemyNear
+if want then
+if bestDist > AutoAim.Radius + 30 then
+want = false 
+end
+else
+if bestDist <= AutoAim.Radius then
+want = true 
+end
+end
+if want ~= AA_EnemyNear then
+AA_EnemyNear = want
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+pcall(function()
+UIRegistry.AimEnabled:Set(want)
+end)
+end
+if bestName then
+journal(string.format("АВТО-АИМ: %s — %s (%d м)",
+want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
+bestName, math.floor(bestDist + 0.5)))
+else
+journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
+end
+end
+end
+task.spawn(function()
+while true do
+task.wait(0.2)
 if getgenv().FUST_SESSION ~= FUST_SESSION then
 break
 end
@@ -7,108 +152,6 @@ local okAA = pcall(autoAimTick)
 if not okAA then
 task.wait(1) 
 end
-end
-end)
-
--- 0.39: АДМИН/VIP ЧЕК — сканер игроков на права выше обычного
-AdminScan_Count = 0
-AdminScan_Names = ""
-AdminScan_List = {}
-local ADMIN_ATTRS = { "IsAdmin", "Admin", "IsModerator", "Moderator", "IsVIP", "VIP",
-"IsStaff", "Staff", "Role", "IsOwner", "Owner", "IsDeveloper", "Developer" }
-local ADMIN_TAGS = { "FustAdmin", "FustMod", "FustVIP", "Admin", "Moderator", "VIP",
-"Owner", "Staff", "Developer" }
-local ADMIN_GROUP_ROLES = { "Owner", "Admin", "Moderator", "Head Admin", "Staff" }
-
-function adminScanTick()
-local found = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-local isAdm = false
--- 1. Roblox admin badge (UserId < 1000 = старый акк, не админ; проверяем HasBadge)
-pcall(function()
-if plr.UserId < 1000 then
-isAdm = true
-table.insert(found, plr.Name .. " (Roblox staff)")
-end
-end)
--- 2. Атрибуты игрока
-if not isAdm then
-pcall(function()
-local attrs = plr:GetAttributes()
-for k, v in pairs(attrs) do
-local kl = string.lower(tostring(k))
-for _, attr in ipairs(ADMIN_ATTRS) do
-if kl == string.lower(attr) and v then
-isAdm = true
-table.insert(found, plr.Name .. " (attr:" .. k .. ")")
-break
-end
-end
-end
-end)
-end
--- 3. CollectionService теги
-if not isAdm then
-pcall(function()
-for _, tag in ipairs(ADMIN_TAGS) do
-if CollectionService:HasTag(plr, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (tag:" .. tag .. ")")
-break
-end
-end
-end)
-end
--- 4. FUST-специфичные теги/атрибуты на Character
-if not isAdm then
-pcall(function()
-local c = plr.Character
-if c then
-for _, tag in ipairs({ "FustAdmin", "FustMod", "Admin", "Moderator" }) do
-if CollectionService:HasTag(c, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (char:" .. tag .. ")")
-break
-end
-end
-end
-end)
-end
--- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем только если игра дала плейс-специфичную группу
-local placeGroup = nil
-pcall(function()
--- FUST: пробуем common survival group IDs
-for _, gid in ipairs({ 0 }) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
-if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
-AdminScan_LastJournal = os.clock()
-journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
-end
-else
-AdminScan_Names = ""
-end
-end
-AdminScan_LastJournal = 0
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
 end
 end)
 HttpService = game:GetService("HttpService")
@@ -1340,11 +1383,7 @@ local expanded = false
 if S.Hitbox.Enabled and myRoot and not isWhitelisted and not isTeammate then
 expanded = true
 hitboxAppliedCount = hitboxAppliedCount + 1
--- STEALTH 0.38: ограничиваем размер хитбокса сверху 8 юнитами, даже если
--- в меню стоит 20. Размер > 8 = явный бан-флаг (дистанция hit detection
--- аномально больше габарита модели).
-local safeSize = math.clamp(S.Hitbox.Size, 2, 8)
-local targetSize = Vector3.new(safeSize, safeSize, safeSize)
+local targetSize = Vector3.new(S.Hitbox.Size, S.Hitbox.Size, S.Hitbox.Size)
 pcall(function()
 if root.Size ~= targetSize then
 root.Size = targetSize
@@ -1506,9 +1545,9 @@ return char:FindFirstChildOfClass("Tool")
 end)
 if okTool and tool then
 local itemY = by + bh + (S.ESP.Distance and (distSize + 10) or 4)
-ed.Item.Text = translateItemName(tool.Name)
+ed.Item.Text = tool.Name
 ed.Item.Position = Vector2.new(centerX, itemY)
-ed.Item.Color = isWhitelisted and COLOR_WHITELIST or ESPItemColor
+ed.Item.Color = isWhitelisted and COLOR_WHITELIST or Color3.fromRGB(255, 215, 90)
 ed.Item.Visible = true
 else
 ed.Item.Visible = false
@@ -1600,9 +1639,7 @@ or (catName == "Animal" and S.NPC.HitboxAnimals)
 or (catName == "Sleeper" and S.NPC.HitboxSleepers)
 if S.NPC.HitboxEnabled and hum.Health > 0 and hbAllowed then
 npcHitApplied = npcHitApplied + 1
--- STEALTH 0.38: тот же clamp 2..8 для хитбокса НПС.
-local safeSizeN = math.clamp(S.NPC.HitboxSize, 2, 8)
-local targetSize = Vector3.new(safeSizeN, safeSizeN, safeSizeN)
+local targetSize = Vector3.new(S.NPC.HitboxSize, S.NPC.HitboxSize, S.NPC.HitboxSize)
 pcall(function()
 if root.Size ~= targetSize then
 root.Size = targetSize
@@ -1714,7 +1751,7 @@ return model:FindFirstChildOfClass("Tool")
 end)
 if okTool and tool then
 local itemY = by + bh + (S.NPC.Distance and (distSize + 10) or 4)
-ed.Item.Text = translateItemName(tool.Name)
+ed.Item.Text = tool.Name
 ed.Item.Position = Vector2.new(centerX, itemY)
 ed.Item.Color = catColor
 ed.Item.Visible = true
@@ -1947,283 +1984,6 @@ Players.PlayerRemoving:Connect(function(player)
 removeEspDrawings(player)
 hitboxOriginals[player] = nil
 end)
-
--- ============================================================================
--- FUST KICK/BAN LOGGER 0.38 — лог киков/банов с persist между запусками
--- ============================================================================
--- Логирует каждый вылет LocalPlayer: время, place, executor, что было
--- включено в момент вылета, текст кик-баннера из CoreGui если найден.
--- Файл FUST_kicks.log НЕ сбрасывается между запусками (ротация при >256КБ).
--- При старте проверяет: прошлый запуск закончился abruptly? Если да —
--- в начале лога пометка "PREVIOUS RUN: ABRUPT EXIT".
--- ============================================================================
-
-KICKLOG_FILE = "FUST_kicks.log"
-KICKLOG_MAX  = 262144
-KICKLOG_FLAG = "FUST_KL_Active"  -- маркер активной сессии в логе
-
-local function klAppend(msg)
-if type(appendfile) ~= "function" then return end
-pcall(function()
-appendfile(KICKLOG_FILE, msg .. "\n")
-end)
-end
-
-local function klRead()
-if type(isfile) ~= "function" or not isfile(KICKLOG_FILE) then return "" end
-local ok, c = pcall(readfile, KICKLOG_FILE)
-return ok and c or ""
-end
-
-local function klRotateIfNeeded()
-pcall(function()
-if type(isfile) == "function" and isfile(KICKLOG_FILE) then
-local okS, sz = pcall(function() return #readfile(KICKLOG_FILE) end)
-if okS and sz and sz > KICKLOG_MAX then
-writefile(KICKLOG_FILE, "")
-end
-end
-end)
-end
-
-local function klTimestamp()
-local okD, s = pcall(os.date, "%Y-%m-%d %H:%M:%S")
-return okD and s or tostring(os.time())
-end
-
-local function klPlaceInfo()
-local placeId = tostring(game.PlaceId)
-local placeName = "?"
-pcall(function()
-placeName = tostring(game.Name)
-end)
-local jobId = "?"
-pcall(function()
-jobId = tostring(game.JobId)
-end)
-return placeId, placeName, jobId
-end
-
--- Список флагов, которые критичны для диагностики бана
-local KL_INTERESTING = {
-"AimEnabled", "EvilEnabled", "EvilAutoPred", "EvilSnipe", "EvilK",
-"AutoAimEnabled", "AutoAimRadius",
-"HitboxEnabled", "HitboxSize", "HitboxTransparency",
-"NPCHitboxEnabled", "NPCHitboxSize", "NPCHitboxAnimals", "NPCHitboxSleepers",
-"ESPEnabled", "ESPBox", "ESPChams", "ESPName", "ESPItem", "ESPDistance",
-"ESPHealthBar", "ESPMaxDistance", "ESPTeamCheck", "ESPVisCheck", "ESPVisHitbox",
-"NPCEsp", "NPCGuards", "NPCPeaceful", "NPCAnimals", "NPCSleepers",
-"NPCChams", "NPCBox", "NPCName", "NPCDistance", "NPCHitboxEnabled",
-"LootEnabled", "LootChams", "LootOwner", "LootSlots",
-"LootCEnabled", "LootCChams",
-"BulletsEnabled", "BulletsStyle", "BulletsWidth",
-"FreeCamEnabled", "FreeCamSpeed", "FreeCamAutoFly",
-"AntiRecoilEnabled", "AntiRecoilRollback", "AntiRecoilDrift",
-"AntiShakeEnabled", "AntiShakeRoll", "AntiShakePosition", "AntiShakeOscillation",
-"FullBright", "NoDecoration", "NoGrass", "NoFog",
-"HUDEnabled",
-}
-
--- Снимок состояния чита (что было включено) — по UIRegistry/Set-флагам
-local function klSnapshotFeatures()
-local lines = {}
--- Источник 1: Library.Flags (если есть)
-local lib = getgenv().Library
-local flags = lib and lib.Flags
-if type(flags) == "table" then
-for _, k in ipairs(KL_INTERESTING) do
-local v = flags[k]
-if v ~= nil then
-table.insert(lines, "  " .. k .. " = " .. tostring(v))
-end
-end
-end
--- Источник 2: прямые стейты (S, Aim, Evil, AutoAim) — дублирует, но надёжнее
-pcall(function()
-if type(S) == "table" then
-if S.Hitbox then
-table.insert(lines, "  [state] S.Hitbox.Enabled=" .. tostring(S.Hitbox.Enabled) .. " Size=" .. tostring(S.Hitbox.Size))
-end
-if S.ESP then
-table.insert(lines, "  [state] S.ESP.Enabled=" .. tostring(S.ESP.Enabled) .. " Box=" .. tostring(S.ESP.Box) .. " Chams=" .. tostring(S.ESP.Chams))
-end
-if S.NPC then
-table.insert(lines, "  [state] S.NPC.ESP=" .. tostring(S.NPC.ESP) .. " Hitbox=" .. tostring(S.NPC.HitboxEnabled) .. " Size=" .. tostring(S.NPC.HitboxSize))
-end
-end
-if type(Aim) == "table" then
-table.insert(lines, "  [state] Aim.Enabled=" .. tostring(Aim.Enabled) .. " FOV=" .. tostring(Aim.FOV) .. " Smooth=" .. tostring(Aim.Smooth) .. " WallCheck=" .. tostring(Aim.WallCheck))
-end
-if type(Evil) == "table" then
-table.insert(lines, "  [state] Evil.Enabled=" .. tostring(Evil.Enabled) .. " AutoPred=" .. tostring(Evil.AutoPred) .. " Snipe=" .. tostring(Evil.Snipe) .. " K=" .. tostring(Evil.K))
-end
-if type(AutoAim) == "table" then
-table.insert(lines, "  [state] AutoAim.Enabled=" .. tostring(AutoAim.Enabled) .. " Radius=" .. tostring(AutoAim.Radius))
-end
-if type(FreeCam) == "table" then
-table.insert(lines, "  [state] FreeCam.Enabled=" .. tostring(FreeCam.Enabled) .. " Speed=" .. tostring(FreeCam.Speed))
-end
-end)
-if #lines == 0 then
-return "  (состояние недоступно)"
-end
-return table.concat(lines, "\n")
-end
-
--- Поиск кик-баннера в CoreGui: Roblox при Player:Kick(reason) показывает
--- TextLabel с причиной в CoreGui.RobloxPromptDialog или подобных. Сканируем
--- первые N TextLabel-ов с непустым текстом.
-local function klScanKickBanner()
-local found = nil
-pcall(function()
-local promptRoot
-pcall(function()
-promptRoot = game:GetService("CoreGui"):FindFirstChild("RobloxPromptDialog")
-end)
-if not promptRoot then
-pcall(function()
-for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
-if gui:IsA("ScreenGui") then
-local p = gui:FindFirstChild("PromptDialog") or gui:FindFirstChild("RobloxPromptDialog")
-or gui:FindFirstChildWhichIsA("Frame")
-if p then promptRoot = p break end
-end
-end
-end)
-end
-if promptRoot then
-local scanned = 0
-for _, desc in ipairs(promptRoot:GetDescendants()) do
-scanned = scanned + 1
-if scanned > 60 then break end
-if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
-local t = desc.Text
-if t:lower():find("kick") or t:lower():find("ban")
-or t:lower():find("вы kicked") or t:lower():find("вы ban")
-or t:lower():find("обнаружен") or t:lower():find("detect")
-or t:lower():find("cheat") or t:lower():find("чит")
-or t:lower():find("exploit") or t:lower():find("hack")
-or t:lower():find("разблокирован") or t:lower():find("нарушен") then
-found = t
-break
-end
-end
-end
-end
-end)
-return found
-end
-
--- Главная функция: записать вылет
-local function klLogExit(reason, extraText)
-pcall(function()
-klRotateIfNeeded()
-local ts = klTimestamp()
-local placeId, placeName, jobId = klPlaceInfo()
-local exec = tostring(EXECUTOR_NAME or "неизвестен")
-local snap = klSnapshotFeatures()
-local banner = extraText or klScanKickBanner()
-local entry = {}
-table.insert(entry, "==========================================================")
-table.insert(entry, "[" .. ts .. "] " .. reason)
-table.insert(entry, "  Place:    " .. placeId .. " (" .. placeName .. ")")
-table.insert(entry, "  JobId:    " .. jobId)
-table.insert(entry, "  Executor: " .. exec)
-if banner then
-table.insert(entry, "  KickMsg:  " .. banner)
-end
-table.insert(entry, "  --- Active features at exit ---")
-table.insert(entry, snap)
-table.insert(entry, "==========================================================")
-local msg = table.concat(entry, "\n")
-klAppend(msg)
-print("[FUST-KL] " .. msg)
-warn("[FUST-KL] ВЫЛЕТ ЗАЛОГИРОВАН: " .. KICKLOG_FILE .. " — скинь скрин консоли.")
-end)
-end
-
--- Стартовая проверка: прошлый запуск abruptly завершился?
-local function klCheckPreviousRun()
-pcall(function()
-local log = klRead()
-if #log == 0 then return end
--- Ищем последнюю запись "ЗАПУСК" / START и DEACTIVATED.
--- Luau не любит \[ в обычных строках — используем long-string + % escape.
-local lastStart = log:match([[.-%[(.-)%] === ЗАПУСК 0%.39]])
-or log:match([[.-%[(.-)%] FUST_KL_Active_START]])
-local lastDeactivate = log:match([[.-%[(.-)%] FUST_KL_DEACTIVATED]])
-if lastStart and not lastDeactivate then
--- Прошлый запуск не завершился нормально → abrupt exit
-local ts = klTimestamp()
-local placeId, placeName, jobId = klPlaceInfo()
-local exec = tostring(EXECUTOR_NAME or "неизвестен")
-local msg = "==========================================================\n"
-.. "[" .. ts .. "] PREVIOUS RUN: ABRUPT EXIT\n"
-.. "  Предыдущий запуск (начат " .. (lastStart or "?") .. ") НЕ завершился\n"
-.. "  нормальной деактивацией — возможный КИК/БАН во время игры.\n"
-.. "  Place:    " .. placeId .. " (" .. placeName .. ")\n"
-.. "  JobId:    " .. jobId .. "\n"
-.. "  Executor: " .. exec .. "\n"
-.. "  Смотри последнюю запись 'ВЫЛЕТ' выше для деталей.\n"
-.. "=========================================================="
-klAppend(msg)
-print("[FUST-KL] PREVIOUS RUN: ABRUPT EXIT — смотри " .. KICKLOG_FILE)
-end
-end)
-end
-
--- Хук на FUST_Deactivate: пишем маркер нормального выхода
-local origDeactivate = getgenv().FUST_Deactivate
-getgenv().FUST_Deactivate = function(...)
-pcall(function()
-local ts = klTimestamp()
-klAppend("[" .. ts .. "] FUST_KL_DEACTIVATED — нормальный выход через кнопку.")
-end)
-if type(origDeactivate) == "function" then
-return origDeactivate(...)
-end
-end
-
--- Главный слушатель: PlayerRemoving для LocalPlayer = кик/бан/выход
-local klPlayerRemoved = false
-Players.PlayerRemoving:Connect(function(player)
-if player == LocalPlayer and not klPlayerRemoved then
-klPlayerRemoved = true
--- Даём CoreGui 0.3с на отрисовку баннера кика
-task.delay(0.3, function()
-local banner = klScanKickBanner()
-local reason = banner and "KICK/BAN (найден баннер в CoreGui)" or "EXIT/QUIT (баннер не найден — возможно ручной выход)"
-klLogExit(reason, banner)
-end)
-end
-end)
-
--- Стартовая пометка в лог
-klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.39, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
-klCheckPreviousRun()
-
--- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
--- Если LocalPlayer.Parent ~= Players (вдруг PlayerRemoving не успел) — лог.
-task.spawn(function()
-while true do
-task.wait(30)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-local p = LocalPlayer
-if not p or not p.Parent or not p.Parent:IsA("Players") then
--- LocalPlayer уже не в Players — вылет без события
-if not klPlayerRemoved then
-klPlayerRemoved = true
-klLogExit("ABRUPT EXIT (LocalPlayer.Parent ~= Players, событие не сработало)")
-end
-break
-end
-end
-end)
-
-journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
-print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
--- /FUST KICK/BAN LOGGER ======================================================
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
@@ -2295,7 +2055,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.39 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.37 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

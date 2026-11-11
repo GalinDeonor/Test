@@ -1,85 +1,3 @@
- (cf - cf.Position)
-cf = camera.CFrame
-else
-AS_SmoothPos = pos
-end
-else
-AS_SmoothPos = pos
-end
-else
-AS_SmoothPos = nil
-end
-if AS_LastRawPitch then
-local lx, lz = look.X, look.Z
-local hh = lx * lx + lz * lz
-local dp = look.Y - AS_LastRawPitch
-local dyaw = 0
-if AS_LastLX and hh > 0.04 and (AS_LastLX * AS_LastLX + AS_LastLZ * AS_LastLZ) > 0.04 then
-local cross = lx * AS_LastLZ - lz * AS_LastLX
-dyaw = math.asin(math.clamp(cross / hh, -1, 1))
-end
-if AntiShake.Oscillation and not aimBusy then
-local bandP = math.abs(dp) > 0.0001 and math.abs(dp) < math.rad(2.5)
-local bandY = math.abs(dyaw) > 0.0001 and math.abs(dyaw) < math.rad(2.5)
-local flipP = bandP and AS_LastDp ~= nil and math.abs(AS_LastDp) < math.rad(2.5) and ((dp > 0) ~= (AS_LastDp > 0))
-local flipY = bandY and AS_LastDy ~= nil and math.abs(AS_LastDy) < math.rad(2.5) and ((dyaw > 0) ~= (AS_LastDy > 0))
-if flipP then
-AS_PitchFlips = AS_PitchFlips + 1
-else
-AS_PitchFlips = 0
-end
-if flipY then
-AS_YawFlips = AS_YawFlips + 1
-else
-AS_YawFlips = 0
-end
-if (flipP or flipY) and firing then
-if not AS_AnchorLook then
-local back = cf
-if bandP then
-back = back * CFrame.Angles(-dp, 0, 0)
-end
-if bandY then
-back = back * CFrame.Angles(0, -dyaw, 0)
-end
-AS_AnchorLook = back.LookVector
-end
-AS_LastShakeAt = now
-FUST_FireUntil = math.max(FUST_FireUntil, now + 0.2)
-elseif not bandP and not bandY then
-if now - AS_LastShakeAt > 0.25 then
-AS_AnchorLook = nil
-end
-end
-if AS_AnchorLook and math.abs(AS_AnchorLook.Y) < 0.999 then
-local dotAng = math.acos(math.clamp(cf.LookVector:Dot(AS_AnchorLook), -1, 1))
-if dotAng > math.rad(6) then
-AS_AnchorLook = nil
-elseif dotAng > 0.0006 then
-local target = CFrame.lookAt(cf.Position, cf.Position + AS_AnchorLook)
-camera.CFrame = cf:Lerp(target, 0.55)
-end
-end
-end
-AS_LastDp = dp
-AS_LastDy = dyaw
-end
-local look2 = camera.CFrame.LookVector
-AS_LastRawPitch = look2.Y
-AS_LastLX = look2.X
-AS_LastLZ = look2.Z
-end)
-end
-pcall(function()
-RunService:UnbindFromRenderStep("FUST_AR_Snap")
-RunService:UnbindFromRenderStep("FUST_AR_Restore")
-end)
-RunService:BindToRenderStep("FUST_AR_Snap", Enum.RenderPriority.Camera.Value + 1, function()
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-RunService:UnbindFromRenderStep("FUST_AR_Snap")
-return
-end
-if not (AntiRecoil.Enabled and AntiRecoil.Rollback) then
 return
 end
 local camera = Workspace.CurrentCamera
@@ -234,16 +152,7 @@ fovCircle.Visible = false
 else
 warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
 end
--- 0.39: ПРИЦЕЛ В СТИЛЕ CS2 — настраиваемые длина/толщина/зазор/точка/обводка/цвет
-CH = {
-Gap = 5,        -- зазор от центра
-Length = 7,     -- длина лучей
-Thickness = 2,  -- толщина линий
-Dot = false,    -- точка в центре
-Outline = true, -- обводка (чёрная за цветом)
-Color = Color3.fromRGB(255, 30, 30),
-}
-CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
+CH_GAP, CH_LEN = 5, 7
 chLines = {}
 for i = 1, 4 do
 local l = SafeDrawing("Line")
@@ -254,95 +163,26 @@ l.Visible = false
 chLines[i] = l
 end
 end
-chDot = SafeDrawing("Circle")
-if chDot then
-chDot.Radius = 1
-chDot.Thickness = 1
-chDot.Filled = true
-chDot.Color = Color3.fromRGB(255, 30, 30)
-chDot.Visible = false
-end
--- обводка: 8 линий вокруг основных (4 направления × 2 смещения)
-chOutline = {}
-for i = 1, 8 do
-local l = SafeDrawing("Line")
-if l then
-l.Thickness = 3
-l.Color = Color3.fromRGB(0, 0, 0)
-l.Visible = false
-chOutline[i] = l
-end
-end
 function updateCrosshair(center, visible)
-local gap = CH.Gap
-local len = CH.Length
-local th = CH.Thickness
--- top
 if chLines[1] then
-chLines[1].From = Vector2.new(center.X, center.Y - gap)
-chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
-chLines[1].Thickness = th
-chLines[1].Color = CH.Color
-chLines[1].Visible = visible
+chLines[1].From = Vector2.new(center.X, center.Y - CH_GAP)
+chLines[1].To = Vector2.new(center.X, center.Y - CH_GAP - CH_LEN)
 end
--- bottom
 if chLines[2] then
-chLines[2].From = Vector2.new(center.X, center.Y + gap)
-chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
-chLines[2].Thickness = th
-chLines[2].Color = CH.Color
-chLines[2].Visible = visible
+chLines[2].From = Vector2.new(center.X, center.Y + CH_GAP)
+chLines[2].To = Vector2.new(center.X, center.Y + CH_GAP + CH_LEN)
 end
--- left
 if chLines[3] then
-chLines[3].From = Vector2.new(center.X - gap, center.Y)
-chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
-chLines[3].Thickness = th
-chLines[3].Color = CH.Color
-chLines[3].Visible = visible
+chLines[3].From = Vector2.new(center.X - CH_GAP, center.Y)
+chLines[3].To = Vector2.new(center.X - CH_GAP - CH_LEN, center.Y)
 end
--- right
 if chLines[4] then
-chLines[4].From = Vector2.new(center.X + gap, center.Y)
-chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
-chLines[4].Thickness = th
-chLines[4].Color = CH.Color
-chLines[4].Visible = visible
+chLines[4].From = Vector2.new(center.X + CH_GAP, center.Y)
+chLines[4].To = Vector2.new(center.X + CH_GAP + CH_LEN, center.Y)
 end
--- точка
-if chDot then
-chDot.Position = center
-chDot.Radius = math.max(1, math.floor(th / 2))
-chDot.Color = CH.Color
-chDot.Visible = visible and CH.Dot
-end
--- обводка (8 линий с микро-смещением вокруг основных)
-if CH.Outline and visible then
-local offs = { {1,0}, {-1,0}, {0,1}, {0,-1} }
-local oi = 1
-for dir = 1, 4 do
-local base = chLines[dir]
-if base then
-for _, off in ipairs(offs) do
-local o = chOutline[oi]
-if o then
-o.From = Vector2.new(base.From.X + off[1], base.From.Y + off[2])
-o.To = Vector2.new(base.To.X + off[1], base.To.Y + off[2])
-o.Thickness = th + 2
-o.Color = Color3.fromRGB(0, 0, 0)
-o.Visible = true
-end
-oi = oi + 1
-end
-end
-end
--- скрыть неиспользованные
-for i = oi, 8 do
-if chOutline[i] then chOutline[i].Visible = false end
-end
-else
-for i = 1, 8 do
-if chOutline[i] then chOutline[i].Visible = false end
+for i = 1, 4 do
+if chLines[i] then
+chLines[i].Visible = visible
 end
 end
 end
@@ -847,7 +687,7 @@ return nil
 end
 bpOpenCacheInst = {} 
 bpOpenCacheTitle = {} 
-BP_OPEN_TTL = 1800 -- 0.39: было 900с (15мин). 30мин кэш безопаснее для FPS.
+BP_OPEN_TTL = 900 
 bpUiScanAt = {} 
 function bpLooksLikeBagTitle(text)
 if type(text) ~= "string" or #text < 4 or #text > 64 then
@@ -1425,37 +1265,15 @@ end
 end
 end)
 -- ЯКОРЬ ТЕЛА: персонаж стоит на месте, пока камера летает (телефон и ПК)
--- STEALTH 0.39: фикс «бежит на месте / летит» — якоря HRP мало, анимация
--- бега продолжает играть, а MoveDirection Humanoid-а может двигать тело
--- через физику. Поэтому: WalkSpeed=0, JumpPower=0, AutoRotate=false,
--- Humanoid:ChangeState(Physics) — тело реально замирает.
 FC_MOD.savedHRP = nil
 FC_MOD.savedAnchor = nil
-FC_MOD.savedHum = nil
-FC_MOD.savedWalkSpeed = nil
-FC_MOD.savedJumpPower = nil
-FC_MOD.savedAutoRotate = nil
 pcall(function()
 local c = LocalPlayer.Character
 local hrp = c and c:FindFirstChild("HumanoidRootPart")
-local hum = c and c:FindFirstChildOfClass("Humanoid")
 if hrp then
 FC_MOD.savedHRP = hrp
 FC_MOD.savedAnchor = hrp.Anchored
 hrp.Anchored = true
-end
-if hum then
-FC_MOD.savedHum = hum
-FC_MOD.savedWalkSpeed = hum.WalkSpeed
-FC_MOD.savedJumpPower = hum.JumpPower
-FC_MOD.savedAutoRotate = hum.AutoRotate
-hum.WalkSpeed = 0
-hum.JumpPower = 0
-hum.JumpHeight = 0
-hum.AutoRotate = false
-pcall(function()
-hum:ChangeState(Enum.HumanoidStateType.Physics)
-end)
 end
 end)
 for _, c in ipairs(FC_MOD.conns) do
@@ -1541,10 +1359,7 @@ if move.Magnitude > 0.001 then
 pos = pos + move.Unit * speed * dt
 end
 cam.CFrame = CFrame.new(pos) * CFrame.fromEulerAnglesYXZ(FC_MOD.pitch, FC_MOD.yaw, 0)
--- STEALTH 0.38: интервал стрима 1.5с вместо 0.7с — реже подозрительных
--- вызовов RequestStreamAroundAsync. Прогрузка карты чуть медленнее, но
--- безопаснее. Если улетаешь далеко и видно пустоту — подними до 1.0.
-if os.clock() - FC_MOD.streamAt > 1.5 then
+if os.clock() - FC_MOD.streamAt > 0.7 then
 FC_MOD.streamAt = os.clock()
 pcall(function()
 LocalPlayer:RequestStreamAroundAsync(pos)
@@ -1654,18 +1469,8 @@ local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
 if hrp2 and hrp2 ~= FC_MOD.savedHRP then
 hrp2.Anchored = false
 end
--- STEALTH 0.39: восстанавливаем WalkSpeed/JumpPower/AutoRotate
-if FC_MOD.savedHum and FC_MOD.savedHum.Parent then
-FC_MOD.savedHum.WalkSpeed = FC_MOD.savedWalkSpeed or 16
-FC_MOD.savedHum.JumpPower = FC_MOD.savedJumpPower or 50
-FC_MOD.savedHum.AutoRotate = FC_MOD.savedAutoRotate ~= false
-pcall(function()
-FC_MOD.savedHum:ChangeState(Enum.HumanoidStateType.GettingUp)
-end)
-end
 end)
 FC_MOD.savedHRP = nil
-FC_MOD.savedHum = nil
 journal("ФРИКАМ ВЫКЛ")
 freecamSyncToggleUI(false)
 end
@@ -1710,7 +1515,7 @@ journal("ФРИКАМ: скорость " .. math.floor(FreeCam.Speed))
 end
 end)
 LOOT_POOL_SIZE = 12
-LOOT_POOL_INTERVAL = 1.2 -- 0.39: было 0.35 — лагало на ПК. 1.2с достаточно.
+LOOT_POOL_INTERVAL = 0.35
 lootChamPool = {}
 lootChamPoolAt = 0
 lootChamPoolBlocked = false
@@ -1837,8 +1642,8 @@ local catOn = (cat == "bag" and S.Loot.Enabled) or (cat == "cont" and S.LootC.En
 if not catOn then
 bpHideDrawings(inst)
 else
-if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 6) then
-local deep = not e.DeepAt or now - e.DeepAt > 60 -- 0.39: было 4с/30с — лагало. 6с/60с.
+if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 4) then
+local deep = not e.DeepAt or now - e.DeepAt > 30
 if deep then
 e.DeepAt = now
 end
@@ -2264,166 +2069,3 @@ if worldDist <= Aim.Distance then
 local part = resolveAimPart(model, Aim.Part)
 if part then
 local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
-local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
-local aimPos = part.Position + vel * lead
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
-local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "бот/НПС"
-end
-end
-end
-end
-end
-end
-end
-end
-end
-return bestPart, bestPoint, bestType
-end
-if getgenv().FUST_AimCleanup then
-pcall(getgenv().FUST_AimCleanup)
-end
-aimConnection = nil
-aimConnection = RunService.RenderStepped:Connect(function()
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-aimConnection:Disconnect()
-return
-end
-local camera = Workspace.CurrentCamera
-if not camera then
-return
-end
-local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-updateCrosshair(center, Aim.Crosshair)
-if not Aim.Enabled then
-if fovCircle then
-fovCircle.Visible = false
-end
-return
-end
-if FreeCam.Enabled then
-if fovCircle then
-fovCircle.Visible = false
-end
-return
-end
-local part, aimPos = getAimTarget(camera)
-if fovCircle then
-fovCircle.Position = center
-fovCircle.Radius = Aim.FOV
-fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
-fovCircle.Visible = Aim.ShowFOV
-end
-if part and aimPos then
-AR_AimBusyUntil = os.clock() + 0.15
-local newCF = CFrame.new(camera.CFrame.Position, aimPos)
-if Evil.Enabled then
--- STEALTH 0.39: фикс «кривого прицеливания» злого аима.
--- Проблема 0.38: фиксированный лерп 0.85 недолёт при быстрой цели
--- (успевает убежать за 1 кадр), и перелёт при близкой (камера
--- проскакивает). Решение: лерп АДАПТИВНЫЙ по дистанции до цели.
--- < 30м → 0.92 (быстрая коррекция, цель близко — резче)
--- 30..80м → 0.85 (средне)
--- > 80м → 0.78 (далеко — меньше перелётов)
--- Snipe-режим — +0.06 ко всем (максимум 0.98).
-local dist = (aimPos - camera.CFrame.Position).Magnitude
-local baseA = 0.78
-if dist < 30 then baseA = 0.92
-elseif dist < 80 then baseA = 0.85
-end
-if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
-camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
-else
-local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
-camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
-end
-end
-end)
-getgenv().FUST_AimCleanup = function()
-if aimConnection then
-aimConnection:Disconnect()
-aimConnection = nil
-end
-pcall(function()
-if fovCircle then
-fovCircle:Remove()
-end
-end)
-fovCircle = nil 
-for i = 1, 4 do
-pcall(function()
-if chLines[i] then
-chLines[i]:Remove()
-end
-end)
-chLines[i] = nil
-end
-end
-function autoAimTick()
-if not AutoAim.Enabled then
-AA_EnemyNear = false
-AA_NearestDist = nil
-return
-end
-local myChar = LocalPlayer.Character
-local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if not myRoot then
-return 
-end
-local bestDist = math.huge
-local bestName = nil
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
-local model = plr.Character
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local d = (root.Position - myRoot.Position).Magnitude
-if d < bestDist then
-bestDist = d
-bestName = plr.Name
-end
-end
-end
-end
-AA_NearestDist = (bestDist < math.huge) and bestDist or nil
-local want = AA_EnemyNear
-if want then
-if bestDist > AutoAim.Radius + 30 then
-want = false 
-end
-else
-if bestDist <= AutoAim.Radius then
-want = true 
-end
-end
-if want ~= AA_EnemyNear then
-AA_EnemyNear = want
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-pcall(function()
-UIRegistry.AimEnabled:Set(want)
-end)
-end
-if bestName then
-journal(string.format("АВТО-АИМ: %s — %s (%d м)",
-want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
-bestName, math.floor(bestDist + 0.5)))
-else
-journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
-end
-end
-end
-task.spawn(function()
-while true do
--- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ровные
--- интервалы сканера = бот-паттерн для эвристики. 0.18..0.24с неотличимо
--- от человеческой реакции, но не даёт «ритмичного

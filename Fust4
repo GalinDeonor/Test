@@ -1,128 +1,3 @@
-ys.Slow = key
-FC_KEY_SLOW = key
-end
-end
-})
-UIRegistry.FreeCamKeyFast = FreeCamSection:Keybind({
-Name = "Клавиша: скорость БОЛЬШЕ",
-Flag = "FreeCamKeyFast",
-Default = Enum.KeyCode.X,
-Mode = "Toggle",
-Callback = function(state, key)
-if key then
-FreeCamKeys.Fast = key
-FC_KEY_FAST = key
-end
-end
-})
-uiStep("Вкладка Аимбот", function()
-Window:Group("Бой")
-AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
-AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
-HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
-TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
-end)
-uiStep("Вкладки ESP/Визуалы/Лут", function()
-Window:Group("Визуал")
-EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
-EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
-VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
-WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
-TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
-LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
-end)
-print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
-S = {
-ESP = {
-Enabled = false,
-Box = false,
-Chams = false,
-ChamsTransparency = 0.5,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-MaxDistance = 1500,
-DistanceScale = true, 
-TeamCheck = false, 
-VisCheck = false, 
-VisHitbox = false, 
-},
-ESPColors = {
-Box = Color3.fromRGB(0, 255, 255),
-},
-Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
-FullBright = false,
-NoDecoration = false,
-NoGrass = false,
-NoFog = false,
-Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
-NPC = {
-ESP = false,
-CatGuards = true, 
-CatPeaceful = false, 
-CatAnimals = false, 
-CatSleepers = false, 
-DebugLog = false, 
-Box = false,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-Chams = false,
-ChamsTransparency = 0.5,
-MaxDistance = 3000,
-HitboxEnabled = false,
-HitboxSize = 5,
-HitboxTransparency = 0.7,
-HitboxAnimals = false, 
-HitboxSleepers = false, 
-},
-HUD = {
-Enabled = true,
-Size = 11, 
-BgTransparency = 0.35, 
-TextTransparency = 0, 
-Corner = "Лево-низ", 
-ShowTPS = true, 
-ShowBg = true, 
--- 0.39: новые поля
-ColorBg = Color3.fromRGB(12, 12, 16),
-ColorText = Color3.fromRGB(235, 235, 240),
-ColorStroke = Color3.fromRGB(255, 170, 40),
-ShowAdmin = true, 
-Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
-},
-Loot = {
-Enabled = false,
-Owner = true, 
-Slots = true, 
-Distance = true,
-Box = true,
-Chams = true, 
-MaxDistance = 1500,
-DebugLog = false, 
-},
-LootC = {
-Enabled = false,
-Name = true, 
-Distance = true,
-Box = true,
-MaxDistance = 800,
-Chams = false, 
-},
-}
-LOOT_COLOR = Color3.fromRGB(255, 70, 255)
-LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
-CollectionService = game:GetService("CollectionService")
-NPC_COLOR = Color3.fromRGB(255, 145, 0) 
-NPC_CAT_COLORS = {
-Guard = Color3.fromRGB(255, 145, 0), 
-Peaceful = Color3.fromRGB(80, 255, 140), 
-Animal = Color3.fromRGB(255, 80, 95), 
-Sleeper = Color3.fromRGB(80, 190, 255), 
-}
-NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
 NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
 SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
 SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
@@ -394,85 +269,6 @@ S.ESP.Item = state
 journal("ПРЕДМЕТ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
--- 0.39: цвет предмета в руках
-ESPItemColor = Color3.fromRGB(255, 215, 90)
-UIRegistry.ESPItemColor = EspSection:Colorpicker({
-Name = "Цвет предмета в руках",
-Flag = "ESPItemColor",
-Default = ESPItemColor,
-Callback = function(c)
-ESPItemColor = c
-end
-})
--- 0.39: перевод названий предметов на русский (вкл/выкл)
-ItemRuTranslate = false
-ITEM_RU_DICT = {
--- оружие
-["ak-47"] = "АК-47", ["ak47"] = "АК-47", ["akm"] = "АКМ", ["m4a1"] = "М4А1",
-["m4a4"] = "М4А4", ["mp5"] = "МП5", ["ump45"] = "УМП-45", ["p90"] = "П90",
-["awp"] = "АВП", ["awm"] = "АВМ", ["mosin"] = "Мосина", ["kar98"] = "Кар98",
-["shotgun"] = "Дробовик", ["pump shotgun"] = "Помповый дробовик",
-["auto shotgun"] = "Авто-дробовик", ["double barrel"] = "Двустволка",
-["pistol"] = "Пистолет", ["glock"] = "Глок", ["deagle"] = "Дезерт Игл",
-["revolver"] = "Револьвер", ["sniper"] = "Снайперка", ["rifle"] = "Винтовка",
-["smg"] = "Пистолет-пулемёт", ["lmg"] = "Пулемёт", ["grenade"] = "Граната",
-["flashbang"] = "Слеповая", ["smoke"] = "Дымовая", ["molotov"] = "Коктейл Молотова",
-["machete"] = "Мачете", ["knife"] = "Нож", ["sword"] = "Меч", ["katana"] = "Катана",
-["axe"] = "Топор", ["bat"] = "Бита", ["crowbar"] = "Лом",
--- патроны
-["9mm"] = "9мм патроны", ["45acp"] = ".45 патроны", ["556"] = "5.56 патроны",
-["762"] = "7.62 патроны", ["12gauge"] = "12 калибр", ["shells"] = "Патроны",
-["ammo"] = "Патроны", ["magazine"] = "Магазин",
--- еда/вода
-["water"] = "Вода", ["water bottle"] = "Бутылка воды", ["cola"] = "Кола",
-["bread"] = "Хлеб", ["can"] = "Консерва", ["canned food"] = "Консерва",
-["meat"] = "Мясо", ["cooked meat"] = "Жареное мясо", ["raw meat"] = "Сырое мясо",
-["apple"] = "Яблоко", ["banana"] = "Банан", ["chocolate"] = "Шоколад",
-["energy bar"] = "Энергетический батончик",
--- броня
-["helmet"] = "Шлем", ["kevlar"] = "Кевлар", ["vest"] = "Жилет",
-["armor"] = "Броня", ["bulletproof vest"] = "Бронежилет",
--- лут/ресурсы
-["wood"] = "Дерево", ["stone"] = "Камень", ["metal"] = "Металл",
-["cloth"] = "Ткань", ["rope"] = "Верёвка", ["duct tape"] = "Скотч",
-["bandage"] = "Бинт", ["medkit"] = "Аптечка", ["painkiller"] = "Обезболивающее",
-["blood bag"] = "Пакет крови",
--- инструменты
-["pickaxe"] = "Кирка", ["hatchet"] = "Топорик", ["hammer"] = "Молоток",
-["screwdriver"] = "Отвёртка", ["wrench"] = "Гаечный ключ",
-["lockpick"] = "Отмычка", ["flashlight"] = "Фонарик",
-["map"] = "Карта", ["compass"] = "Компас", ["radio"] = "Радио",
-["binoculars"] = "Бинокль", ["scope"] = "Прицел",
--- расходники
-["backpack"] = "Рюкзак", ["small backpack"] = "Маленький рюкзак",
-["big backpack"] = "Большой рюкзак", ["medium backpack"] = "Средний рюкзак",
-}
-function translateItemName(name)
-if not ItemRuTranslate or type(name) ~= "string" then
-return name
-end
-local nl = string.lower(name)
--- точное совпадение
-if ITEM_RU_DICT[nl] then
-return ITEM_RU_DICT[nl]
-end
--- частичное совпадение по подстроке
-for eng, rus in pairs(ITEM_RU_DICT) do
-if string.find(nl, eng, 1, true) then
-return rus
-end
-end
-return name
-end
-UIRegistry.ItemRuTranslate = EspSection:Toggle({
-Name = "Перевод названий на русский",
-Flag = "ItemRuTranslate",
-Default = false,
-Callback = function(state)
-ItemRuTranslate = state
-journal("ПЕРЕВОД ПРЕДМЕТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
 UIRegistry.BulletsEnabled = TracerSection:Toggle({
 Name = "Трассеры пуль (стиль VOMAGLA)",
 Flag = "BulletsEnabled",
@@ -586,7 +382,7 @@ HudSection = EspPage:Section({ Name = "HUD на экране", Tab = "ESP", Side
 hudGui = nil 
 hudFrame = nil 
 hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers = nil, nil, nil, nil
 hudConns = {} 
 hudDragging = false
 hudDragStart, hudFrameStart = nil, nil
@@ -608,23 +404,17 @@ return
 end
 local size = math.clamp(math.floor((S.HUD.Size or 11) + 0.5), 8, 16)
 local textT = math.clamp(S.HUD.TextTransparency or 0, 0, 0.9)
-local colText = S.HUD.ColorText or Color3.fromRGB(235, 235, 240)
-local colBg = S.HUD.ColorBg or Color3.fromRGB(12, 12, 16)
-local colStroke = S.HUD.ColorStroke or Color3.fromRGB(255, 170, 40)
-for _, line in ipairs({ hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin }) do
+for _, line in ipairs({ hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers }) do
 if line then
 line.TextSize = size
 line.TextTransparency = textT
-line.TextColor3 = (line == hudLineAdmin) and Color3.fromRGB(255, 80, 80) or colText
 end
 end
 local bg = math.clamp(S.HUD.BgTransparency or 0.35, 0, 0.95)
 if S.HUD.ShowBg then
 hudFrame.BackgroundTransparency = bg
-hudFrame.BackgroundColor3 = colBg
 if hudStroke then
 hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
-hudStroke.Color = colStroke
 end
 else
 hudFrame.BackgroundTransparency = 1
@@ -634,9 +424,6 @@ end
 end
 if hudLineTPS then
 hudLineTPS.Visible = S.HUD.ShowTPS and true or false
-end
-if hudLineAdmin then
-hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
 end
 end
 function hudDestroy()
@@ -654,7 +441,7 @@ end
 hudGui = nil
 hudFrame = nil
 hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers = nil, nil, nil, nil
 hudDragging = false
 end
 function hudEnsure()
@@ -715,22 +502,13 @@ hudLineFPS = makeLine("FPS —")
 hudLinePing = makeLine("Пинг —")
 hudLineTPS = makeLine("ТПС —")
 hudLinePlayers = makeLine("Игроки —")
-hudLineAdmin = makeLine("АДМИН —")
 end)
 if not okGui or not hudFrame then
 warn("[FUST] HUD не создался в этом экзекуторе")
 hudDestroy()
 return
 end
--- 0.39: восстановление сохранённой позиции drag, иначе угол
-pcall(function()
-if S.HUD.Position and type(S.HUD.Position) == "table" then
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
-else
 hudSnap(S.HUD.Corner)
-end
-end)
 hudApplyStyle()
 hudFrame.InputBegan:Connect(function(input)
 if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -769,10 +547,6 @@ local h = hudFrame.AbsoluteSize.Y
 local nx = math.clamp(hudFrameStart.X + (input.Position.X - hudDragStart.X), 0, math.max(view.X - w, 0))
 local ny = math.clamp(hudFrameStart.Y + (input.Position.Y - hudDragStart.Y), 0, math.max(view.Y - h, 0))
 hudFrame.Position = UDim2.fromOffset(nx, ny)
--- 0.39: сохраняем относительную позицию для восстановления после рестарта
-if view.X > 0 and view.Y > 0 then
-S.HUD.Position = { X = nx / view.X, Y = ny / view.Y }
-end
 end
 end
 end))
@@ -842,18 +616,6 @@ else
 hudLinePlayers.Text = "Игроки " .. tostring(n)
 end
 end
--- 0.39: админ/VIP чек — обновление строки
-if hudLineAdmin and S.HUD.ShowAdmin then
-local adminCount = AdminScan_Count or 0
-local adminNames = AdminScan_Names
-if adminCount > 0 then
-hudLineAdmin.Text = "АДМИН: " .. tostring(adminCount) .. " — " .. (adminNames or "?")
-hudLineAdmin.TextColor3 = Color3.fromRGB(255, 80, 80)
-else
-hudLineAdmin.Text = "АДМИН: нет"
-hudLineAdmin.TextColor3 = Color3.fromRGB(120, 200, 120)
-end
-end
 end
 end))
 end
@@ -908,51 +670,15 @@ S.HUD.TextTransparency = Value
 hudApplyStyle()
 end
 })
--- 0.39: HUDCorner dropdown убран — теперь drag + colorpickers
-UIRegistry.HUDBgColor = HudSection:Colorpicker({
-Name = "Цвет фона HUD",
-Flag = "HUDBgColor",
-Default = Color3.fromRGB(12, 12, 16),
-Callback = function(c)
-S.HUD.ColorBg = c
-hudApplyStyle()
-end
-})
-UIRegistry.HUDTextColor = HudSection:Colorpicker({
-Name = "Цвет текста HUD",
-Flag = "HUDTextColor",
-Default = Color3.fromRGB(235, 235, 240),
-Callback = function(c)
-S.HUD.ColorText = c
-hudApplyStyle()
-end
-})
-UIRegistry.HUDStrokeColor = HudSection:Colorpicker({
-Name = "Цвет обводки HUD",
-Flag = "HUDStrokeColor",
-Default = Color3.fromRGB(255, 170, 40),
-Callback = function(c)
-S.HUD.ColorStroke = c
-hudApplyStyle()
-end
-})
-UIRegistry.HUDShowAdmin = HudSection:Toggle({
-Name = "Показывать админ/VIP чек",
-Flag = "HUDShowAdmin",
-Default = true,
-Callback = function(state)
-S.HUD.ShowAdmin = state
-hudApplyStyle()
-end
-})
-UIRegistry.HUDResetPos = HudSection:Button({
-Name = "Сбросить позицию HUD",
-Callback = function()
-S.HUD.Position = nil
-if hudFrame then
-hudSnap(S.HUD.Corner or "Лево-низ")
-end
-journal("HUD: позиция сброшена")
+UIRegistry.HUDCorner = HudSection:Dropdown({
+Name = "Угол экрана",
+Items = { "Лево-низ", "Право-низ", "Лево-верх", "Право-верх" },
+Default = "Лево-низ",
+Flag = "HUDCorner",
+Callback = function(Value)
+S.HUD.Corner = Value
+hudSnap(Value)
+journal("HUD УГОЛ " .. tostring(Value))
 end
 })
 UIRegistry.HUDShowTPS = HudSection:Toggle({
@@ -1298,9 +1024,9 @@ end
 UIRegistry.NPCHitboxSize = BotHitSection:Slider({
 Name = "Размер хитбокса НПС",
 Flag = "NPCHitboxSize",
-Default = 5,
+Default = 9,
 Min = 2,
-Max = 6,
+Max = 15,
 Decimals = 0.5,
 Suffix = "",
 Callback = function(Value)
@@ -1353,9 +1079,9 @@ end
 UIRegistry.HitboxSize = HitboxSection:Slider({
 Name = "Hitbox Size",
 Flag = "HitboxSize",
-Default = 5,
+Default = 9,
 Min = 2,
-Max = 6,
+Max = 15,
 Decimals = 0.5,
 Suffix = "",
 Callback = function(Value)
@@ -1470,95 +1196,6 @@ elseif NoFogBackup then
 Lighting.FogEnd = NoFogBackup.FogEnd
 Lighting.FogStart = NoFogBackup.FogStart
 NoFogBackup = nil
-end
-end)
-end
-})
--- 0.39: УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS
-TextureBackup = nil
-function applyTextureDegradation(state)
-pcall(function()
-if state then
-if not TextureBackup then
-TextureBackup = {
-MaterialService2022 = nil,
-LightingTech = Lighting.Technology,
-}
-pcall(function()
-local ms = game:GetService("MaterialService")
-TextureBackup.MaterialService2022 = ms.Use2022Materials
-ms.Use2022Materials = false
-end)
-end
--- всем BasePart в Workspace — Material = Plastic (если ещё не)
-pcall(function()
-for _, d in ipairs(Workspace:GetDescendants()) do
-if d:IsA("BasePart") and d.Material ~= Enum.Material.Plastic then
-pcall(function()
-d.Material = Enum.Material.Plastic
-end)
-elseif d:IsA("MeshPart") then
-pcall(function()
-d.TextureID = ""
-end)
-elseif d:IsA("Decal") or d:IsA("Texture") then
-pcall(function()
-d.Texture = ""
-d.Transparency = 1
-end)
-end
-end
-end)
-pcall(function()
-Lighting.Technology = Enum.Technology.Compatibility
-end)
-journal("ТЕКСТУРЫ ВЫКЛ (FPS режим)")
-else
-if TextureBackup then
-pcall(function()
-if TextureBackup.MaterialService2022 ~= nil then
-local ms = game:GetService("MaterialService")
-ms.Use2022Materials = TextureBackup.MaterialService2022
-end
-end)
-pcall(function()
-Lighting.Technology = TextureBackup.LightingTech
-end)
-TextureBackup = nil
-end
-journal("ТЕКСТУРЫ ВКЛ (восстановлено)")
-end
-end)
-end
-UIRegistry.TextureDegradation = WorldSection:Toggle({
-Name = "Ухудшение текстур (макс FPS)",
-Flag = "TextureDegradation",
-Default = false,
-Callback = function(state)
-S.TextureDegradation = state
-applyTextureDegradation(state)
-end
-})
--- 0.39: дальность видимости (StreamingTargetRadius)
-UIRegistry.StreamBoost = WorldSection:Toggle({
-Name = "Увеличить дальность прогрузки",
-Flag = "StreamBoost",
-Default = false,
-Callback = function(state)
-S.StreamBoost = state
-pcall(function()
-if state then
-pcall(function()
-Workspace.StreamingTargetRadius = 4096
-Workspace.StreamingMinRadius = 1024
-end)
-journal("ПРОГРУЗКА: дальность увеличена")
-else
-pcall(function()
-Workspace.StreamingTargetRadius = 1024
-Workspace.StreamingMinRadius = 256
-end)
-journal("ПРОГРУЗКА: дальность по умолчанию")
 end
 end)
 end
@@ -1915,58 +1552,12 @@ Aim.TeamCheck = state
 end
 })
 UIRegistry.AimCrosshair = AimSection:Toggle({
-Name = "Прицел по центру (CS2-стиль)",
+Name = "Красный прицел по центру",
 Flag = "AimCrosshair",
 Default = false,
 Callback = function(state)
 Aim.Crosshair = state
 end
-})
--- 0.39: настройки прицела CS2
-UIRegistry.CHLength = AimSection:Slider({
-Name = "Прицел: длина лучей",
-Flag = "CHLength",
-Default = 7,
-Min = 1,
-Max = 20,
-Decimals = 1,
-Callback = function(v) CH.Length = v end
-})
-UIRegistry.CHThickness = AimSection:Slider({
-Name = "Прицел: толщина",
-Flag = "CHThickness",
-Default = 2,
-Min = 1,
-Max = 5,
-Decimals = 0.5,
-Callback = function(v) CH.Thickness = v end
-})
-UIRegistry.CHGap = AimSection:Slider({
-Name = "Прицел: зазор от центра",
-Flag = "CHGap",
-Default = 5,
-Min = 0,
-Max = 15,
-Decimals = 0.5,
-Callback = function(v) CH.Gap = v end
-})
-UIRegistry.CHDot = AimSection:Toggle({
-Name = "Прицел: точка в центре",
-Flag = "CHDot",
-Default = false,
-Callback = function(state) CH.Dot = state end
-})
-UIRegistry.CHOutline = AimSection:Toggle({
-Name = "Прицел: обводка (чёрная)",
-Flag = "CHOutline",
-Default = true,
-Callback = function(state) CH.Outline = state end
-})
-UIRegistry.CHColor = AimSection:Colorpicker({
-Name = "Прицел: цвет",
-Flag = "CHColor",
-Default = Color3.fromRGB(255, 30, 30),
-Callback = function(c) CH.Color = c end
 })
 UIRegistry.AimFOV = AimSection:Slider({
 Name = "FOV радиус",
@@ -2377,4 +1968,85 @@ if AntiShake.Position then
 if firing then
 if AS_SmoothPos and (pos - AS_SmoothPos).Magnitude < 1.5 then
 AS_SmoothPos = AS_SmoothPos:Lerp(pos, 0.35)
-camera.CFrame = CFrame.new(AS_SmoothPos) *
+camera.CFrame = CFrame.new(AS_SmoothPos) * (cf - cf.Position)
+cf = camera.CFrame
+else
+AS_SmoothPos = pos
+end
+else
+AS_SmoothPos = pos
+end
+else
+AS_SmoothPos = nil
+end
+if AS_LastRawPitch then
+local lx, lz = look.X, look.Z
+local hh = lx * lx + lz * lz
+local dp = look.Y - AS_LastRawPitch
+local dyaw = 0
+if AS_LastLX and hh > 0.04 and (AS_LastLX * AS_LastLX + AS_LastLZ * AS_LastLZ) > 0.04 then
+local cross = lx * AS_LastLZ - lz * AS_LastLX
+dyaw = math.asin(math.clamp(cross / hh, -1, 1))
+end
+if AntiShake.Oscillation and not aimBusy then
+local bandP = math.abs(dp) > 0.0001 and math.abs(dp) < math.rad(2.5)
+local bandY = math.abs(dyaw) > 0.0001 and math.abs(dyaw) < math.rad(2.5)
+local flipP = bandP and AS_LastDp ~= nil and math.abs(AS_LastDp) < math.rad(2.5) and ((dp > 0) ~= (AS_LastDp > 0))
+local flipY = bandY and AS_LastDy ~= nil and math.abs(AS_LastDy) < math.rad(2.5) and ((dyaw > 0) ~= (AS_LastDy > 0))
+if flipP then
+AS_PitchFlips = AS_PitchFlips + 1
+else
+AS_PitchFlips = 0
+end
+if flipY then
+AS_YawFlips = AS_YawFlips + 1
+else
+AS_YawFlips = 0
+end
+if (flipP or flipY) and firing then
+if not AS_AnchorLook then
+local back = cf
+if bandP then
+back = back * CFrame.Angles(-dp, 0, 0)
+end
+if bandY then
+back = back * CFrame.Angles(0, -dyaw, 0)
+end
+AS_AnchorLook = back.LookVector
+end
+AS_LastShakeAt = now
+FUST_FireUntil = math.max(FUST_FireUntil, now + 0.2)
+elseif not bandP and not bandY then
+if now - AS_LastShakeAt > 0.25 then
+AS_AnchorLook = nil
+end
+end
+if AS_AnchorLook and math.abs(AS_AnchorLook.Y) < 0.999 then
+local dotAng = math.acos(math.clamp(cf.LookVector:Dot(AS_AnchorLook), -1, 1))
+if dotAng > math.rad(6) then
+AS_AnchorLook = nil
+elseif dotAng > 0.0006 then
+local target = CFrame.lookAt(cf.Position, cf.Position + AS_AnchorLook)
+camera.CFrame = cf:Lerp(target, 0.55)
+end
+end
+end
+AS_LastDp = dp
+AS_LastDy = dyaw
+end
+local look2 = camera.CFrame.LookVector
+AS_LastRawPitch = look2.Y
+AS_LastLX = look2.X
+AS_LastLZ = look2.Z
+end)
+end
+pcall(function()
+RunService:UnbindFromRenderStep("FUST_AR_Snap")
+RunService:UnbindFromRenderStep("FUST_AR_Restore")
+end)
+RunService:BindToRenderStep("FUST_AR_Snap", Enum.RenderPriority.Camera.Value + 1, function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+RunService:UnbindFromRenderStep("FUST_AR_Snap")
+return
+end
+if not (AntiRecoil.Enabled and AntiRecoil.Rollback) then
