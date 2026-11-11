@@ -1,4 +1,9 @@
-ImageLabel", {
+nstances:Create("UICorner", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow2"] = Instances:Create("ImageLabel", {
 Parent = Items["Dragger"].Instance,
 Name = "\0",
 ImageColor3 = Library.Theme["Accent"],
@@ -2140,7 +2145,4 @@ line.TextTransparency = textT
 line.TextColor3 = (line == hudLineAdmin) and Color3.fromRGB(255, 80, 80) or colText
 end
 end
-local bg = math.clamp(S.HUD.BgTransparency or 0.35, 0, 0.95)
-if S.HUD.ShowBg then
-hudFrame.BackgroundTransparency = bg
-hudFrame.BackgroundColor3
+local bg = math.clamp(S.HUD.BgTran

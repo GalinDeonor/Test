@@ -1256,12 +1256,14 @@ local CustomFont = { } do
 function CustomFont:New(Name, Weight, Style, Data)
 -- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
 -- Возвращаем Roblox шрифт, кастомные не грузим.
-return Font.new(Enum.Font.GothamMedium)
+-- 0.39v7 FIX: FontFace хочет Font object, не EnumItem. Используем Font.fromEnum.
+return Font.fromEnum(Enum.Font.GothamMedium)
 end
 do
 -- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
 -- который детектится анти-читом. Используем Roblox GothamMedium.
-Library.Font = Font.new(Enum.Font.GothamMedium)
+-- 0.39v7 FIX: Font.new(Enum.Font.X) ломается — присваиваем Enum.Font напрямую.
+Library.Font = Font.fromEnum(Enum.Font.GothamMedium)
 end
 end
 Library.Holder = Instances:Create("ScreenGui", {
