@@ -1,551 +1,3 @@
-Prediction = Aim.Prediction,
-Part = Aim.Part,
-Priority = Aim.Priority,
-WallCheck = Aim.WallCheck,
-TeamCheck = Aim.TeamCheck,
-Crosshair = Aim.Crosshair,
-Targets = (function()
-local t = {}
-if Aim.TargetsPlayers then
-table.insert(t, "Игроки")
-end
-if Aim.TargetsNPC then
-table.insert(t, "Боты и НПС")
-end
-if Aim.TargetsAnimals then
-table.insert(t, "Животные")
-end
-if Aim.TargetsSleepers then
-table.insert(t, "Слиперы")
-end
-return t
-end)(),
-AutoPredict = Aim.AutoPredict,
-AutoPredictK = Aim.AutoPredictK,
-HotkeyKey = hotkeyKey,
-HotkeyMode = hotkeyMode,
-},
-AntiRecoil = {
-Enabled = AntiRecoil.Enabled,
-Rollback = AntiRecoil.Rollback,
-Offset = AntiRecoil.Offset,
-Drift = AntiRecoil.Drift,
-DriftStrength = AntiRecoil.DriftStrength,
-Threshold = AntiRecoil.Threshold,
-},
-AntiShake = {
-Enabled = AntiShake.Enabled,
-Roll = AntiShake.Roll,
-Position = AntiShake.Position,
-Oscillation = AntiShake.Oscillation,
-},
-AutoAim = {
-Enabled = AutoAim.Enabled,
-Radius = AutoAim.Radius,
-},
-Evil = {
-Enabled = Evil.Enabled,
-AutoPred = Evil.AutoPred,
-Snipe = Evil.Snipe,
-K = Evil.K,
-},
-HUD = {
-Enabled = S.HUD.Enabled,
-Size = S.HUD.Size,
-BgTransparency = S.HUD.BgTransparency,
-TextTransparency = S.HUD.TextTransparency,
-Corner = S.HUD.Corner,
-ShowTPS = S.HUD.ShowTPS,
-ShowBg = S.HUD.ShowBg,
-},
-Loot = {
-Enabled = S.Loot.Enabled,
-Owner = S.Loot.Owner,
-Slots = S.Loot.Slots,
-Distance = S.Loot.Distance,
-Box = S.Loot.Box,
-Chams = S.Loot.Chams,
-MaxDistance = S.Loot.MaxDistance,
-DebugLog = S.Loot.DebugLog,
-},
-LootColor = colorToTable(LOOT_COLOR),
-LootC = {
-Enabled = S.LootC.Enabled,
-Name = S.LootC.Name,
-Distance = S.LootC.Distance,
-Box = S.LootC.Box,
-MaxDistance = S.LootC.MaxDistance,
-},
-LootCColor = colorToTable(LOOTC_COLOR),
-Whitelist = wl,
-}
-writefile(CONFIG_FILE, HttpService:JSONEncode(cfg))
-journal("КОНФИГ СОХРАНЁН")
-end)
-return okFile, err
-end
-function applyFlag(key, value)
-local obj = UIRegistry[key]
-if obj and value ~= nil and obj.Set then
-pcall(function()
-obj:Set(value)
-end)
-end
-end
-function loadConfig()
-if type(isfile) ~= "function" or not isfile(CONFIG_FILE) then
-return false, "конфиг ещё не сохранялся"
-end
-local okFile, err = pcall(function()
-local cfg = HttpService:JSONDecode(readfile(CONFIG_FILE))
-if type(cfg.ESP) == "table" then
-applyFlag("ESPEnabled", cfg.ESP.Enabled)
-applyFlag("ESPBox", cfg.ESP.Box)
-applyFlag("ESPChams", cfg.ESP.Chams)
-applyFlag("ESPChamsTransparency", cfg.ESP.ChamsTransparency)
-applyFlag("ESPName", cfg.ESP.Name)
-applyFlag("ESPItem", cfg.ESP.Item)
-applyFlag("ESPDistance", cfg.ESP.Distance)
-applyFlag("ESPHealthBar", cfg.ESP.HealthBar)
-applyFlag("ESPMaxDistance", cfg.ESP.MaxDistance)
-if cfg.ESP.DistanceScale ~= nil then
-applyFlag("ESPDistanceScale", cfg.ESP.DistanceScale)
-end
-if cfg.ESP.TeamCheck ~= nil then
-applyFlag("ESPTeamCheck", cfg.ESP.TeamCheck)
-end
-end
-if type(cfg.NPC) == "table" then
-applyFlag("NPCEsp", cfg.NPC.ESP)
-applyFlag("NPCGuards", cfg.NPC.CatGuards)
-applyFlag("NPCPeaceful", cfg.NPC.CatPeaceful)
-applyFlag("NPCAnimals", cfg.NPC.CatAnimals)
-applyFlag("NPCSleepers", cfg.NPC.CatSleepers)
-applyFlag("NPCBox", cfg.NPC.Box)
-applyFlag("NPCName", cfg.NPC.Name)
-applyFlag("NPCItem", cfg.NPC.Item)
-applyFlag("NPCDistance", cfg.NPC.Distance)
-applyFlag("NPCHealthBar", cfg.NPC.HealthBar)
-applyFlag("NPCChams", cfg.NPC.Chams)
-applyFlag("NPCChamsTransparency", cfg.NPC.ChamsTransparency)
-applyFlag("NPCMaxDistance", cfg.NPC.MaxDistance)
-applyFlag("NPCHitboxEnabled", cfg.NPC.HitboxEnabled)
-applyFlag("NPCHitboxSize", cfg.NPC.HitboxSize)
-applyFlag("NPCHitboxTransparency", cfg.NPC.HitboxTransparency)
-if cfg.NPC.HitboxAnimals ~= nil then
-applyFlag("NPCHitboxAnimals", cfg.NPC.HitboxAnimals)
-end
-if cfg.NPC.HitboxSleepers ~= nil then
-applyFlag("NPCHitboxSleepers", cfg.NPC.HitboxSleepers)
-end
-end
-if type(cfg.NPCColors) == "table" then
-for _, catName in ipairs({ "Guard", "Peaceful", "Animal", "Sleeper" }) do
-local catColor = tableToColor(cfg.NPCColors[catName])
-if catColor and NPC_CAT_COLORS[catName] then
-NPC_CAT_COLORS[catName] = catColor
-local catPicker = UIRegistry["NPCColor" .. catName]
-if catPicker and catPicker.Set then
-pcall(function()
-catPicker:Set(catColor)
-end)
-end
-end
-end
-end
-local boxColor = tableToColor(cfg.BoxColor)
-if boxColor then
-S.ESPColors.Box = boxColor
-if UIRegistry.ESPBoxColor and UIRegistry.ESPBoxColor.Set then
-pcall(function()
-UIRegistry.ESPBoxColor:Set(boxColor)
-end)
-end
-end
-if type(cfg.Hitbox) == "table" then
-applyFlag("HitboxEnabled", cfg.Hitbox.Enabled)
-applyFlag("HitboxSize", cfg.Hitbox.Size)
-applyFlag("HitboxTransparency", cfg.Hitbox.Transparency)
-end
-applyFlag("FullBright", cfg.FullBright)
-applyFlag("NoDecoration", cfg.NoDecoration)
-applyFlag("NoGrass", cfg.NoGrass)
-applyFlag("NoFog", cfg.NoFog)
-if type(cfg.Bullets) == "table" then
-applyFlag("BulletsEnabled", cfg.Bullets.Enabled)
-applyFlag("BulletsStyle", cfg.Bullets.Style)
-applyFlag("BulletsWidth", cfg.Bullets.Width)
-applyFlag("BulletsTransparency", cfg.Bullets.Transparency)
-applyFlag("BulletsFade", cfg.Bullets.Fade)
-end
-if type(cfg.AntiRecoil) == "table" then
-applyFlag("AntiRecoilEnabled", cfg.AntiRecoil.Enabled)
-applyFlag("AntiRecoilRollback", cfg.AntiRecoil.Rollback)
-applyFlag("AntiRecoilOffset", cfg.AntiRecoil.Offset)
-applyFlag("AntiRecoilDrift", cfg.AntiRecoil.Drift)
-applyFlag("AntiRecoilDriftStrength", cfg.AntiRecoil.DriftStrength)
-applyFlag("AntiRecoilThreshold", cfg.AntiRecoil.Threshold)
-end
-if type(cfg.AntiShake) == "table" then
-applyFlag("AntiShakeEnabled", cfg.AntiShake.Enabled)
-applyFlag("AntiShakeRoll", cfg.AntiShake.Roll)
-applyFlag("AntiShakePosition", cfg.AntiShake.Position)
-applyFlag("AntiShakeOscillation", cfg.AntiShake.Oscillation)
-end
-if type(cfg.AutoAim) == "table" then
-applyFlag("AutoAimEnabled", cfg.AutoAim.Enabled)
-applyFlag("AutoAimRadius", cfg.AutoAim.Radius)
-end
-if type(cfg.HUD) == "table" then
-applyFlag("HUDEnabled", cfg.HUD.Enabled)
-applyFlag("HUDSize", cfg.HUD.Size)
-applyFlag("HUDBgTransparency", cfg.HUD.BgTransparency)
-applyFlag("HUDTextTransparency", cfg.HUD.TextTransparency)
-if cfg.HUD.Corner ~= nil then
-applyFlag("HUDCorner", cfg.HUD.Corner)
-end
-applyFlag("HUDShowTPS", cfg.HUD.ShowTPS)
-applyFlag("HUDShowBg", cfg.HUD.ShowBg)
-end
-if type(cfg.Loot) == "table" then
-applyFlag("LootEnabled", cfg.Loot.Enabled)
-applyFlag("LootOwner", cfg.Loot.Owner)
-applyFlag("LootSlots", cfg.Loot.Slots)
-applyFlag("LootDistance", cfg.Loot.Distance)
-applyFlag("LootBox", cfg.Loot.Box)
-applyFlag("LootChams", cfg.Loot.Chams)
-applyFlag("LootMaxDistance", cfg.Loot.MaxDistance)
-applyFlag("LootDebugLog", cfg.Loot.DebugLog)
-end
-if type(cfg.LootC) == "table" then
-applyFlag("LootCEnabled", cfg.LootC.Enabled)
-applyFlag("LootCName", cfg.LootC.Name)
-applyFlag("LootCDistance", cfg.LootC.Distance)
-applyFlag("LootCBox", cfg.LootC.Box)
-applyFlag("LootCMaxDistance", cfg.LootC.MaxDistance)
-end
-local lootColor = tableToColor(cfg.LootColor)
-if lootColor
-and math.abs(lootColor.R - 0 / 255) < 0.004
-and math.abs(lootColor.G - 105 / 255) < 0.004
-and math.abs(lootColor.B - 45 / 255) < 0.004 then
-lootColor = nil
-end
-if lootColor then
-LOOT_COLOR = lootColor
-if UIRegistry.LootColor and UIRegistry.LootColor.Set then
-pcall(function()
-UIRegistry.LootColor:Set(lootColor)
-end)
-end
-end
-local lootCColor = tableToColor(cfg.LootCColor)
-if lootCColor then
-LOOTC_COLOR = lootCColor
-if UIRegistry.LootCColor and UIRegistry.LootCColor.Set then
-pcall(function()
-UIRegistry.LootCColor:Set(lootCColor)
-end)
-end
-end
-if type(cfg.Aim) == "table" then
-local a = cfg.Aim
-applyFlag("AimEnabled", a.Enabled)
-applyFlag("AimShowFOV", a.ShowFOV)
-applyFlag("AimFOV", a.FOV)
-applyFlag("AimDistance", a.Distance)
-applyFlag("AimSmooth", a.Smooth)
-applyFlag("AimPrediction", a.Prediction)
-applyFlag("AimAutoPredict", a.AutoPredict)
-applyFlag("AimAutoPredictK", a.AutoPredictK)
-applyFlag("AimWallCheck", a.WallCheck)
-applyFlag("AimTeamCheck", a.TeamCheck)
-applyFlag("AimCrosshair", a.Crosshair)
-if a.Part and table.find(AIM_PARTS, a.Part) then
-applyFlag("AimPart", AIM_PART_TO_LABEL[a.Part])
-end
-if a.Priority == "Прицел" or a.Priority == "Дистанция" then
-applyFlag("AimPriority", a.Priority)
-end
-if type(a.Targets) == "table" then
-applyFlag("AimTargets", a.Targets)
-end
-if type(a.HotkeyKey) == "string" and UIRegistry.AimHotkey then
-local short = string.gsub(a.HotkeyKey, "^Enum%.KeyCode%.", "")
-if short ~= "" and short ~= "Backspace" then
-local okEnum, enumKey = pcall(function()
-return Enum.KeyCode[short]
-end)
-if okEnum and enumKey then
-local hkMode = (a.HotkeyMode == "Hold" or a.HotkeyMode == "Always") and a.HotkeyMode or "Toggle"
-AimHotkeyBusy = true
-applyFlag("AimHotkey", { Mode = hkMode, Key = enumKey })
-AimHotkeyBusy = false
-end
-end
-if type(cfg.Evil) == "table" then
-local ev = cfg.Evil
-applyFlag("EvilEnabled", ev.Enabled)
-applyFlag("EvilAutoPred", ev.AutoPred)
-applyFlag("EvilSnipe", ev.Snipe)
-applyFlag("EvilK", ev.K)
-end
-end
-end
-if type(cfg.Whitelist) == "table" then
-table.clear(Whitelist)
-for _, name in ipairs(cfg.Whitelist) do
-if type(name) == "string" then
-Whitelist[name] = true
-end
-end
-rebuildPlayerList()
-end
-end)
-return okFile, err
-end
-cfgStatus = Instance.new("TextLabel")
-cfgStatus.Name = "FustConfigStatus"
-cfgStatus.Font = Enum.Font.Gotham
-cfgStatus.TextSize = 12
-cfgStatus.Text = ""
-cfgStatus.TextColor3 = Color3.fromRGB(0, 255, 120)
-cfgStatus.BackgroundTransparency = 1
-cfgStatus.Size = UDim2.new(1, 0, 0, 16)
-cfgStatus.LayoutOrder = 92
-cfgStatus.Parent = ConfigSection.Items["Content"].Instance
-function flashStatus(text, isError)
-cfgStatus.Text = text
-cfgStatus.TextColor3 = isError and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(0, 255, 120)
-task.delay(2.5, function()
-if cfgStatus.Text == text then
-cfgStatus.Text = ""
-end
-end)
-end
-ConfigSection:Button({
-Name = "Сохранить конфиг",
-Callback = function()
-local okFile, err = saveConfig()
-if okFile then
-flashStatus("Конфиг сохранён ✓")
-print("[FUST] Конфиг сохранён: " .. CONFIG_FILE)
-else
-flashStatus("Ошибка сохранения!", true)
-warn("[FUST] Конфиг не сохранён: " .. tostring(err))
-end
-end
-})
-ConfigSection:Button({
-Name = "Загрузить конфиг",
-Callback = function()
-local okFile, err = loadConfig()
-if okFile then
-flashStatus("Конфиг загружен ✓")
-print("[FUST] Конфиг загружен: " .. CONFIG_FILE)
-else
-flashStatus("Конфиг не найден", true)
-warn("[FUST] Конфиг не загружен: " .. tostring(err))
-end
-end
-})
-ConfigSection:Button({
-Name = "ВЫКЛЮЧИТЬ СКРИПТ",
-Callback = function()
-pcall(function()
-getgenv().FUST_Deactivate()
-end)
-end
-})
-espDrawings = {}
-hitboxOriginals = {} 
-ChamsCreateBlocked = false 
-LootChamsBlocked = false 
-LootChamsBlockedAt = 0 
-botEspDrawings = {}
-npcHitboxOriginals = {}
-function botEnsureDrawings(model)
-local ed = botEspDrawings[model]
-if not ed then
-ed = {
-Box = Drawing.new("Square"),
-Name = Drawing.new("Text"),
-Distance = Drawing.new("Text"),
-Item = Drawing.new("Text"),
-HealthBarBg = Drawing.new("Line"),
-HealthBar = Drawing.new("Line"),
-HealthText = Drawing.new("Text"),
-}
-ed.Box.Filled = false
-ed.Box.Thickness = 1
-for _, key in ipairs({ "Name", "Distance", "HealthText", "Item" }) do
-ed[key].Center = true
-ed[key].Outline = true
-ed[key].Font = Drawing.Fonts.Plex
-end
-ed.Name.Size = 14
-ed.Distance.Size = 13
-ed.HealthText.Size = 11
-ed.HealthText.Center = false
-ed.Item.Size = 12
-ed.HealthBarBg.Thickness = 3
-ed.HealthBarBg.Color = Color3.fromRGB(0, 0, 0)
-ed.HealthBar.Thickness = 1.5
-botEspDrawings[model] = ed
-end
-return ed
-end
-function botRemoveDrawings(model)
-local ed = botEspDrawings[model]
-if ed then
-for _, obj in pairs(ed) do
-pcall(function()
-obj:Remove()
-end)
-end
-botEspDrawings[model] = nil
-end
-end
-BULLET_COLOR_ENEMY = Color3.fromRGB(255, 60, 60)
-BULLET_COLOR_TEAM = Color3.fromRGB(255, 215, 0)
-BULLET_TEXTURES = {
-["Луч"] = "rbxassetid://12781852245",
-["Молния"] = "rbxassetid://446111271",
-["Сердцебиение"] = "rbxassetid://5830549480",
-["Цепь"] = "rbxassetid://9632168658",
-["Глитч"] = "rbxassetid://8089467613",
-["Вихрь"] = "rbxassetid://5638168605",
-}
-bulletTracks = {} 
-bulletConn = nil
-bulletOn = false
-bulletPool = {} 
-bulletPoolSize = 0
-function bulletPoolGet(kind)
-if bulletPoolSize > 0 then
-for i = bulletPoolSize, 1, -1 do
-local item = bulletPool[i]
-if item and item.Kind == kind then
-bulletPool[i] = bulletPool[bulletPoolSize]
-bulletPool[bulletPoolSize] = nil
-bulletPoolSize = bulletPoolSize - 1
-return item.Part
-end
-end
-end
-local okP, p = pcall(function()
-local part = Instance.new("Part")
-part.Anchored = true
-part.CanCollide = false
-part.CanQuery = false
-part.CanTouch = false
-part.CastShadow = false
-part.Transparency = 1
-part.Size = Vector3.new(0.1, 0.1, 0.1)
-if kind == "square" then
-local c0 = Instance.new("Attachment")
-c0.Name = "C0"
-c0.Parent = part
-local c1 = Instance.new("Attachment")
-c1.Name = "C1"
-c1.Parent = part
-local core = Instance.new("Beam")
-core.Name = "Core"
-core.Attachment0 = c0
-core.Attachment1 = c1
-core.FaceCamera = true
-core.LightEmission = 1
-core.LightInfluence = 0
-core.Enabled = false
-core.Parent = part
-for idx, corner in ipairs({ { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }) do
-local a0 = Instance.new("Attachment")
-a0.Name = "E" .. idx .. "A"
-a0.Parent = part
-local a1 = Instance.new("Attachment")
-a1.Name = "E" .. idx .. "B"
-a1.Parent = part
-local b = Instance.new("Beam")
-b.Name = "E" .. idx
-b.Attachment0 = a0
-b.Attachment1 = a1
-b.FaceCamera = false
-b.LightEmission = 1
-b.LightInfluence = 0
-b.Enabled = false
-b.Parent = part
-end
-part:SetAttribute("PetuhKind", "square")
-return part
-end
-local a0 = Instance.new("Attachment")
-a0.Name = "A0"
-a0.Parent = part
-local a1 = Instance.new("Attachment")
-a1.Name = "A1"
-a1.Parent = part
-local b = Instance.new("Beam")
-b.Name = "B"
-b.Attachment0 = a0
-b.Attachment1 = a1
-b.FaceCamera = true
-b.LightEmission = 1
-b.LightInfluence = 0
-b.TextureLength = 2
-b.TextureSpeed = 2
-b.Enabled = false
-b.Parent = part
-part:SetAttribute("PetuhKind", "ribbon")
-return part
-end)
-if okP then
-return p
-end
-return nil
-end
-function bulletPoolRelease(p, kind)
-if p then
-pcall(function()
-p.Parent = nil
-end)
-bulletPoolSize = bulletPoolSize + 1
-bulletPool[bulletPoolSize] = {
-Part = p,
-Kind = kind or p:GetAttribute("PetuhKind") or "ribbon",
-}
-end
-end
-function bulletPoolDestroy()
-for i = 1, bulletPoolSize do
-local item = bulletPool[i]
-if item and item.Part then
-pcall(function()
-item.Part:Destroy()
-end)
-end
-end
-bulletPool = {}
-bulletPoolSize = 0
-end
-function setupTracerPart(t, square)
-local kind = square and "square" or "ribbon"
-local newPart = bulletPoolGet(kind)
-if not newPart then
-return false
-end
-local refsOk = true
-local core = nil
-local edges = {}
-local signs = { { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
-if square then
-core = newPart:FindFirstChild("Core")
-if not core then
-refsOk = false
-end
-for idx = 1, 4 do
-local b = newPart:FindFirstChild("E" .. idx)
-local a0 = newPart:FindFirstChild("E" .. idx .. "A")
-local a1 = newPart:FindFirstChild("E" .. idx .. "B")
 if not (b and a0 and a1) then
 refsOk = false
 else
@@ -1100,8 +552,6 @@ S.NPC.ESP and 1 or 0,
 S.NPC.Chams and 1 or 0,
 S.NPC.HitboxEnabled and 1 or 0,
 Aim.AutoPredict and 1 or 0,
-S.Loot.Enabled and 1 or 0,
-S.LootC.Enabled and 1 or 0,
 AutoAim.Enabled and 1 or 0,
 AA_EnemyNear and 1 or 0
 ))
@@ -1572,17 +1022,7 @@ botCleanupModel(model)
 end
 NpcHitboxAppliedCount = 0
 end
-if myRoot then
-lootPoolUpdate(myRoot, os.clock())
--- 0.39v2: лут ESP не каждый кадр — раз в 0.15с. Было каждый кадр = лаги.
-if not FUST_LootEspAt or os.clock() - FUST_LootEspAt > 0.15 then
-FUST_LootEspAt = os.clock()
-updateBackpackEsp(Camera, myRoot)
-end
-else
-bpHideAll()
-lootPoolDisableAll()
-end
+-- 0.48: вызовы ESP лута удалены из главного лупа.
 if HitboxAnnouncePending then
 HitboxAnnouncePending = false
 print("[FUST] Хитбокс применён к " .. tostring(hitboxAppliedCount) .. " игрок(ам), размер " .. tostring(S.Hitbox.Size))
@@ -1664,18 +1104,12 @@ end
 end
 table.clear(npcHitboxOriginals)
 end)
-pcall(function()
-bpRemoveAll()
-end)
 end
 getgenv().FUST_Deactivate = function()
 pcall(function()
 journal("ДЕАКТИВАЦИЯ: скрипт выключен кнопкой")
 end)
 getgenv().FUST_SESSION = {}
-pcall(function()
-lootPoolCleanup()
-end)
 pcall(function()
 freecamDisable()
 end)
@@ -1872,58 +1306,36 @@ end
 local function klScanKickBanner()
 local found = nil
 pcall(function()
--- 0.39v3: ищем по всем ScreenGui в CoreGui, не только RobloxPromptDialog
-local coreGui = game:GetService("CoreGui")
-local scannedTotal = 0
-for _, gui in ipairs(coreGui:GetChildren()) do
-if gui:IsA("ScreenGui") and gui.Name ~= "PetuhMenuToggle" and gui.Name ~= "PetuhHUD" and gui.Name ~= "PetuhLoadScreen" then
--- проверяем имя gui тоже
-local guiName = string.lower(tostring(gui.Name))
-if guiName:find("prompt") or guiName:find("dialog") or guiName:find("message") or guiName:find("error") then
-for _, desc in ipairs(gui:GetDescendants()) do
-scannedTotal = scannedTotal + 1
-if scannedTotal > 120 then break end
-if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
-local t = desc.Text
-local tl = string.lower(t)
-if tl:find("kick") or tl:find("ban")
-or tl:find("вы ") or tl:find("ты ")
-or tl:find("обнаружен") or tl:find("detect")
-or tl:find("cheat") or tl:find("чит")
-or tl:find("exploit") or tl:find("hack")
-or tl:find("разблокирован") or tl:find("нарушен")
-or tl:find("disconnect") or tl:find("timed out")
-or tl:find("соединение") or tl:find("потеряно")
-or tl:find("вышли") or tl:find("покинул") then
-found = t
-break
-end
-end
-end
-end
-if found then break end
-end
-end
--- 0.39v3: если не нашли в CoreGui, проверим PlayerGui
-if not found then
-local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-if pg then
-for _, gui in ipairs(pg:GetChildren()) do
+local promptRoot
+pcall(function()
+promptRoot = game:GetService("CoreGui"):FindFirstChild("RobloxPromptDialog")
+end)
+if not promptRoot then
+pcall(function()
+for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
 if gui:IsA("ScreenGui") then
-for _, desc in ipairs(gui:GetDescendants()) do
-scannedTotal = scannedTotal + 1
-if scannedTotal > 200 then break end
+local p = gui:FindFirstChild("PromptDialog") or gui:FindFirstChild("RobloxPromptDialog")
+or gui:FindFirstChildWhichIsA("Frame")
+if p then promptRoot = p break end
+end
+end
+end)
+end
+if promptRoot then
+local scanned = 0
+for _, desc in ipairs(promptRoot:GetDescendants()) do
+scanned = scanned + 1
+if scanned > 60 then break end
 if desc:IsA("TextLabel") and desc.Text and #desc.Text > 3 then
 local t = desc.Text
-local tl = string.lower(t)
-if tl:find("kick") or tl:find("ban") or tl:find("чит") or tl:find("cheat")
-or tl:find("detect") or tl:find("обнаружен") then
+if t:lower():find("kick") or t:lower():find("ban")
+or t:lower():find("вы kicked") or t:lower():find("вы ban")
+or t:lower():find("обнаружен") or t:lower():find("detect")
+or t:lower():find("cheat") or t:lower():find("чит")
+or t:lower():find("exploit") or t:lower():find("hack")
+or t:lower():find("разблокирован") or t:lower():find("нарушен") then
 found = t
 break
-end
-end
-end
-if found then break end
 end
 end
 end
@@ -2004,53 +1416,28 @@ end
 
 -- Главный слушатель: PlayerRemoving для LocalPlayer = кик/бан/выход
 local klPlayerRemoved = false
-local function klCheckAndLog(reason, banner)
-if klPlayerRemoved then return end
-klPlayerRemoved = true
-klLogExit(reason, banner)
-end
 Players.PlayerRemoving:Connect(function(player)
-if player == LocalPlayer then
+if player == LocalPlayer and not klPlayerRemoved then
+klPlayerRemoved = true
 -- Даём CoreGui 0.3с на отрисовку баннера кика
 task.delay(0.3, function()
 local banner = klScanKickBanner()
 local reason = banner and "KICK/BAN (найден баннер в CoreGui)" or "EXIT/QUIT (баннер не найден — возможно ручной выход)"
-klCheckAndLog(reason, banner)
-end)
--- 0.39v3: логируем СРАЗУ тоже, без delay — вдруг delay не выполнится
-local banner2 = klScanKickBanner()
-klCheckAndLog("PLAYER_REMOVING (без баннера, мгновенный лог)", banner2)
-end
-end)
--- 0.39v3: перехват Player:Kick убран — на Delta hookfunction на Instance-методах
--- может ломать загрузку. PlayerRemoving + heartbeat достаточно.
--- 0.39v3: также слушаем сообщения в чат (некоторые анти-читы пишут причину туда)
-pcall(function()
-TextChatService = game:GetService("TextChatService")
-if TextChatService and TextChatService.MessageReceived then
-TextChatService.MessageReceived:Connect(function(msg)
-local txt = tostring(msg.Text or "")
-if txt:lower():find("kick") or txt:lower():find("ban")
-or txt:lower():find("detect") or txt:lower():find("cheat") then
-pcall(function()
-klAppend("[" .. klTimestamp() .. "] CHAT_MSG: " .. txt)
-end)
-end
+klLogExit(reason, banner)
 end)
 end
 end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.47 DELTA (без фрикама), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.48 DELTA, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
--- Тихий фоновый heartbeat: раз в 2с проверяем, что LocalPlayer ещё в игре.
+-- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
 -- Если LocalPlayer.Parent ~= Players (вдруг PlayerRemoving не успел) — лог.
--- 0.39v3: было 30с — слишком поздно ловило. 2с = быстро и безопасно.
 task.spawn(function()
 while true do
-task.wait(2)
+task.wait(30)
 if getgenv().FUST_SESSION ~= FUST_SESSION then break end
 local p = LocalPlayer
 if not p or not p.Parent or not p.Parent:IsA("Players") then
@@ -2067,87 +1454,6 @@ end)
 journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
 print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
 -- /FUST KICK/BAN LOGGER ======================================================
-
--- ============================================================================
--- 0.39v2: UI ЛОГОВ В САМОМ ЧИТЕ — вкладка "Логи" с просмотром FUST_kicks.log
--- ============================================================================
-pcall(function()
-LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
-LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
-LogSection:Label("Лог сохраняется в FUST_kicks.log и переживает перезапуск чита и перезаход в игру.")
--- Кнопка обновить
-UIRegistry.LogRefresh = LogSection:Button({
-Name = "Обновить лог",
-Callback = function()
-pcall(function()
-local log = ""
-if type(isfile) == "function" and isfile(KICKLOG_FILE) then
-log = readfile(KICKLOG_FILE) or ""
-end
--- последние 4000 символов (для UI)
-if #log > 4000 then
-log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
-end
-if UIRegistry.LogText and UIRegistry.LogText.Set then
-UIRegistry.LogText:Set(log)
-end
-end)
-end
-})
--- Кнопка очистить
-UIRegistry.LogClear = LogSection:Button({
-Name = "Очистить лог",
-Callback = function()
-pcall(function()
-if type(writefile) == "function" then
-writefile(KICKLOG_FILE, "")
-end
-if UIRegistry.LogText and UIRegistry.LogText.Set then
-UIRegistry.LogText:Set("(лог очищен)")
-end
-journal("ЛОГ ОЧИЩЕН вручную")
-end)
-end
-})
--- Многострочное текстовое поле с логом
-local logText = ""
-pcall(function()
-if type(isfile) == "function" and isfile(KICKLOG_FILE) then
-logText = readfile(KICKLOG_FILE) or ""
-end
-if #logText > 4000 then
-logText = "...(предыдущие записи скрыты)...\n" .. logText:sub(#logText - 3900)
-end
-end)
-UIRegistry.LogText = LogSection:Textbox({
-Name = "Содержимое лога",
-Default = logText,
-Placeholder = "(лог пуст — ещё не было киков/банов)",
-MultiLine = true,
-})
-LogSection:Label("При кике/бане здесь появится запись: время, place, что было включено, причина если найдена.")
--- Авто-обновление каждые 5 сек
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(function()
-local log = ""
-if type(isfile) == "function" and isfile(KICKLOG_FILE) then
-log = readfile(KICKLOG_FILE) or ""
-end
-if #log > 4000 then
-log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
-end
-if UIRegistry.LogText and UIRegistry.LogText.Set then
-UIRegistry.LogText:Set(log)
-end
-end)
-end
-end)
-end)
--- /UI ЛОГОВ =================================================================
-
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
@@ -2165,7 +1471,6 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
--- 0.39v9: load screen убран — прячивать нечего
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then
@@ -2220,7 +1525,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.47 DELTA (без фрикама) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.48 DELTA — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)
