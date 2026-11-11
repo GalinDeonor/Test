@@ -1,46 +1,4 @@
-о если игра дала плейс-специфичную группу
-local placeGroup = nil
-pcall(function()
--- FUST: пробуем common survival group IDs
-for _, gid in ipairs({ 0 }) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
-if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
-AdminScan_LastJournal = os.clock()
-journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
-end
-else
-AdminScan_Names = ""
-end
-end
-AdminScan_LastJournal = 0
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
-end
-end)
-HttpService = game:GetService("HttpService")
-CONFIG_FILE = "FUST_config.json"
-function colorToTable(c)
-return {
-R = math.floor(c.R * 255 + 0.5),
-G = math.floor(c.G * 255 + 0.5),
-B = math.floor(c.B * 255 + 0.5),
-}
-end
-function tableToColor(t)
-if type(t) ~= "table" then
+pe(t) ~= "table" then
 return nil
 end
 return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
@@ -2292,8 +2250,7 @@ end)
 print("[FUST] 4/4: всё активно. Меню: тап по кнопке-петуху, на ПК — RightControl.")
 end)
 if not ok then
--- 0.39v4: гарантированно скрыть экран загрузки при ошибке
-pcall(hideLoadScreen)
+-- 0.39v9: load screen убран — прячивать нечего
 warn("[FUST] ❌ ОШИБКА ВЫПОЛНЕНИЯ:")
 warn("[FUST] Сообщение: " .. tostring(err))
 if type(debug) == "table" and type(debug.traceback) == "function" then

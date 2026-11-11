@@ -1,176 +1,4 @@
-nstances:Create("UICorner", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Items["Glow2"] = Instances:Create("ImageLabel", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-}):AddToTheme({ImageColor3 = 'Accent'})
-end
-table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
-function Slider:Get()
-return Slider.Value
-end
-function Slider:SetVisibility(Bool)
-Items["Slider"].Instance.Visible = Bool
-end
-function Slider:Set(Value)
-Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
-Library.Flags[Slider.Flag] = Slider.Value
-Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
-Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
-if Slider.Callback then
-Library:SafeCall(Slider.Callback, Slider.Value)
-end
-end
-local InputChanged
-Items["RealSlider"]:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if InputChanged then
-pcall(function()
-InputChanged:Disconnect()
-end)
-InputChanged = nil
-end
-Slider.Sliding = true
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
-Slider:Set(Value)
-InputChanged = Input.Changed:Connect(function()
-if Input.UserInputState == Enum.UserInputState.End
-or Input.UserInputState == Enum.UserInputState.Cancel then
-Slider.Sliding = false
-if InputChanged then
-InputChanged:Disconnect()
-InputChanged = nil
-end
-end
-end)
-end
-end)
-Library:Connect(UserInputService.InputChanged, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-if Slider.Sliding then
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
-Slider:Set(Value)
-end
-end
-end)
-if Slider.Default then
-Slider:Set(Slider.Default)
-end
-Library.SetFlags[Slider.Flag] = function(Value)
-Slider:Set(Value)
-end
-return Slider
-end
-Library.Sections.Dropdown = function(self, Data)
-Data = Data or { }
-local Dropdown = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Dropdown",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Items = Data.Items or Data.items or { "One", "Two", "Three" },
-Default = Data.Default or Data.default or nil,
-Callback = Data.Callback or Data.callback or function() end,
-Multi = Data.Multi or Data.multi or false,
-Value = { },
-Options = { },
-IsOpen = false
-}
-local Items = { } do
-Items["Dropdown"] = Instances:Create("Frame", {
-Parent = Dropdown.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 26),
-BorderSizePixel = 0
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FillDirection = Enum.FillDirection.Horizontal,
-VerticalAlignment = Enum.VerticalAlignment.Center,
-Padding = UDimNew(0, 8),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Dropdown.Name,
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-BorderSizePixel = 0,
-LayoutOrder = 1,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 14
-}):AddToTheme({TextColor3 = 'Text'})
-Items["RealDropdown"] = Instances:Create("TextButton", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(0, 0, 0, 26),
-BorderSizePixel = 0,
-TextSize = 14,
-LayoutOrder = 2,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-local DropdownFlex = Instance.new("UIFlexItem")
-DropdownFlex.FlexMode = Enum.UIFlexMode.Fill
-DropdownFlex.Parent = Items["RealDropdown"].Instance
-Instances:Create("UICorner", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 8)
-})
-Instances:Create("UIStroke", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Value"] = Instances:Create("TextLabel", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-TextTransparency = 0.15,
-Text = "--",
-Size = UDim2New(0, 0, 0, 15),
-AnchorPoint = Vector2New(0, 0.5),
-BorderSizePixel = 0,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 8, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 13
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Icon"] = Instances:Create("ImageLabel", {
-Parent = Items["RealDropdown"].Instance,
+["RealDropdown"].Instance,
 Name = "\0",
 ImageColor3 = Library.Theme["Text"],
 BorderColor3 = FromRGB(0, 0, 0),
@@ -769,25 +597,11 @@ end
 end)
 end
 })
-MenuSection:Toggle({
-Name = "Экран загрузки при старте (петух + проверки)",
-Flag = "LoadScreenEnabled",
-Default = false,
-Callback = function(state)
-LoadScreenEnabled = state
--- 0.39v4: persist — пишем маркерный файл чтобы при следующем запуске скрипт знал
+-- 0.39v9: экран загрузки убран полностью — вызывал чёрный экран на телефоне.
+-- Удаляем маркерный файл если он остался от старой версии.
 pcall(function()
-if type(writefile) == "function" then
-if state then
-writefile("FUST_loadScreen_ON.txt", "1")
-else
 if type(delfile) == "function" then pcall(delfile, "FUST_loadScreen_ON.txt") end
-end
-end
 end)
-journal("ЭКРАН ЗАГРУЗКИ " .. (state and "ВКЛ (при следующем запуске)" or "ВЫКЛ"))
-end
-})
 MenuSection:Label("Кнопку можно перетащить в любое место. Скрытие — только ПК.")
 end
 local ThemingSection = SettingsPage:Section({Name = "Theming", Tab = "Оформление", Icon = "rbxassetid://73803440257131"})
@@ -1157,10 +971,27 @@ end)
 return vp
 end
 function windowedSize(vp)
-local w = math.clamp(math.min(900, vp.X - 24), 320, 900)
-local h = math.clamp(math.min(600, vp.Y - 90), 240, 600)
-w = math.max(200, math.min(w, vp.X - WINDOW_MARGIN * 2))
-h = math.max(150, math.min(h, vp.Y - WINDOW_MARGIN * 2))
+-- 0.39v8 FIX: адаптивный размер под телефон. На маленьких экранах
+-- окно не должно быть больше 85% ширины и 70% высоты.
+local isPhone = not UserInputService.KeyboardEnabled
+local maxW, maxH
+if isPhone then
+-- телефон: окно 85% ширины, 70% высоты
+maxW = math.floor(vp.X * 0.85)
+maxH = math.floor(vp.Y * 0.70)
+else
+-- ПК: до 900×600
+maxW = 900
+maxH = 600
+end
+-- не меньше минимума
+maxW = math.max(maxW, 280)
+maxH = math.max(maxH, 220)
+-- не больше экрана минус маргины
+maxW = math.min(maxW, vp.X - WINDOW_MARGIN * 2)
+maxH = math.min(maxH, vp.Y - WINDOW_MARGIN * 2)
+local w = math.clamp(maxW, 280, maxW)
+local h = math.clamp(maxH, 220, maxH)
 return math.floor(w), math.floor(h)
 end
 function clampWindowOnScreen()
@@ -2145,4 +1976,148 @@ line.TextTransparency = textT
 line.TextColor3 = (line == hudLineAdmin) and Color3.fromRGB(255, 80, 80) or colText
 end
 end
-local bg = math.clamp(S.HUD.BgTran
+local bg = math.clamp(S.HUD.BgTransparency or 0.35, 0, 0.95)
+if S.HUD.ShowBg then
+hudFrame.BackgroundTransparency = bg
+hudFrame.BackgroundColor3 = colBg
+if hudStroke then
+hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
+hudStroke.Color = colStroke
+end
+else
+hudFrame.BackgroundTransparency = 1
+if hudStroke then
+hudStroke.Transparency = 1
+end
+end
+if hudLineTPS then
+hudLineTPS.Visible = S.HUD.ShowTPS and true or false
+end
+if hudLineAdmin then
+hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
+end
+end
+function hudDestroy()
+for _, c in ipairs(hudConns) do
+pcall(function()
+c:Disconnect()
+end)
+end
+hudConns = {}
+if hudGui then
+pcall(function()
+hudGui:Destroy()
+end)
+end
+hudGui = nil
+hudFrame = nil
+hudStroke = nil
+hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
+hudDragging = false
+end
+function hudEnsure()
+if hudFrame then
+return
+end
+local okGui = pcall(function()
+local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
+hudGui = Instance.new("ScreenGui")
+hudGui.Name = "PetuhHUD"
+hudGui.ResetOnSpawn = false
+hudGui.IgnoreGuiInset = true
+hudGui.DisplayOrder = 9999
+hudGui.Parent = parentGui
+hudFrame = Instance.new("Frame")
+hudFrame.Name = "Panel"
+hudFrame.Active = true
+hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+hudFrame.BorderSizePixel = 0
+hudFrame.AutomaticSize = Enum.AutomaticSize.XY
+hudFrame.Size = UDim2.new(0, 0, 0, 0)
+hudFrame.Parent = hudGui
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = hudFrame
+hudStroke = Instance.new("UIStroke")
+hudStroke.Color = Color3.fromRGB(255, 170, 40)
+hudStroke.Transparency = 0.6
+hudStroke.Parent = hudFrame
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.Padding = UDim.new(0, 2)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = hudFrame
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 6)
+pad.PaddingBottom = UDim.new(0, 6)
+pad.PaddingLeft = UDim.new(0, 9)
+pad.PaddingRight = UDim.new(0, 9)
+pad.Parent = hudFrame
+local order = 0
+local function makeLine(text)
+order = order + 1
+local label = Instance.new("TextLabel")
+label.Name = "L" .. order
+label.BackgroundTransparency = 1
+label.Font = Enum.Font.Code
+label.Text = text
+label.TextColor3 = Color3.fromRGB(235, 235, 240)
+label.TextXAlignment = Enum.TextXAlignment.Left
+label.AutomaticSize = Enum.AutomaticSize.XY
+label.Size = UDim2.new(0, 0, 0, 0)
+label.LayoutOrder = order
+label.Parent = hudFrame
+return label
+end
+hudLineFPS = makeLine("FPS —")
+hudLinePing = makeLine("Пинг —")
+hudLineTPS = makeLine("ТПС —")
+hudLinePlayers = makeLine("Игроки —")
+hudLineAdmin = makeLine("АДМИН —")
+end)
+if not okGui or not hudFrame then
+warn("[FUST] HUD не создался в этом экзекуторе")
+hudDestroy()
+return
+end
+-- 0.39: восстановление сохранённой позиции drag, иначе угол
+pcall(function()
+if S.HUD.Position and type(S.HUD.Position) == "table" then
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
+else
+hudSnap(S.HUD.Corner)
+end
+end)
+hudApplyStyle()
+hudFrame.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = true
+hudDragStart = input.Position
+local topLeft = hudFrame.AbsolutePosition
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
+hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
+input.Changed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End
+or input.UserInputState == Enum.UserInputState.Cancel then
+hudDragging = false
+end
+end)
+end
+end)
+hudFrame.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1
+or input.UserInputType == Enum.UserInputType.Touch then
+hudDragging = false
+end
+end)
+table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
+if not hudDragging then
+return
+end
+if input.UserInputType == Enum.UserInputType.MouseMovement
+or input.UserInputType == Enum.UserInputType.Touch then
+if hudDragStart and hudFrameStart and hudFrame then
+local cam = Works

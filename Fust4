@@ -1,148 +1,4 @@
-sparency or 0.35, 0, 0.95)
-if S.HUD.ShowBg then
-hudFrame.BackgroundTransparency = bg
-hudFrame.BackgroundColor3 = colBg
-if hudStroke then
-hudStroke.Transparency = math.clamp(bg + 0.25, 0, 1)
-hudStroke.Color = colStroke
-end
-else
-hudFrame.BackgroundTransparency = 1
-if hudStroke then
-hudStroke.Transparency = 1
-end
-end
-if hudLineTPS then
-hudLineTPS.Visible = S.HUD.ShowTPS and true or false
-end
-if hudLineAdmin then
-hudLineAdmin.Visible = S.HUD.ShowAdmin and true or false
-end
-end
-function hudDestroy()
-for _, c in ipairs(hudConns) do
-pcall(function()
-c:Disconnect()
-end)
-end
-hudConns = {}
-if hudGui then
-pcall(function()
-hudGui:Destroy()
-end)
-end
-hudGui = nil
-hudFrame = nil
-hudStroke = nil
-hudLineFPS, hudLinePing, hudLineTPS, hudLinePlayers, hudLineAdmin = nil, nil, nil, nil, nil
-hudDragging = false
-end
-function hudEnsure()
-if hudFrame then
-return
-end
-local okGui = pcall(function()
-local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
-hudGui = Instance.new("ScreenGui")
-hudGui.Name = "PetuhHUD"
-hudGui.ResetOnSpawn = false
-hudGui.IgnoreGuiInset = true
-hudGui.DisplayOrder = 9999
-hudGui.Parent = parentGui
-hudFrame = Instance.new("Frame")
-hudFrame.Name = "Panel"
-hudFrame.Active = true
-hudFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-hudFrame.BorderSizePixel = 0
-hudFrame.AutomaticSize = Enum.AutomaticSize.XY
-hudFrame.Size = UDim2.new(0, 0, 0, 0)
-hudFrame.Parent = hudGui
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = hudFrame
-hudStroke = Instance.new("UIStroke")
-hudStroke.Color = Color3.fromRGB(255, 170, 40)
-hudStroke.Transparency = 0.6
-hudStroke.Parent = hudFrame
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.Padding = UDim.new(0, 2)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = hudFrame
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 6)
-pad.PaddingBottom = UDim.new(0, 6)
-pad.PaddingLeft = UDim.new(0, 9)
-pad.PaddingRight = UDim.new(0, 9)
-pad.Parent = hudFrame
-local order = 0
-local function makeLine(text)
-order = order + 1
-local label = Instance.new("TextLabel")
-label.Name = "L" .. order
-label.BackgroundTransparency = 1
-label.Font = Enum.Font.Code
-label.Text = text
-label.TextColor3 = Color3.fromRGB(235, 235, 240)
-label.TextXAlignment = Enum.TextXAlignment.Left
-label.AutomaticSize = Enum.AutomaticSize.XY
-label.Size = UDim2.new(0, 0, 0, 0)
-label.LayoutOrder = order
-label.Parent = hudFrame
-return label
-end
-hudLineFPS = makeLine("FPS —")
-hudLinePing = makeLine("Пинг —")
-hudLineTPS = makeLine("ТПС —")
-hudLinePlayers = makeLine("Игроки —")
-hudLineAdmin = makeLine("АДМИН —")
-end)
-if not okGui or not hudFrame then
-warn("[FUST] HUD не создался в этом экзекуторе")
-hudDestroy()
-return
-end
--- 0.39: восстановление сохранённой позиции drag, иначе угол
-pcall(function()
-if S.HUD.Position and type(S.HUD.Position) == "table" then
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
-else
-hudSnap(S.HUD.Corner)
-end
-end)
-hudApplyStyle()
-hudFrame.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-hudDragging = true
-hudDragStart = input.Position
-local topLeft = hudFrame.AbsolutePosition
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
-hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
-input.Changed:Connect(function()
-if input.UserInputState == Enum.UserInputState.End
-or input.UserInputState == Enum.UserInputState.Cancel then
-hudDragging = false
-end
-end)
-end
-end)
-hudFrame.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-hudDragging = false
-end
-end)
-table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
-if not hudDragging then
-return
-end
-if input.UserInputType == Enum.UserInputType.MouseMovement
-or input.UserInputType == Enum.UserInputType.Touch then
-if hudDragStart and hudFrameStart and hudFrame then
-local cam = Workspace.CurrentCamera
+pace.CurrentCamera
 local view = cam and cam.ViewportSize or Vector2.new(1280, 720)
 local w = hudFrame.AbsoluteSize.X
 local h = hudFrame.AbsoluteSize.Y
@@ -1107,44 +963,33 @@ furnitureChamsPool = {}
 furnitureChamsAt = 0
 function furnitureScan()
 local now = os.clock()
-if now - furnitureChamsAt < 1.0 then return end
+if now - furnitureChamsAt < 1.5 then return end -- 0.39v8: реже (1.5с) — меньше нагрузки
 furnitureChamsAt = now
 local found = {}
 pcall(function()
--- 1. по тегам
+-- 1. по тегам CollectionService (везде в Workspace)
 for _, tag in ipairs(FURNITURE_TAGS) do
 local ok, items = pcall(CollectionService.GetTagged, CollectionService, tag)
 if ok and items then
 for _, inst in ipairs(items) do
-if inst:IsA("Model") and inst.Parent then
+if inst.Parent and (inst:IsA("Model") or inst:IsA("BasePart")) then
 table.insert(found, inst)
 end
 end
 end
 end
--- 2. по имени в Workspace (верхние 2 уровня)
-for _, d in ipairs(Workspace:GetChildren()) do
-if d:IsA("Model") then
+-- 2. по имени через GetDescendants (глубокий поиск, с лимитом)
+local scanned = 0
+for _, d in ipairs(Workspace:GetDescendants()) do
+scanned = scanned + 1
+if scanned > 5000 then break end -- лимит для FPS
+if d:IsA("Model") or d:IsA("BasePart") then
 local okN, name = pcall(function() return string.lower(tostring(d.Name)) end)
-if okN then
+if okN and name and #name > 0 then
 for _, pat in ipairs(FURNITURE_PATTERNS) do
 if string.find(name, pat, 1, true) then
 table.insert(found, d)
 break
-end
-end
-end
--- проверяем детей модели
-for _, child in ipairs(d:GetChildren()) do
-if child:IsA("Model") or child:IsA("BasePart") then
-local okN2, name2 = pcall(function() return string.lower(tostring(child.Name)) end)
-if okN2 then
-for _, pat in ipairs(FURNITURE_PATTERNS) do
-if string.find(name2, pat, 1, true) then
-table.insert(found, child)
-break
-end
-end
 end
 end
 end
@@ -2470,4 +2315,100 @@ function dummy:Remove() end
 return dummy
 end
 Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
-warn("[FUST] Drawing недоступен в этом экзек
+warn("[FUST] Drawing недоступен в этом экзекуторе — ESP/прицел работают вхолостую")
+end
+AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
+AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
+fovCircle = SafeDrawing("Circle")
+if fovCircle then
+fovCircle.Thickness = 1.5
+fovCircle.NumSides = 64
+fovCircle.Filled = false
+fovCircle.Radius = Aim.FOV
+fovCircle.Color = AIM_FOV_OFF
+fovCircle.Visible = false
+else
+warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
+end
+-- 0.39: ПРИЦЕЛ В СТИЛЕ CS2 — настраиваемые длина/толщина/зазор/точка/обводка/цвет
+CH = {
+Gap = 5,        -- зазор от центра
+Length = 7,     -- длина лучей
+Thickness = 2,  -- толщина линий
+Dot = false,    -- точка в центре
+Outline = true, -- обводка (чёрная за цветом)
+Color = Color3.fromRGB(255, 30, 30),
+-- 0.39v2: расширенные настройки CS2
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
+}
+CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
+chLines = {}
+for i = 1, 4 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 2
+l.Color = Color3.fromRGB(255, 30, 30)
+l.Visible = false
+chLines[i] = l
+end
+end
+chDot = SafeDrawing("Circle")
+if chDot then
+chDot.Radius = 1
+chDot.Thickness = 1
+chDot.Filled = true
+chDot.Color = Color3.fromRGB(255, 30, 30)
+chDot.Visible = false
+end
+-- обводка: 8 линий вокруг основных (4 направления × 2 смещения)
+chOutline = {}
+for i = 1, 8 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 3
+l.Color = Color3.fromRGB(0, 0, 0)
+l.Visible = false
+chOutline[i] = l
+end
+end
+function updateCrosshair(center, visible)
+local gap = CH.Gap
+local len = CH.Length
+local th = CH.Thickness
+local alpha = CH.Alpha or 1
+-- 0.39v2: T-style — верхняя линия не рисуется (как AWP)
+-- top (skipped if TStyle)
+if chLines[1] and not CH.TStyle then
+chLines[1].From = Vector2.new(center.X, center.Y - gap)
+chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
+chLines[1].Thickness = th
+chLines[1].Color = CH.Color
+chLines[1].Transparency = 1 - alpha
+chLines[1].Visible = visible
+elseif chLines[1] then
+chLines[1].Visible = false
+end
+-- bottom
+if chLines[2] then
+chLines[2].From = Vector2.new(center.X, center.Y + gap)
+chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
+chLines[2].Thickness = th
+chLines[2].Color = CH.Color
+chLines[2].Transparency = 1 - alpha
+chLines[2].Visible = visible
+end
+-- left
+if chLines[3] then
+chLines[3].From = Vector2.new(center.X - gap, center.Y)
+chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
+chLines[3].Thickness = th
+chLines[3].Color = CH.Color
+chLines[3].Transparency = 1 - alpha
+chLines[3].Visible = visible
+end
+-- right
+if chLines[4] t

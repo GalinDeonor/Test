@@ -446,186 +446,8 @@
 ]]
 print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
 
--- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
--- 0.39v4: экран загрузки ОТКЛЮЧЕН по умолчанию — на Xeno он может блокировать
--- запуск. Включается toggle в настройках (если работает — будет при следующем запуске).
-LoadScreenEnabled = false
-pcall(function()
-if type(readfile) == "function" and isfile and isfile("FUST_loadScreen_ON.txt") then
-LoadScreenEnabled = true
-end
-end)
-local loadScreenGui, loadScreenPetuh, loadScreenBar, loadScreenText, loadScreenStatus
-local loadScreenStart = os.clock()
-local loadScreenConn
-local function showLoadScreen()
-pcall(function()
-local parentGui = (type(gethui) == "function") and gethui() or game:GetService("CoreGui")
-loadScreenGui = Instance.new("ScreenGui")
-loadScreenGui.Name = "PetuhLoadScreen"
-loadScreenGui.ResetOnSpawn = false
-loadScreenGui.IgnoreGuiInset = true
-loadScreenGui.DisplayOrder = 99999
-loadScreenGui.Parent = parentGui
-if not loadScreenGui.Parent then
-local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
-if pg then loadScreenGui.Parent = pg end
-end
-local bg = Instance.new("Frame")
-bg.Size = UDim2.fromScale(1, 1)
-bg.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
-bg.BorderSizePixel = 0
-bg.Parent = loadScreenGui
--- петух по центру (rbxassetid — без getcustomasset, не палится анти-читом)
-loadScreenPetuh = Instance.new("ImageLabel")
-loadScreenPetuh.Size = UDim2.fromOffset(180, 180)
-loadScreenPetuh.Position = UDim2.new(0.5, -90, 0.45, -90)
-loadScreenPetuh.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-loadScreenPetuh.BackgroundTransparency = 1
-loadScreenPetuh.BorderSizePixel = 0
-loadScreenPetuh.Image = "rbxassetid://134242818164054" -- fallback до загрузки PETUH_ICON_ASSET
-loadScreenPetuh.ScaleType = Enum.ScaleType.Fit
-loadScreenPetuh.Parent = bg
--- подпись
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0.62, 0)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.TextSize = 22
-title.TextColor3 = Color3.fromRGB(240, 130, 30)
-title.Text = "ПЬЯНЫЙ ПЕТУХ 0.39"
-title.Parent = bg
--- прогресс-бар фон
-local barBg = Instance.new("Frame")
-barBg.Size = UDim2.new(0, 280, 0, 6)
-barBg.Position = UDim2.new(0.5, -140, 0.72, 0)
-barBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-barBg.BorderSizePixel = 0
-barBg.Parent = bg
-local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(1, 0)
-barCorner.Parent = barBg
-loadScreenBar = Instance.new("Frame")
-loadScreenBar.Size = UDim2.new(0, 0, 1, 0)
-loadScreenBar.BackgroundColor3 = Color3.fromRGB(240, 130, 30)
-loadScreenBar.BorderSizePixel = 0
-loadScreenBar.Parent = barBg
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(1, 0)
-fillCorner.Parent = loadScreenBar
--- статус-текст
-loadScreenStatus = Instance.new("TextLabel")
-loadScreenStatus.Size = UDim2.new(1, 0, 0, 20)
-loadScreenStatus.Position = UDim2.new(0, 0, 0.78, 0)
-loadScreenStatus.BackgroundTransparency = 1
-loadScreenStatus.Font = Enum.Font.Code
-loadScreenStatus.TextSize = 13
-loadScreenStatus.TextColor3 = Color3.fromRGB(180, 180, 190)
-loadScreenStatus.Text = "Инициализация..."
-loadScreenStatus.Parent = bg
--- нижний текст про проверку
-loadScreenText = Instance.new("TextLabel")
-loadScreenText.Size = UDim2.new(0.9, 0, 0, 40)
-loadScreenText.Position = UDim2.new(0.05, 0, 0.88, 0)
-loadScreenText.BackgroundTransparency = 1
-loadScreenText.Font = Enum.Font.Code
-loadScreenText.TextSize = 11
-loadScreenText.TextColor3 = Color3.fromRGB(120, 120, 130)
-loadScreenText.TextWrapped = true
-loadScreenText.Text = "Проверяю детект-риски функций анти-читом..."
-loadScreenText.Parent = bg
-end)
-end
-local function hideLoadScreen()
--- 0.39 FIX: task.wait в RenderStepped запрещён — loadScreenGui:Destroy()
--- после него никогда не выполнялся, чёрный экран висел вечно. Убираем
--- wait и бесполезный tween, уничтожаем GUI сразу.
-pcall(function()
-if loadScreenConn then loadScreenConn:Disconnect() loadScreenConn = nil end
-if loadScreenGui then
-loadScreenGui:Destroy()
-end
-loadScreenGui = nil
-loadScreenPetuh = nil
-loadScreenBar = nil
-loadScreenText = nil
-loadScreenStatus = nil
-end)
-end
-local function setLoadProgress(pct, status)
-pcall(function()
-if loadScreenBar then
-loadScreenBar.Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0)
-end
-if loadScreenStatus and status then
-loadScreenStatus.Text = status
-end
-end)
-end
-local loadScreenPhases = {
-{ 0.10, "Проверяю Drawing API..." },
-{ 0.20, "Проверяю executor environment..." },
-{ 0.35, "Сканирую детект-риски функций..." },
-{ 0.50, "Анализирую hookmetamethod риски..." },
-{ 0.65, "Проверяю sethiddenproperty..." },
-{ 0.78, "Анализирую RequestStreamAround..." },
-{ 0.90, "Загружаю интерфейс..." },
-{ 1.00, "Готово." },
-}
-local loadScreenPhaseIdx = 1
-local loadScreenDetected = {}
-local function runLoadScreenCheck()
--- Реальная проверка детект-рисков: какие функции 100% видит анти-чит
-pcall(function()
--- Drawing.new: видим только у нас, но если executor плохо прячет — детект
-local drawOk = pcall(function() return Drawing and Drawing.new and Drawing.new("Text") end)
-table.insert(loadScreenDetected, drawOk and "Drawing: OK (локально)" or "Drawing: НЕДОСТУПЕН")
--- hookmetamethod: ВЫСОКИЙ риск (V12 отозвана именно из-за этого)
-local hm = type(getgenv and getgenv().hookmetamethod) == "function"
-or type(hookmetamethod) == "function"
-table.insert(loadScreenDetected, hm and "hookmetamethod: ДОСТУПЕН (рискованно использовать)" or "hookmetamethod: недоступен (безопасно)")
--- sethiddenproperty: используется для NoGrass/Decoration — обычно безопасно
-local shp = type(sethiddenproperty) == "function"
-table.insert(loadScreenDetected, shp and "sethiddenproperty: OK (для NoGrass)" or "sethiddenproperty: недоступен")
--- RequestStreamAroundAsync: легитимный API, низкий риск
-table.insert(loadScreenDetected, "RequestStreamAroundAsync: легитимный API")
--- root.Size изменение (хитбоксы): сервер видит через raycast hit detection
-table.insert(loadScreenDetected, "Hitbox.Size: серверный raycast видит — используем clamp 2..8")
--- camera.CFrame = (evil aim): сервер видит через Mouse.Hit сравнение
-table.insert(loadScreenDetected, "camera.CFrame: используем лерп (не мгновенно)")
-end)
-end
-local function updateLoadScreen()
--- 0.39v4: pcall вокруг — если что-то упадёт, экран всё равно скроется через 3с
-pcall(function()
-if not LoadScreenEnabled then return end
-local now = os.clock()
-local elapsed = now - loadScreenStart
-if loadScreenPhaseIdx <= #loadScreenPhases then
-local phase = loadScreenPhases[loadScreenPhaseIdx]
-local phaseTime = phase[1] * 3.0 -- 3с максимум
-if elapsed >= phaseTime then
-setLoadProgress(phase[1], phase[2])
-if loadScreenPhaseIdx == 3 then
--- в фазе 3 запускаем реальную проверку
-runLoadScreenCheck()
-if loadScreenText then
-loadScreenText.Text = "Проверки: " .. table.concat(loadScreenDetected, "  ||  ")
-end
-end
-loadScreenPhaseIdx = loadScreenPhaseIdx + 1
-end
-end
-if elapsed >= 3.0 then
-hideLoadScreen()
-end
-end)
-end
-if LoadScreenEnabled then
-showLoadScreen()
-loadScreenConn = game:GetService("RunService").RenderStepped:Connect(updateLoadScreen)
-end
+-- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
+-- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
 local ok, err = pcall(function()
 Players = game:GetService("Players")
 RunService = game:GetService("RunService")
@@ -1246,4 +1068,230 @@ end
 return Library:Connect(self.Instance.MouseEnter, Function)
 end
 Instances.OnHoverLeave = function(self, Function)
-if
+if not self.Instance then
+return
+end
+return Library:Connect(self.Instance.MouseLeave, Function)
+end
+end
+local CustomFont = { } do
+function CustomFont:New(Name, Weight, Style, Data)
+-- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
+-- Возвращаем Roblox шрифт, кастомные не грузим.
+-- 0.39v7 FIX: FontFace хочет Font object, не EnumItem. Используем Font.fromEnum.
+return Font.fromEnum(Enum.Font.GothamMedium)
+end
+do
+-- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
+-- который детектится анти-читом. Используем Roblox GothamMedium.
+-- 0.39v7 FIX: Font.new(Enum.Font.X) ломается — присваиваем Enum.Font напрямую.
+Library.Font = Font.fromEnum(Enum.Font.GothamMedium)
+end
+end
+Library.Holder = Instances:Create("ScreenGui", {
+Parent = gethui(),
+Name = "\0",
+ZIndexBehavior = Enum.ZIndexBehavior.Global,
+DisplayOrder = 2,
+ResetOnSpawn = false
+})
+Library.UnusedHolder = Instances:Create("ScreenGui", {
+Parent = gethui(),
+Name = "\0",
+ZIndexBehavior = Enum.ZIndexBehavior.Global,
+Enabled = false,
+ResetOnSpawn = false
+})
+Library.Unload = function(self)
+for Index, Value in self.Connections do
+Value.Connection:Disconnect()
+end
+for Index, Value in self.Threads do
+coroutine.close(Value)
+end
+if self.Holder then
+self.Holder:Clean()
+end
+Library = nil
+getgenv().Library = nil
+end
+Library.Round = function(self, Number, Float)
+local Multiplier = 1 / (Float or 1)
+return MathFloor(Number * Multiplier + 0.5) / Multiplier
+end
+Library.Thread = function(self, Function)
+local NewThread = coroutine.create(Function)
+coroutine.wrap(function()
+coroutine.resume(NewThread)
+end)()
+TableInsert(self.Threads, NewThread)
+return NewThread
+end
+Library.SafeCall = function(self, Function, ...)
+local Arguements = { ... }
+local Success, Result = pcall(Function, TableUnpack(Arguements))
+if not Success then
+warn(Result)
+return false
+end
+return Success
+end
+Library.Connect = function(self, Event, Callback, Name)
+Name = Name or StringFormat("connection_number_%s_%s", self.UnnamedConnections + 1, HttpService:GenerateGUID(false))
+local NewConnection = {
+Event = Event,
+Callback = Callback,
+Name = Name,
+Connection = nil
+}
+Library:Thread(function()
+NewConnection.Connection = Event:Connect(Callback)
+end)
+TableInsert(self.Connections, NewConnection)
+return NewConnection
+end
+Library.Disconnect = function(self, Name)
+for _, Connection in self.Connections do
+if Connection.Name == Name then
+Connection.Connection:Disconnect()
+break
+end
+end
+end
+Library.NextFlag = function(self)
+local FlagNumber = self.UnnamedFlags + 1
+return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
+end
+Library.AddToTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+local ThemeData = {
+Item = Item,
+Properties = Properties,
+}
+for Property, Value in ThemeData.Properties do
+if type(Value) == "string" then
+if not self.Theme[Value] then
+Item[Property] = Value
+end
+Item[Property] = self.Theme[Value]
+else
+Item[Property] = Value()
+end
+end
+TableInsert(self.ThemeItems, ThemeData)
+self.ThemeMap[Item] = ThemeData
+end
+Library.ToRich = function(self, Text, Color)
+return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
+end
+Library.GetConfig = function(self)
+local Config = { }
+for Index, Value in Library.Flags do
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
+elseif type(Value) == "table" and Value.Color ~= nil then
+local hex = "#FFFFFF"
+if type(Value.HexValue) == "string" then
+hex = "#" .. Value.HexValue
+elseif typeof(Value.Color) == "Color3" then
+hex = "#" .. Value.Color:ToHex()
+end
+Config[Index] = {Color = hex}
+else
+Config[Index] = Value
+end
+end)
+end
+return HttpService:JSONEncode(Config)
+end
+Library.LoadConfig = function(self, Config)
+local OkDecoded, Decoded = pcall(function()
+return HttpService:JSONDecode(Config)
+end)
+if not OkDecoded or type(Decoded) ~= "table" then
+warn("[alt.gg] LoadConfig: файл конфига битый")
+return false
+end
+for Index, Value in Decoded do
+local SetFunction = Library.SetFlags[Index]
+if SetFunction then
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+SetFunction(Value)
+elseif type(Value) == "table" and Value.Color ~= nil then
+SetFunction(Value.Color)
+else
+SetFunction(Value)
+end
+end)
+end
+end
+return true
+end
+Library.DeleteConfig = function(self, Config)
+if isfile(Library.Folders.Configs .. "/" .. Config) then
+delfile(Library.Folders.Configs .. "/" .. Config)
+end
+end
+Library.RefreshConfigsList = function(self, Element)
+local List = { }
+local ReturnList = { }
+List = listfiles(Library.Folders.Configs)
+for Index = 1, #List do
+local File = List[Index]
+if File:sub(-5) == ".json" then
+local Position = File:find(".json", 1, true)
+local StartPosition = Position
+local Character = File:sub(Position, Position)
+while Character ~= "/" and Character ~= "\\" and Character ~= "" do
+Position = Position - 1
+Character = File:sub(Position, Position)
+end
+if Character == "/" or Character == "\\" then
+TableInsert(ReturnList, File:sub(Position + 1, StartPosition - 1))
+end
+end
+end
+Element:Refresh(ReturnList)
+end
+Library.ChangeItemTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+if not self.ThemeMap[Item] then
+return
+end
+self.ThemeMap[Item].Properties = Properties
+self.ThemeMap[Item] = self.ThemeMap[Item]
+end
+Library.ChangeTheme = function(self, Theme, Color)
+self.Theme[Theme] = Color
+for _, Item in self.ThemeItems do
+for Property, Value in Item.Properties do
+if type(Value) == "string" and Value == Theme then
+Item.Item[Property] = Color
+elseif type(Value) == "function" then
+Item.Item[Property] = Value()
+end
+end
+end
+end
+Library.IsMouseOverFrame = function(self, Frame)
+Frame = Frame.Instance
+local MousePosition = Vector2New(Mouse.X, Mouse.Y)
+return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X
+and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
+end
+Library.Lerp = function(self, Start, Finish, Time)
+return Start + (Finish - Start) * Time
+end
+Library.CompareVectors = function(self, PointA, PointB)
+return (PointA.X < PointB.X) or (PointA.Y < PointB.Y)
+end
+Library.IsClipped = function(self, Object, Column)
+local Parent = Column
+local BoundryTop = Parent.AbsolutePosition
+local Boundry

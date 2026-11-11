@@ -1,230 +1,4 @@
- not self.Instance then
-return
-end
-return Library:Connect(self.Instance.MouseLeave, Function)
-end
-end
-local CustomFont = { } do
-function CustomFont:New(Name, Weight, Style, Data)
--- 0.39v6: getcustomasset убран полностью — детектится анти-читом.
--- Возвращаем Roblox шрифт, кастомные не грузим.
--- 0.39v7 FIX: FontFace хочет Font object, не EnumItem. Используем Font.fromEnum.
-return Font.fromEnum(Enum.Font.GothamMedium)
-end
-do
--- 0.39v6: кастомные шрифты убраны — они грузятся через getcustomasset
--- который детектится анти-читом. Используем Roblox GothamMedium.
--- 0.39v7 FIX: Font.new(Enum.Font.X) ломается — присваиваем Enum.Font напрямую.
-Library.Font = Font.fromEnum(Enum.Font.GothamMedium)
-end
-end
-Library.Holder = Instances:Create("ScreenGui", {
-Parent = gethui(),
-Name = "\0",
-ZIndexBehavior = Enum.ZIndexBehavior.Global,
-DisplayOrder = 2,
-ResetOnSpawn = false
-})
-Library.UnusedHolder = Instances:Create("ScreenGui", {
-Parent = gethui(),
-Name = "\0",
-ZIndexBehavior = Enum.ZIndexBehavior.Global,
-Enabled = false,
-ResetOnSpawn = false
-})
-Library.Unload = function(self)
-for Index, Value in self.Connections do
-Value.Connection:Disconnect()
-end
-for Index, Value in self.Threads do
-coroutine.close(Value)
-end
-if self.Holder then
-self.Holder:Clean()
-end
-Library = nil
-getgenv().Library = nil
-end
-Library.Round = function(self, Number, Float)
-local Multiplier = 1 / (Float or 1)
-return MathFloor(Number * Multiplier + 0.5) / Multiplier
-end
-Library.Thread = function(self, Function)
-local NewThread = coroutine.create(Function)
-coroutine.wrap(function()
-coroutine.resume(NewThread)
-end)()
-TableInsert(self.Threads, NewThread)
-return NewThread
-end
-Library.SafeCall = function(self, Function, ...)
-local Arguements = { ... }
-local Success, Result = pcall(Function, TableUnpack(Arguements))
-if not Success then
-warn(Result)
-return false
-end
-return Success
-end
-Library.Connect = function(self, Event, Callback, Name)
-Name = Name or StringFormat("connection_number_%s_%s", self.UnnamedConnections + 1, HttpService:GenerateGUID(false))
-local NewConnection = {
-Event = Event,
-Callback = Callback,
-Name = Name,
-Connection = nil
-}
-Library:Thread(function()
-NewConnection.Connection = Event:Connect(Callback)
-end)
-TableInsert(self.Connections, NewConnection)
-return NewConnection
-end
-Library.Disconnect = function(self, Name)
-for _, Connection in self.Connections do
-if Connection.Name == Name then
-Connection.Connection:Disconnect()
-break
-end
-end
-end
-Library.NextFlag = function(self)
-local FlagNumber = self.UnnamedFlags + 1
-return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
-end
-Library.AddToTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-local ThemeData = {
-Item = Item,
-Properties = Properties,
-}
-for Property, Value in ThemeData.Properties do
-if type(Value) == "string" then
-if not self.Theme[Value] then
-Item[Property] = Value
-end
-Item[Property] = self.Theme[Value]
-else
-Item[Property] = Value()
-end
-end
-TableInsert(self.ThemeItems, ThemeData)
-self.ThemeMap[Item] = ThemeData
-end
-Library.ToRich = function(self, Text, Color)
-return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
-end
-Library.GetConfig = function(self)
-local Config = { }
-for Index, Value in Library.Flags do
-pcall(function()
-if type(Value) == "table" and Value.Key ~= nil then
-Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
-elseif type(Value) == "table" and Value.Color ~= nil then
-local hex = "#FFFFFF"
-if type(Value.HexValue) == "string" then
-hex = "#" .. Value.HexValue
-elseif typeof(Value.Color) == "Color3" then
-hex = "#" .. Value.Color:ToHex()
-end
-Config[Index] = {Color = hex}
-else
-Config[Index] = Value
-end
-end)
-end
-return HttpService:JSONEncode(Config)
-end
-Library.LoadConfig = function(self, Config)
-local OkDecoded, Decoded = pcall(function()
-return HttpService:JSONDecode(Config)
-end)
-if not OkDecoded or type(Decoded) ~= "table" then
-warn("[alt.gg] LoadConfig: файл конфига битый")
-return false
-end
-for Index, Value in Decoded do
-local SetFunction = Library.SetFlags[Index]
-if SetFunction then
-pcall(function()
-if type(Value) == "table" and Value.Key ~= nil then
-SetFunction(Value)
-elseif type(Value) == "table" and Value.Color ~= nil then
-SetFunction(Value.Color)
-else
-SetFunction(Value)
-end
-end)
-end
-end
-return true
-end
-Library.DeleteConfig = function(self, Config)
-if isfile(Library.Folders.Configs .. "/" .. Config) then
-delfile(Library.Folders.Configs .. "/" .. Config)
-end
-end
-Library.RefreshConfigsList = function(self, Element)
-local List = { }
-local ReturnList = { }
-List = listfiles(Library.Folders.Configs)
-for Index = 1, #List do
-local File = List[Index]
-if File:sub(-5) == ".json" then
-local Position = File:find(".json", 1, true)
-local StartPosition = Position
-local Character = File:sub(Position, Position)
-while Character ~= "/" and Character ~= "\\" and Character ~= "" do
-Position = Position - 1
-Character = File:sub(Position, Position)
-end
-if Character == "/" or Character == "\\" then
-TableInsert(ReturnList, File:sub(Position + 1, StartPosition - 1))
-end
-end
-end
-Element:Refresh(ReturnList)
-end
-Library.ChangeItemTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-if not self.ThemeMap[Item] then
-return
-end
-self.ThemeMap[Item].Properties = Properties
-self.ThemeMap[Item] = self.ThemeMap[Item]
-end
-Library.ChangeTheme = function(self, Theme, Color)
-self.Theme[Theme] = Color
-for _, Item in self.ThemeItems do
-for Property, Value in Item.Properties do
-if type(Value) == "string" and Value == Theme then
-Item.Item[Property] = Color
-elseif type(Value) == "function" then
-Item.Item[Property] = Value()
-end
-end
-end
-end
-Library.IsMouseOverFrame = function(self, Frame)
-Frame = Frame.Instance
-local MousePosition = Vector2New(Mouse.X, Mouse.Y)
-return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X
-and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
-end
-Library.Lerp = function(self, Start, Finish, Time)
-return Start + (Finish - Start) * Time
-end
-Library.CompareVectors = function(self, PointA, PointB)
-return (PointA.X < PointB.X) or (PointA.Y < PointB.Y)
-end
-Library.IsClipped = function(self, Object, Column)
-local Parent = Column
-local BoundryTop = Parent.AbsolutePosition
-local BoundryBottom = BoundryTop + Parent.AbsoluteSize
+Bottom = BoundryTop + Parent.AbsoluteSize
 local Top = Object.AbsolutePosition
 local Bottom = Top + Object.AbsoluteSize
 return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
@@ -2309,4 +2083,176 @@ BorderColor3 = FromRGB(0, 0, 0),
 Size = UDim2New(0, 13, 0, 13),
 BorderSizePixel = 0
 })
-I
+Instances:Create("UICorner", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow2"] = Instances:Create("ImageLabel", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Accent"],
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 0.800000011920929,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0,
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+}):AddToTheme({ImageColor3 = 'Accent'})
+end
+table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
+function Slider:Get()
+return Slider.Value
+end
+function Slider:SetVisibility(Bool)
+Items["Slider"].Instance.Visible = Bool
+end
+function Slider:Set(Value)
+Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
+Library.Flags[Slider.Flag] = Slider.Value
+Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
+Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
+if Slider.Callback then
+Library:SafeCall(Slider.Callback, Slider.Value)
+end
+end
+local InputChanged
+Items["RealSlider"]:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+if InputChanged then
+pcall(function()
+InputChanged:Disconnect()
+end)
+InputChanged = nil
+end
+Slider.Sliding = true
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+Slider:Set(Value)
+InputChanged = Input.Changed:Connect(function()
+if Input.UserInputState == Enum.UserInputState.End
+or Input.UserInputState == Enum.UserInputState.Cancel then
+Slider.Sliding = false
+if InputChanged then
+InputChanged:Disconnect()
+InputChanged = nil
+end
+end
+end)
+end
+end)
+Library:Connect(UserInputService.InputChanged, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+if Slider.Sliding then
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+Slider:Set(Value)
+end
+end
+end)
+if Slider.Default then
+Slider:Set(Slider.Default)
+end
+Library.SetFlags[Slider.Flag] = function(Value)
+Slider:Set(Value)
+end
+return Slider
+end
+Library.Sections.Dropdown = function(self, Data)
+Data = Data or { }
+local Dropdown = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Dropdown",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Items = Data.Items or Data.items or { "One", "Two", "Three" },
+Default = Data.Default or Data.default or nil,
+Callback = Data.Callback or Data.callback or function() end,
+Multi = Data.Multi or Data.multi or false,
+Value = { },
+Options = { },
+IsOpen = false
+}
+local Items = { } do
+Items["Dropdown"] = Instances:Create("Frame", {
+Parent = Dropdown.Section.Items["Content"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 26),
+BorderSizePixel = 0
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FillDirection = Enum.FillDirection.Horizontal,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Padding = UDimNew(0, 8),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Dropdown.Name,
+Size = UDim2New(0, 0, 0, 15),
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+LayoutOrder = 1,
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 14
+}):AddToTheme({TextColor3 = 'Text'})
+Items["RealDropdown"] = Instances:Create("TextButton", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = FromRGB(0, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(0, 0, 0, 26),
+BorderSizePixel = 0,
+TextSize = 14,
+LayoutOrder = 2,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+local DropdownFlex = Instance.new("UIFlexItem")
+DropdownFlex.FlexMode = Enum.UIFlexMode.Fill
+DropdownFlex.Parent = Items["RealDropdown"].Instance
+Instances:Create("UICorner", {
+Parent = Items["RealDropdown"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 8)
+})
+Instances:Create("UIStroke", {
+Parent = Items["RealDropdown"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Value"] = Instances:Create("TextLabel", {
+Parent = Items["RealDropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+TextTransparency = 0.15,
+Text = "--",
+Size = UDim2New(0, 0, 0, 15),
+AnchorPoint = Vector2New(0, 0.5),
+BorderSizePixel = 0,
+BackgroundTransparency = 1,
+Position = UDim2New(0, 8, 0.5, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 13
+}):AddToTheme({TextColor3 = 'Text'})
+Items["Icon"] = Instances:Create("ImageLabel", {
+Parent = Items
