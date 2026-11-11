@@ -1,4 +1,26 @@
-Bottom = BoundryTop + Parent.AbsoluteSize
+Item.Item[Property] = Color
+elseif type(Value) == "function" then
+Item.Item[Property] = Value()
+end
+end
+end
+end
+Library.IsMouseOverFrame = function(self, Frame)
+Frame = Frame.Instance
+local MousePosition = Vector2New(Mouse.X, Mouse.Y)
+return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X
+and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
+end
+Library.Lerp = function(self, Start, Finish, Time)
+return Start + (Finish - Start) * Time
+end
+Library.CompareVectors = function(self, PointA, PointB)
+return (PointA.X < PointB.X) or (PointA.Y < PointB.Y)
+end
+Library.IsClipped = function(self, Object, Column)
+local Parent = Column
+local BoundryTop = Parent.AbsolutePosition
+local BoundryBottom = BoundryTop + Parent.AbsoluteSize
 local Top = Object.AbsolutePosition
 local Bottom = Top + Object.AbsoluteSize
 return Library:CompareVectors(Top, BoundryTop) or Library:CompareVectors(BoundryBottom, Bottom)
@@ -2255,4 +2277,3 @@ AutomaticSize = Enum.AutomaticSize.X,
 TextSize = 13
 }):AddToTheme({TextColor3 = 'Text'})
 Items["Icon"] = Instances:Create("ImageLabel", {
-Parent = Items

@@ -1,7 +1,24 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.43
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.43 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ (огромное окно за рамками экрана):
+    • БЫЛО: на Delta меню открывалось гигантским и не вставало на место.
+      Причины, найденные в коде:
+      1) math.clamp(maxW, 280, maxW) в windowedSize кидал ошибку на узких
+         экранах — весь pcall молча умирал, окно оставалось 900x600;
+      2) телефон определялся как «нет клавиатуры» — на некоторых
+         экзекуторах ненадёжно, теперь по TouchEnabled;
+      3) начальный размер применялся даже по фолбэку 1280x800, когда
+         камера ещё не готова — окно строилось 1088x560;
+      4) пересчёт вешался один раз на ту камеру, что была при старте:
+         если Delta заменяла CurrentCamera — самофикс умирал навсегда.
+    • ТЕПЕРЬ: размер применяется только при реальном вьюпорте, с
+      повторами до 8 секунд (меню «встаёт» через секунду-две, как
+      раньше и работало); наблюдатель перецепляется при каждой смене
+      CurrentCamera; при каждом открытии меню окно поджимается под
+      экран. На ПК логика не изменилась.
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -444,7 +461,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.43...")
 
 -- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
 -- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
@@ -591,7 +608,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.39 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.43 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -4524,9 +4541,13 @@ end)
 return vp
 end
 function windowedSize(vp)
--- 0.39v8 FIX: адаптивный размер под телефон. На маленьких экранах
--- окно не должно быть больше 85% ширины и 70% высоты.
-local isPhone = not UserInputService.KeyboardEnabled
+-- 0.43 FIX: адаптивный размер под телефон.
+-- 1) Телефон определяем по TouchEnabled (а не «нет клавиатуры») —
+--    у части экзекуторов клавиатура рапортуется всегда, из-за чего
+--    телефон считался ПК и получал окно 900x600.
+-- 2) Убран math.clamp(maxW, 280, maxW): на узком экране max < min —
+--    ошибка, весь pcall молча умирал и окно оставалось 900x600.
+local isPhone = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local maxW, maxH
 if isPhone then
 -- телефон: окно 85% ширины, 70% высоты
@@ -4537,15 +4558,13 @@ else
 maxW = 900
 maxH = 600
 end
--- не меньше минимума
+-- желаемый минимум (если экран совсем мал — экран главнее минимума)
 maxW = math.max(maxW, 280)
 maxH = math.max(maxH, 220)
 -- не больше экрана минус маргины
 maxW = math.min(maxW, vp.X - WINDOW_MARGIN * 2)
 maxH = math.min(maxH, vp.Y - WINDOW_MARGIN * 2)
-local w = math.clamp(maxW, 280, maxW)
-local h = math.clamp(maxH, 220, maxH)
-return math.floor(w), math.floor(h)
+return math.max(120, math.floor(maxW)), math.max(100, math.floor(maxH))
 end
 function clampWindowOnScreen()
 pcall(function()
@@ -4561,6 +4580,24 @@ local y = math.clamp(pos.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.Y - h - WI
 MainFrame.AnchorPoint = Vector2.new(0, 0)
 MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 end)
+end
+-- 0.43 FIX: применяем оконный размер ТОЛЬКО при реальном вьюпорте.
+-- На Delta при автозапуске камера бывает ещё не готова — старый код
+-- строил окно по фолбэку 1280x800 (гигант на телефоне).
+function applyWindowSize()
+local cam = Workspace.CurrentCamera
+if not (cam and cam.ViewportSize and cam.ViewportSize.X > 100) then
+return false
+end
+local vp = getViewSize()
+local w, h = windowedSize(vp)
+MainFrame.AnchorPoint = Vector2.new(0, 0)
+MainFrame.Size = UDim2.fromOffset(w, h)
+MainFrame.Position = UDim2.fromOffset(
+math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2)),
+math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
+)
+return true
 end
 WindowFullscreen = false
 SavedWindowed = nil
@@ -4612,20 +4649,53 @@ journal("МЕНЮ: ОКОННЫЙ РЕЖИМ")
 end
 end)
 end
+-- 0.43 FIX: стартовое применение размера + самофикс повторами.
+-- Пока вьюпорт не готов — повторяем каждые 0.5с до 8 секунд. Это и
+-- есть «встаёт в норм размеры через секунду-две», только теперь
+-- гарантированно. После первой удачной применки — только поджимаем.
+-- Цикл запускается в ОТДЕЛЬНОМ потоке (task.spawn), чтобы не
+-- задерживать построение остального UI на время повторов.
 pcall(function()
-local vp = getViewSize()
-local w, h = windowedSize(vp)
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Size = UDim2.fromOffset(w, h)
-MainFrame.Position = UDim2.fromOffset(
-math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2)),
-math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
-)
-journal("МЕНЮ: оконный вид " .. w .. "x" .. h)
+applyWindowSize()
 end)
+task.spawn(function()
+local applied = false
+for i = 1, 16 do
+task.wait(0.5)
+if WindowFullscreen then
+break
+end
+local cam = Workspace.CurrentCamera
+if cam and cam.ViewportSize and cam.ViewportSize.X > 100 then
+if not applied then
 pcall(function()
+applyWindowSize()
+end)
+applied = true
+else
+pcall(function()
+clampWindowOnScreen()
+end)
+end
+end
+end
+end)
+-- 0.43 FIX: наблюдатель вьюпорта переживает смену CurrentCamera.
+-- Старый код вешался один раз на камеру при старте: если Delta
+-- заменяла CurrentCamera (спавн/телепорт) — самофикс умирал навсегда,
+-- а если камера на старте была nil — не создавался вообще.
+local vpWatchName = nil
+local vpWatchCount = 0
+local function setupViewportWatcher()
+pcall(function()
+if vpWatchName then
+Library:Disconnect(vpWatchName)
+vpWatchName = nil
+end
 local cam = Workspace.CurrentCamera
 if cam then
+vpWatchCount = vpWatchCount + 1
+vpWatchName = "fust_viewport_watch_" .. vpWatchCount
 Library:Connect(cam:GetPropertyChangedSignal("ViewportSize"), function()
 task.delay(0.1, function()
 pcall(function()
@@ -4641,8 +4711,29 @@ clampWindowOnScreen()
 end
 end)
 end)
+end, vpWatchName)
+end
 end)
 end
+pcall(function()
+setupViewportWatcher()
+end)
+Library:Connect(Workspace:GetPropertyChangedSignal("CurrentCamera"), function()
+task.delay(0.2, function()
+pcall(function()
+setupViewportWatcher()
+if WindowFullscreen then
+local vp = getViewSize()
+MainFrame.Size = UDim2.fromOffset(
+math.max(200, vp.X - WINDOW_MARGIN * 2),
+math.max(150, vp.Y - WINDOW_MARGIN * 2)
+)
+MainFrame.Position = UDim2.fromOffset(WINDOW_MARGIN, WINDOW_MARGIN)
+else
+clampWindowOnScreen()
+end
+end)
+end)
 end)
 baseSetOpen = Window.SetOpen
 Window.SetOpen = function(self, b)
@@ -12791,7 +12882,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.39 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.43 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

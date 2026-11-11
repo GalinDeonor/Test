@@ -1,4 +1,30 @@
-pe(t) ~= "table" then
+if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
+AdminScan_LastJournal = os.clock()
+journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
+end
+else
+AdminScan_Names = ""
+end
+end
+AdminScan_LastJournal = 0
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then break end
+pcall(adminScanTick)
+end
+end)
+HttpService = game:GetService("HttpService")
+CONFIG_FILE = "FUST_config.json"
+function colorToTable(c)
+return {
+R = math.floor(c.R * 255 + 0.5),
+G = math.floor(c.G * 255 + 0.5),
+B = math.floor(c.B * 255 + 0.5),
+}
+end
+function tableToColor(t)
+if type(t) ~= "table" then
 return nil
 end
 return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
@@ -2305,7 +2331,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.39 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.43 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

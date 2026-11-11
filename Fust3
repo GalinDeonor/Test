@@ -1,4 +1,4 @@
-["RealDropdown"].Instance,
+Parent = Items["RealDropdown"].Instance,
 Name = "\0",
 ImageColor3 = Library.Theme["Text"],
 BorderColor3 = FromRGB(0, 0, 0),
@@ -971,9 +971,13 @@ end)
 return vp
 end
 function windowedSize(vp)
--- 0.39v8 FIX: адаптивный размер под телефон. На маленьких экранах
--- окно не должно быть больше 85% ширины и 70% высоты.
-local isPhone = not UserInputService.KeyboardEnabled
+-- 0.43 FIX: адаптивный размер под телефон.
+-- 1) Телефон определяем по TouchEnabled (а не «нет клавиатуры») —
+--    у части экзекуторов клавиатура рапортуется всегда, из-за чего
+--    телефон считался ПК и получал окно 900x600.
+-- 2) Убран math.clamp(maxW, 280, maxW): на узком экране max < min —
+--    ошибка, весь pcall молча умирал и окно оставалось 900x600.
+local isPhone = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local maxW, maxH
 if isPhone then
 -- телефон: окно 85% ширины, 70% высоты
@@ -984,15 +988,13 @@ else
 maxW = 900
 maxH = 600
 end
--- не меньше минимума
+-- желаемый минимум (если экран совсем мал — экран главнее минимума)
 maxW = math.max(maxW, 280)
 maxH = math.max(maxH, 220)
 -- не больше экрана минус маргины
 maxW = math.min(maxW, vp.X - WINDOW_MARGIN * 2)
 maxH = math.min(maxH, vp.Y - WINDOW_MARGIN * 2)
-local w = math.clamp(maxW, 280, maxW)
-local h = math.clamp(maxH, 220, maxH)
-return math.floor(w), math.floor(h)
+return math.max(120, math.floor(maxW)), math.max(100, math.floor(maxH))
 end
 function clampWindowOnScreen()
 pcall(function()
@@ -1008,6 +1010,24 @@ local y = math.clamp(pos.Y, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.Y - h - WI
 MainFrame.AnchorPoint = Vector2.new(0, 0)
 MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 end)
+end
+-- 0.43 FIX: применяем оконный размер ТОЛЬКО при реальном вьюпорте.
+-- На Delta при автозапуске камера бывает ещё не готова — старый код
+-- строил окно по фолбэку 1280x800 (гигант на телефоне).
+function applyWindowSize()
+local cam = Workspace.CurrentCamera
+if not (cam and cam.ViewportSize and cam.ViewportSize.X > 100) then
+return false
+end
+local vp = getViewSize()
+local w, h = windowedSize(vp)
+MainFrame.AnchorPoint = Vector2.new(0, 0)
+MainFrame.Size = UDim2.fromOffset(w, h)
+MainFrame.Position = UDim2.fromOffset(
+math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2)),
+math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
+)
+return true
 end
 WindowFullscreen = false
 SavedWindowed = nil
@@ -1059,20 +1079,53 @@ journal("МЕНЮ: ОКОННЫЙ РЕЖИМ")
 end
 end)
 end
+-- 0.43 FIX: стартовое применение размера + самофикс повторами.
+-- Пока вьюпорт не готов — повторяем каждые 0.5с до 8 секунд. Это и
+-- есть «встаёт в норм размеры через секунду-две», только теперь
+-- гарантированно. После первой удачной применки — только поджимаем.
+-- Цикл запускается в ОТДЕЛЬНОМ потоке (task.spawn), чтобы не
+-- задерживать построение остального UI на время повторов.
 pcall(function()
-local vp = getViewSize()
-local w, h = windowedSize(vp)
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Size = UDim2.fromOffset(w, h)
-MainFrame.Position = UDim2.fromOffset(
-math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2)),
-math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
-)
-journal("МЕНЮ: оконный вид " .. w .. "x" .. h)
+applyWindowSize()
 end)
+task.spawn(function()
+local applied = false
+for i = 1, 16 do
+task.wait(0.5)
+if WindowFullscreen then
+break
+end
+local cam = Workspace.CurrentCamera
+if cam and cam.ViewportSize and cam.ViewportSize.X > 100 then
+if not applied then
 pcall(function()
+applyWindowSize()
+end)
+applied = true
+else
+pcall(function()
+clampWindowOnScreen()
+end)
+end
+end
+end
+end)
+-- 0.43 FIX: наблюдатель вьюпорта переживает смену CurrentCamera.
+-- Старый код вешался один раз на камеру при старте: если Delta
+-- заменяла CurrentCamera (спавн/телепорт) — самофикс умирал навсегда,
+-- а если камера на старте была nil — не создавался вообще.
+local vpWatchName = nil
+local vpWatchCount = 0
+local function setupViewportWatcher()
+pcall(function()
+if vpWatchName then
+Library:Disconnect(vpWatchName)
+vpWatchName = nil
+end
 local cam = Workspace.CurrentCamera
 if cam then
+vpWatchCount = vpWatchCount + 1
+vpWatchName = "fust_viewport_watch_" .. vpWatchCount
 Library:Connect(cam:GetPropertyChangedSignal("ViewportSize"), function()
 task.delay(0.1, function()
 pcall(function()
@@ -1088,8 +1141,29 @@ clampWindowOnScreen()
 end
 end)
 end)
+end, vpWatchName)
+end
 end)
 end
+pcall(function()
+setupViewportWatcher()
+end)
+Library:Connect(Workspace:GetPropertyChangedSignal("CurrentCamera"), function()
+task.delay(0.2, function()
+pcall(function()
+setupViewportWatcher()
+if WindowFullscreen then
+local vp = getViewSize()
+MainFrame.Size = UDim2.fromOffset(
+math.max(200, vp.X - WINDOW_MARGIN * 2),
+math.max(150, vp.Y - WINDOW_MARGIN * 2)
+)
+MainFrame.Position = UDim2.fromOffset(WINDOW_MARGIN, WINDOW_MARGIN)
+else
+clampWindowOnScreen()
+end
+end)
+end)
 end)
 baseSetOpen = Window.SetOpen
 Window.SetOpen = function(self, b)
@@ -2050,74 +2124,3 @@ layout.Parent = hudFrame
 local pad = Instance.new("UIPadding")
 pad.PaddingTop = UDim.new(0, 6)
 pad.PaddingBottom = UDim.new(0, 6)
-pad.PaddingLeft = UDim.new(0, 9)
-pad.PaddingRight = UDim.new(0, 9)
-pad.Parent = hudFrame
-local order = 0
-local function makeLine(text)
-order = order + 1
-local label = Instance.new("TextLabel")
-label.Name = "L" .. order
-label.BackgroundTransparency = 1
-label.Font = Enum.Font.Code
-label.Text = text
-label.TextColor3 = Color3.fromRGB(235, 235, 240)
-label.TextXAlignment = Enum.TextXAlignment.Left
-label.AutomaticSize = Enum.AutomaticSize.XY
-label.Size = UDim2.new(0, 0, 0, 0)
-label.LayoutOrder = order
-label.Parent = hudFrame
-return label
-end
-hudLineFPS = makeLine("FPS —")
-hudLinePing = makeLine("Пинг —")
-hudLineTPS = makeLine("ТПС —")
-hudLinePlayers = makeLine("Игроки —")
-hudLineAdmin = makeLine("АДМИН —")
-end)
-if not okGui or not hudFrame then
-warn("[FUST] HUD не создался в этом экзекуторе")
-hudDestroy()
-return
-end
--- 0.39: восстановление сохранённой позиции drag, иначе угол
-pcall(function()
-if S.HUD.Position and type(S.HUD.Position) == "table" then
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
-else
-hudSnap(S.HUD.Corner)
-end
-end)
-hudApplyStyle()
-hudFrame.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-hudDragging = true
-hudDragStart = input.Position
-local topLeft = hudFrame.AbsolutePosition
-hudFrame.AnchorPoint = Vector2.new(0, 0)
-hudFrameStart = Vector2.new(topLeft.X, topLeft.Y)
-hudFrame.Position = UDim2.fromOffset(topLeft.X, topLeft.Y)
-input.Changed:Connect(function()
-if input.UserInputState == Enum.UserInputState.End
-or input.UserInputState == Enum.UserInputState.Cancel then
-hudDragging = false
-end
-end)
-end
-end)
-hudFrame.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1
-or input.UserInputType == Enum.UserInputType.Touch then
-hudDragging = false
-end
-end)
-table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
-if not hudDragging then
-return
-end
-if input.UserInputType == Enum.UserInputType.MouseMovement
-or input.UserInputType == Enum.UserInputType.Touch then
-if hudDragStart and hudFrameStart and hudFrame then
-local cam = Works

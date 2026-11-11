@@ -1,7 +1,24 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.39
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.43
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.43 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ (огромное окно за рамками экрана):
+    • БЫЛО: на Delta меню открывалось гигантским и не вставало на место.
+      Причины, найденные в коде:
+      1) math.clamp(maxW, 280, maxW) в windowedSize кидал ошибку на узких
+         экранах — весь pcall молча умирал, окно оставалось 900x600;
+      2) телефон определялся как «нет клавиатуры» — на некоторых
+         экзекуторах ненадёжно, теперь по TouchEnabled;
+      3) начальный размер применялся даже по фолбэку 1280x800, когда
+         камера ещё не готова — окно строилось 1088x560;
+      4) пересчёт вешался один раз на ту камеру, что была при старте:
+         если Delta заменяла CurrentCamera — самофикс умирал навсегда.
+    • ТЕПЕРЬ: размер применяется только при реальном вьюпорте, с
+      повторами до 8 секунд (меню «встаёт» через секунду-две, как
+      раньше и работало); наблюдатель перецепляется при каждой смене
+      CurrentCamera; при каждом открытии меню окно поджимается под
+      экран. На ПК логика не изменилась.
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -444,7 +461,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.39...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.43...")
 
 -- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
 -- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
@@ -591,7 +608,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.39 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.43 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -1272,26 +1289,3 @@ self.Theme[Theme] = Color
 for _, Item in self.ThemeItems do
 for Property, Value in Item.Properties do
 if type(Value) == "string" and Value == Theme then
-Item.Item[Property] = Color
-elseif type(Value) == "function" then
-Item.Item[Property] = Value()
-end
-end
-end
-end
-Library.IsMouseOverFrame = function(self, Frame)
-Frame = Frame.Instance
-local MousePosition = Vector2New(Mouse.X, Mouse.Y)
-return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X
-and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
-end
-Library.Lerp = function(self, Start, Finish, Time)
-return Start + (Finish - Start) * Time
-end
-Library.CompareVectors = function(self, PointA, PointB)
-return (PointA.X < PointB.X) or (PointA.Y < PointB.Y)
-end
-Library.IsClipped = function(self, Object, Column)
-local Parent = Column
-local BoundryTop = Parent.AbsolutePosition
-local Boundry
