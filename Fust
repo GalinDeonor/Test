@@ -1,7 +1,23 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.43
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.44 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ №2, РАДИКАЛЬНЫЙ (размер через Scale):
+    • 0.43 чинил вычисление пиксельного размера окна — этого оказалось
+      недостаточно. Теперь подход другой: на телефоне размер меню и его
+      позиция задаются через Scale (85% x 70% экрана, центр 50/50).
+      Scale рендерится Roblox'ом правильно ВСЕГДА — не зависит ни от
+      камеры, ни от момента замера вьюпорта, ни от врущих флагов
+      экзекутора. Меню физически НЕ МОЖЕТ открыться гигантским.
+    • Библиотека патчена: перетаскивание/ресайз теперь читают
+      AbsolutePosition/AbsoluteSize — работают с любым заданием размера.
+    • Телефон определяется тройно: TouchEnabled, ИЛИ нет мыши+клавы,
+      ИЛИ экран меньше 800x600 — какой-то из признаков сработает всегда.
+    • При каждом открытии меню: если окно не влезает в экран — мгновенная
+      пересборка Scale. На ПК всё как было (900x600, ресайз свободный).
+    • В ШАПКЕ МЕНЮ теперь версия: «FUST Survival 0.44». Если видишь её —
+      запущена новая сборка. Если нет — на GitHub старый файл.
 
     НОВОЕ В 0.43 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ (огромное окно за рамками экрана):
     • БЫЛО: на Delta меню открывалось гигантским и не вставало на место.
@@ -461,7 +477,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.43...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44...")
 
 -- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
 -- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
@@ -608,7 +624,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.43 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -938,7 +954,9 @@ self:Connect("InputBegan", function(Input)
 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 Dragging = true
 DragStart = Input.Position
-StartPosition = Gui.Position
+-- 0.44 FIX: AbsolutePosition, а не Position — иначе при Scale-позиции
+-- (центр 50/50) Offset равен 0 и первое перетаскивание телепортирует окно
+StartPosition = Gui.AbsolutePosition
 if InputChanged then
 return
 end
@@ -1015,8 +1033,10 @@ local BeginResizing = function(Side)
 Resizing = true
 CurrentSide = Side
 StartMouse = UserInputService:GetMouseLocation()
-StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
-StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
+-- 0.44 FIX: Absolute вместо Offset-компонент — ресайз работает и когда
+-- размер задан через Scale (85% x 70%)
+StartPosition = Vector2New(Gui.AbsolutePosition.X, Gui.AbsolutePosition.Y)
+StartSize = Vector2New(Gui.AbsoluteSize.X, Gui.AbsoluteSize.Y)
 for Index, Value in Edges do
 Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
 end
@@ -4521,7 +4541,7 @@ print("[FUST] Иконка петуха: rbxassetid (безопасно)")
 
 Window = Library:Window({
 Name = "Пьяный Петух",
-SubName = "FUST Survival · на основе VOMAGLA",
+SubName = "FUST Survival 0.44 · на основе VOMAGLA",
 Logo = PETUH_ICON_ASSET
 })
 pcall(function()
@@ -4540,14 +4560,24 @@ vp = Vector2.new(vp.X, vp.Y - inset.Y)
 end)
 return vp
 end
+-- 0.44: телефон определяется ТРОЙНО — какой-то признак сработает,
+-- даже если экзекутор врёт в одном из флагов:
+-- 1) TouchEnabled (надёжно на Delta);
+-- 2) нет ни мыши, ни клавиатуры;
+-- 3) экран меньше 800x600 (фолбэк-вьюпорт 1280x800 сюда не попадает).
+function isPhoneLayout(vp)
+if UserInputService.TouchEnabled then
+return true
+end
+if UserInputService.MouseEnabled or UserInputService.KeyboardEnabled then
+return vp.X < 800 or vp.Y < 600
+end
+return true
+end
 function windowedSize(vp)
--- 0.43 FIX: адаптивный размер под телефон.
--- 1) Телефон определяем по TouchEnabled (а не «нет клавиатуры») —
---    у части экзекуторов клавиатура рапортуется всегда, из-за чего
---    телефон считался ПК и получал окно 900x600.
--- 2) Убран math.clamp(maxW, 280, maxW): на узком экране max < min —
---    ошибка, весь pcall молча умирал и окно оставалось 900x600.
-local isPhone = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+-- 0.44 FIX: убран math.clamp(maxW, 280, maxW): на узком экране max < min —
+-- ошибка, весь pcall молча умирал и окно оставалось 900x600.
+local isPhone = isPhoneLayout(vp)
 local maxW, maxH
 if isPhone then
 -- телефон: окно 85% ширины, 70% высоты
@@ -4569,10 +4599,17 @@ end
 function clampWindowOnScreen()
 pcall(function()
 local vp = getViewSize()
+local abs = MainFrame.AbsoluteSize
+-- 0.44 FIX: читаем AbsoluteSize, а не Size.X.Offset — при Scale-размере
+-- Offset равен 0 и старый код схлопывал бы окно в 0x0. Если окно ещё
+-- не отрендерено (0x0) — вообще не трогаем.
+if abs.X < 50 or abs.Y < 50 then
+return
+end
 local maxW = math.max(200, vp.X - WINDOW_MARGIN * 2)
 local maxH = math.max(150, vp.Y - WINDOW_MARGIN * 2)
-local w = math.min(MainFrame.Size.X.Offset, maxW)
-local h = math.min(MainFrame.Size.Y.Offset, maxH)
+local w = math.min(abs.X, maxW)
+local h = math.min(abs.Y, maxH)
 MainFrame.Size = UDim2.fromOffset(w, h)
 local pos = MainFrame.AbsolutePosition
 local x = math.clamp(pos.X, WINDOW_MARGIN, math.max(WINDOW_MARGIN, vp.X - w - WINDOW_MARGIN))
@@ -4581,23 +4618,31 @@ MainFrame.AnchorPoint = Vector2.new(0, 0)
 MainFrame.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 end)
 end
--- 0.43 FIX: применяем оконный размер ТОЛЬКО при реальном вьюпорте.
--- На Delta при автозапуске камера бывает ещё не готова — старый код
--- строил окно по фолбэку 1280x800 (гигант на телефоне).
-function applyWindowSize()
-local cam = Workspace.CurrentCamera
-if not (cam and cam.ViewportSize and cam.ViewportSize.X > 100) then
-return false
+-- 0.44 ГЛАВНЫЙ ФИКС: на телефоне размер и позиция меню задаются через
+-- Scale (85% x 70% экрана, центр 50/50). Scale рендерится Roblox'ом
+-- правильно ВСЕГДА: не зависит от готовности камеры, момента замера
+-- вьюпорта или врущих флагов экзекутора. Открыть его гигантским нельзя.
+function applyPetuhWindowScale()
+MainFrame.Size = UDim2.new(0.85, 0, 0.7, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 end
+function applyWindowSize()
+-- 0.44: телефон — Scale-вид; ПК — прежние 900x600, но центр тоже Scale.
+local cam = Workspace.CurrentCamera
 local vp = getViewSize()
-local w, h = windowedSize(vp)
-MainFrame.AnchorPoint = Vector2.new(0, 0)
-MainFrame.Size = UDim2.fromOffset(w, h)
-MainFrame.Position = UDim2.fromOffset(
-math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2)),
-math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
-)
+if isPhoneLayout(vp) then
+applyPetuhWindowScale()
 return true
+end
+if cam and cam.ViewportSize and cam.ViewportSize.X > 100 then
+local w, h = windowedSize(vp)
+MainFrame.Size = UDim2.fromOffset(w, h)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+return true
+end
+return false
 end
 WindowFullscreen = false
 SavedWindowed = nil
@@ -4610,9 +4655,10 @@ WindowFullscreen = not WindowFullscreen
 local fill = FullBtnFill and FullBtnFill.Instance
 if WindowFullscreen then
 local pos = MainFrame.AbsolutePosition
+-- 0.44 FIX: AbsoluteSize (Size.X.Offset равен 0 при Scale-размере)
 SavedWindowed = {
-w = MainFrame.Size.X.Offset,
-h = MainFrame.Size.Y.Offset,
+w = math.max(MainFrame.AbsoluteSize.X, 200),
+h = math.max(MainFrame.AbsoluteSize.Y, 150),
 x = pos.X,
 y = pos.Y,
 }
@@ -4631,7 +4677,7 @@ local w, h = windowedSize(vp)
 local x = math.max(WINDOW_MARGIN, math.floor((vp.X - w) / 2))
 local y = math.max(WINDOW_MARGIN, math.floor((vp.Y - h) / 2))
 local s = SavedWindowed
-if s and s.w and s.h then
+if s and s.w and s.h and s.w >= 200 and s.h >= 150 then
 w = math.min(s.w, math.max(200, vp.X - WINDOW_MARGIN * 2))
 h = math.min(s.h, math.max(150, vp.Y - WINDOW_MARGIN * 2))
 end
@@ -4649,17 +4695,13 @@ journal("МЕНЮ: ОКОННЫЙ РЕЖИМ")
 end
 end)
 end
--- 0.43 FIX: стартовое применение размера + самофикс повторами.
--- Пока вьюпорт не готов — повторяем каждые 0.5с до 8 секунд. Это и
--- есть «встаёт в норм размеры через секунду-две», только теперь
--- гарантированно. После первой удачной применки — только поджимаем.
--- Цикл запускается в ОТДЕЛЬНОМ потоке (task.spawn), чтобы не
--- задерживать построение остального UI на время повторов.
+-- 0.44: стартовое применение + страховочный повтор (Scale не требует
+-- ожидания камеры, повтор нужен только для тихой пересборки при
+-- экзотике). Отдельный поток, UI не задерживает.
 pcall(function()
 applyWindowSize()
 end)
 task.spawn(function()
-local applied = false
 for i = 1, 16 do
 task.wait(0.5)
 if WindowFullscreen then
@@ -4667,16 +4709,14 @@ break
 end
 local cam = Workspace.CurrentCamera
 if cam and cam.ViewportSize and cam.ViewportSize.X > 100 then
-if not applied then
 pcall(function()
-applyWindowSize()
-end)
-applied = true
-else
-pcall(function()
-clampWindowOnScreen()
-end)
+local vp = getViewSize()
+local abs = MainFrame.AbsoluteSize
+if abs.X > vp.X - WINDOW_MARGIN * 2 or abs.Y > vp.Y - WINDOW_MARGIN * 2 then
+applyPetuhWindowScale()
 end
+end)
+break
 end
 end
 end)
@@ -4738,7 +4778,22 @@ end)
 baseSetOpen = Window.SetOpen
 Window.SetOpen = function(self, b)
 if b then
+pcall(function()
+local cam = Workspace.CurrentCamera
+local vp = getViewSize()
+local abs = MainFrame.AbsoluteSize
+local vpOk = (cam and cam.ViewportSize and cam.ViewportSize.X > 100)
+local overflow = vpOk and (abs.X > vp.X - WINDOW_MARGIN * 2 or abs.Y > vp.Y - WINDOW_MARGIN * 2)
+if not vpOk or overflow then
+-- вьюпорт не готов или окно не влезает — Scale-вид (ошибиться не может)
+applyPetuhWindowScale()
+else
 clampWindowOnScreen()
+end
+journal("МЕНЮ: экран " .. math.floor(vp.X) .. "x" .. math.floor(vp.Y)
+.. ", окно " .. math.floor(abs.X) .. "x" .. math.floor(abs.Y)
+.. (overflow and " -> ПЕРЕСБОРКА Scale" or ""))
+end)
 end
 return baseSetOpen(self, b)
 end
@@ -12882,7 +12937,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.43 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.44 — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

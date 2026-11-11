@@ -1,3 +1,60 @@
+for Index, Value in Decoded do
+local SetFunction = Library.SetFlags[Index]
+if SetFunction then
+pcall(function()
+if type(Value) == "table" and Value.Key ~= nil then
+SetFunction(Value)
+elseif type(Value) == "table" and Value.Color ~= nil then
+SetFunction(Value.Color)
+else
+SetFunction(Value)
+end
+end)
+end
+end
+return true
+end
+Library.DeleteConfig = function(self, Config)
+if isfile(Library.Folders.Configs .. "/" .. Config) then
+delfile(Library.Folders.Configs .. "/" .. Config)
+end
+end
+Library.RefreshConfigsList = function(self, Element)
+local List = { }
+local ReturnList = { }
+List = listfiles(Library.Folders.Configs)
+for Index = 1, #List do
+local File = List[Index]
+if File:sub(-5) == ".json" then
+local Position = File:find(".json", 1, true)
+local StartPosition = Position
+local Character = File:sub(Position, Position)
+while Character ~= "/" and Character ~= "\\" and Character ~= "" do
+Position = Position - 1
+Character = File:sub(Position, Position)
+end
+if Character == "/" or Character == "\\" then
+TableInsert(ReturnList, File:sub(Position + 1, StartPosition - 1))
+end
+end
+end
+Element:Refresh(ReturnList)
+end
+Library.ChangeItemTheme = function(self, Item, Properties)
+if type(Item) == "table" then
+Item = Item.Instance or Item
+end
+if not self.ThemeMap[Item] then
+return
+end
+self.ThemeMap[Item].Properties = Properties
+self.ThemeMap[Item] = self.ThemeMap[Item]
+end
+Library.ChangeTheme = function(self, Theme, Color)
+self.Theme[Theme] = Color
+for _, Item in self.ThemeItems do
+for Property, Value in Item.Properties do
+if type(Value) == "string" and Value == Theme then
 Item.Item[Property] = Color
 elseif type(Value) == "function" then
 Item.Item[Property] = Value()
@@ -2246,34 +2303,3 @@ TextSize = 14,
 LayoutOrder = 2,
 BackgroundColor3 = Library.Theme["Element"]
 }):AddToTheme({BackgroundColor3 = 'Element'})
-local DropdownFlex = Instance.new("UIFlexItem")
-DropdownFlex.FlexMode = Enum.UIFlexMode.Fill
-DropdownFlex.Parent = Items["RealDropdown"].Instance
-Instances:Create("UICorner", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 8)
-})
-Instances:Create("UIStroke", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Value"] = Instances:Create("TextLabel", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-TextTransparency = 0.15,
-Text = "--",
-Size = UDim2New(0, 0, 0, 15),
-AnchorPoint = Vector2New(0, 0.5),
-BorderSizePixel = 0,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 8, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 13
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Icon"] = Instances:Create("ImageLabel", {

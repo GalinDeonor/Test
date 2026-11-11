@@ -1,7 +1,23 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.43
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
+
+    НОВОЕ В 0.44 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ №2, РАДИКАЛЬНЫЙ (размер через Scale):
+    • 0.43 чинил вычисление пиксельного размера окна — этого оказалось
+      недостаточно. Теперь подход другой: на телефоне размер меню и его
+      позиция задаются через Scale (85% x 70% экрана, центр 50/50).
+      Scale рендерится Roblox'ом правильно ВСЕГДА — не зависит ни от
+      камеры, ни от момента замера вьюпорта, ни от врущих флагов
+      экзекутора. Меню физически НЕ МОЖЕТ открыться гигантским.
+    • Библиотека патчена: перетаскивание/ресайз теперь читают
+      AbsolutePosition/AbsoluteSize — работают с любым заданием размера.
+    • Телефон определяется тройно: TouchEnabled, ИЛИ нет мыши+клавы,
+      ИЛИ экран меньше 800x600 — какой-то из признаков сработает всегда.
+    • При каждом открытии меню: если окно не влезает в экран — мгновенная
+      пересборка Scale. На ПК всё как было (900x600, ресайз свободный).
+    • В ШАПКЕ МЕНЮ теперь версия: «FUST Survival 0.44». Если видишь её —
+      запущена новая сборка. Если нет — на GitHub старый файл.
 
     НОВОЕ В 0.43 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ (огромное окно за рамками экрана):
     • БЫЛО: на Delta меню открывалось гигантским и не вставало на место.
@@ -461,7 +477,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.43...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44...")
 
 -- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
 -- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
@@ -608,7 +624,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.43 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -938,7 +954,9 @@ self:Connect("InputBegan", function(Input)
 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 Dragging = true
 DragStart = Input.Position
-StartPosition = Gui.Position
+-- 0.44 FIX: AbsolutePosition, а не Position — иначе при Scale-позиции
+-- (центр 50/50) Offset равен 0 и первое перетаскивание телепортирует окно
+StartPosition = Gui.AbsolutePosition
 if InputChanged then
 return
 end
@@ -1015,8 +1033,10 @@ local BeginResizing = function(Side)
 Resizing = true
 CurrentSide = Side
 StartMouse = UserInputService:GetMouseLocation()
-StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
-StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
+-- 0.44 FIX: Absolute вместо Offset-компонент — ресайз работает и когда
+-- размер задан через Scale (85% x 70%)
+StartPosition = Vector2New(Gui.AbsolutePosition.X, Gui.AbsolutePosition.Y)
+StartSize = Vector2New(Gui.AbsoluteSize.X, Gui.AbsoluteSize.Y)
 for Index, Value in Edges do
 Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
 end
@@ -1232,60 +1252,3 @@ if not OkDecoded or type(Decoded) ~= "table" then
 warn("[alt.gg] LoadConfig: файл конфига битый")
 return false
 end
-for Index, Value in Decoded do
-local SetFunction = Library.SetFlags[Index]
-if SetFunction then
-pcall(function()
-if type(Value) == "table" and Value.Key ~= nil then
-SetFunction(Value)
-elseif type(Value) == "table" and Value.Color ~= nil then
-SetFunction(Value.Color)
-else
-SetFunction(Value)
-end
-end)
-end
-end
-return true
-end
-Library.DeleteConfig = function(self, Config)
-if isfile(Library.Folders.Configs .. "/" .. Config) then
-delfile(Library.Folders.Configs .. "/" .. Config)
-end
-end
-Library.RefreshConfigsList = function(self, Element)
-local List = { }
-local ReturnList = { }
-List = listfiles(Library.Folders.Configs)
-for Index = 1, #List do
-local File = List[Index]
-if File:sub(-5) == ".json" then
-local Position = File:find(".json", 1, true)
-local StartPosition = Position
-local Character = File:sub(Position, Position)
-while Character ~= "/" and Character ~= "\\" and Character ~= "" do
-Position = Position - 1
-Character = File:sub(Position, Position)
-end
-if Character == "/" or Character == "\\" then
-TableInsert(ReturnList, File:sub(Position + 1, StartPosition - 1))
-end
-end
-end
-Element:Refresh(ReturnList)
-end
-Library.ChangeItemTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-if not self.ThemeMap[Item] then
-return
-end
-self.ThemeMap[Item].Properties = Properties
-self.ThemeMap[Item] = self.ThemeMap[Item]
-end
-Library.ChangeTheme = function(self, Theme, Color)
-self.Theme[Theme] = Color
-for _, Item in self.ThemeItems do
-for Property, Value in Item.Properties do
-if type(Value) == "string" and Value == Theme then

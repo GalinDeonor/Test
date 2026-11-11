@@ -1,3 +1,35 @@
+end
+-- 0.39: ПРИЦЕЛ В СТИЛЕ CS2 — настраиваемые длина/толщина/зазор/точка/обводка/цвет
+CH = {
+Gap = 5,        -- зазор от центра
+Length = 7,     -- длина лучей
+Thickness = 2,  -- толщина линий
+Dot = false,    -- точка в центре
+Outline = true, -- обводка (чёрная за цветом)
+Color = Color3.fromRGB(255, 30, 30),
+-- 0.39v2: расширенные настройки CS2
+TStyle = false,    -- T-стиль (без верхней линии, как AWP в CS)
+DotSize = 1,       -- размер точки (1-5)
+OutlineThickness = 1, -- толщина обводки (1-3)
+Alpha = 1,         -- прозрачность 0..1
+RecoilFollow = false, -- прицел следует за отдачей (как CS cl_crosshair_recoil)
+}
+CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
+chLines = {}
+for i = 1, 4 do
+local l = SafeDrawing("Line")
+if l then
+l.Thickness = 2
+l.Color = Color3.fromRGB(255, 30, 30)
+l.Visible = false
+chLines[i] = l
+end
+end
+chDot = SafeDrawing("Circle")
+if chDot then
+chDot.Radius = 1
+chDot.Thickness = 1
+chDot.Filled = true
 chDot.Color = Color3.fromRGB(255, 30, 30)
 chDot.Visible = false
 end
@@ -2401,22 +2433,3 @@ end
 end)
 end
 -- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем только если игра дала плейс-специфичную группу
-local placeGroup = nil
-pcall(function()
--- FUST: пробуем common survival group IDs
-for _, gid in ipairs({ 0 }) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
