@@ -1,40 +1,25 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.44
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.47 DELTA (без фрикама)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
-    НОВОЕ В 0.44 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ №2, РАДИКАЛЬНЫЙ (размер через Scale):
-    • 0.43 чинил вычисление пиксельного размера окна — этого оказалось
-      недостаточно. Теперь подход другой: на телефоне размер меню и его
-      позиция задаются через Scale (85% x 70% экрана, центр 50/50).
-      Scale рендерится Roblox'ом правильно ВСЕГДА — не зависит ни от
-      камеры, ни от момента замера вьюпорта, ни от врущих флагов
-      экзекутора. Меню физически НЕ МОЖЕТ открыться гигантским.
-    • Библиотека патчена: перетаскивание/ресайз теперь читают
-      AbsolutePosition/AbsoluteSize — работают с любым заданием размера.
-    • Телефон определяется тройно: TouchEnabled, ИЛИ нет мыши+клавы,
-      ИЛИ экран меньше 800x600 — какой-то из признаков сработает всегда.
-    • При каждом открытии меню: если окно не влезает в экран — мгновенная
-      пересборка Scale. На ПК всё как было (900x600, ресайз свободный).
-    • В ШАПКЕ МЕНЮ теперь версия: «FUST Survival 0.44». Если видишь её —
-      запущена новая сборка. Если нет — на GitHub старый файл.
-
-    НОВОЕ В 0.43 — ФИКС МЕНЮ НА ТЕЛЕФОНЕ (огромное окно за рамками экрана):
-    • БЫЛО: на Delta меню открывалось гигантским и не вставало на место.
-      Причины, найденные в коде:
-      1) math.clamp(maxW, 280, maxW) в windowedSize кидал ошибку на узких
-         экранах — весь pcall молча умирал, окно оставалось 900x600;
-      2) телефон определялся как «нет клавиатуры» — на некоторых
-         экзекуторах ненадёжно, теперь по TouchEnabled;
-      3) начальный размер применялся даже по фолбэку 1280x800, когда
-         камера ещё не готова — окно строилось 1088x560;
-      4) пересчёт вешался один раз на ту камеру, что была при старте:
-         если Delta заменяла CurrentCamera — самофикс умирал навсегда.
-    • ТЕПЕРЬ: размер применяется только при реальном вьюпорте, с
-      повторами до 8 секунд (меню «встаёт» через секунду-две, как
-      раньше и работало); наблюдатель перецепляется при каждой смене
-      CurrentCamera; при каждом открытии меню окно поджимается под
-      экран. На ПК логика не изменилась.
+    НОВОЕ В 0.47 — DELTA-СБОРКА: ФРИКАМ ВЫРЕЗАН, АВТО-СТРЕЛЬБА ПОЧИНЕНА:
+    • Фрикам УДАЛЁН из этой сборки ПОЛНОСТЬЮ — и из меню, и код:
+      он заякоривал персонажа (Anchored + WalkSpeed=0 + Physics) и
+      забирал левый джойстик, из-за чего на телефоне персонаж «не
+      реагирует на управление / бегает на месте». В Delta-сборке
+      этого кода больше НЕТ вообще — тело всегда в твоём управлении.
+    • АВТО-СТРЕЛЬБА НА ТЕЛЕФОНЕ ПОЧИНЕНА: раньше выбор «телефон/ПК»
+      делался по KeyboardEnabled, а экзекуторы на телефоне врут во
+      флагах. Теперь: тач = стрельба Tool:Activate() (работает и без
+      мыши), ПК = mouse1click/VirtualInputManager, а если оба недоступны
+      — фолбэк на Tool:Activate().
+    • ПРОВЕРЕНО НА ТЕЛЕФОН-СОВМЕСТИМОСТЬ: чамсы мебели (Highlight —
+      работает на Delta), обход анти-чита (только чтение чата/баннеров),
+      CS2-прицел (Drawing), админ-чек, HUD — всё без ПК-only API.
+    • Остальное как в 0.39-линии: ESP игроков/НПС, мешки/лут (слоты/
+      владелец/чамсы), хитбоксы, аимбот+злой аим, анти-отдача, трассеры,
+      HUD, вайтлист, FullBright/NoFog/NoGrass, конфиги, кнопка-петух.
 
     НОВОЕ В 0.39 — FPS/ТЕКСТУРЫ + ФРИКАМ ФИКС + АДМИН-ЧЕК + CS2 ПРИЦЕЛ + ИКОНКА + ЭКРАН ЗАГРУЗКИ:
     • УХУДШЕНИЕ ТЕКСТУР ДЛЯ FPS: MaterialService.Use2022Materials=false,
@@ -477,7 +462,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.44...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.47 DELTA (без фрикама)...")
 
 -- 0.39v9: LOAD SCREEN ПОЛНОСТЬЮ УБРАН — вызывал чёрный экран на телефоне.
 -- (RenderStepped не вызывается пока pcall выполняется синхронно, экран не скрывался).
@@ -624,7 +609,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.44 | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.47 DELTA (без фрикама) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -954,9 +939,7 @@ self:Connect("InputBegan", function(Input)
 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 Dragging = true
 DragStart = Input.Position
--- 0.44 FIX: AbsolutePosition, а не Position — иначе при Scale-позиции
--- (центр 50/50) Offset равен 0 и первое перетаскивание телепортирует окно
-StartPosition = Gui.AbsolutePosition
+StartPosition = Gui.Position
 if InputChanged then
 return
 end
@@ -1033,10 +1016,8 @@ local BeginResizing = function(Side)
 Resizing = true
 CurrentSide = Side
 StartMouse = UserInputService:GetMouseLocation()
--- 0.44 FIX: Absolute вместо Offset-компонент — ресайз работает и когда
--- размер задан через Scale (85% x 70%)
-StartPosition = Vector2New(Gui.AbsolutePosition.X, Gui.AbsolutePosition.Y)
-StartSize = Vector2New(Gui.AbsoluteSize.X, Gui.AbsoluteSize.Y)
+StartPosition = Vector2New(Gui.Position.X.Offset, Gui.Position.Y.Offset)
+StartSize = Vector2New(Gui.Size.X.Offset, Gui.Size.Y.Offset)
 for Index, Value in Edges do
 Value.Button.Instance.BackgroundTransparency = (Value.Side == Side) and 0 or 1
 end
@@ -1197,58 +1178,3 @@ end
 end
 Library.NextFlag = function(self)
 local FlagNumber = self.UnnamedFlags + 1
-return StringFormat("flag_number_%s_%s", FlagNumber, HttpService:GenerateGUID(false))
-end
-Library.AddToTheme = function(self, Item, Properties)
-if type(Item) == "table" then
-Item = Item.Instance or Item
-end
-local ThemeData = {
-Item = Item,
-Properties = Properties,
-}
-for Property, Value in ThemeData.Properties do
-if type(Value) == "string" then
-if not self.Theme[Value] then
-Item[Property] = Value
-end
-Item[Property] = self.Theme[Value]
-else
-Item[Property] = Value()
-end
-end
-TableInsert(self.ThemeItems, ThemeData)
-self.ThemeMap[Item] = ThemeData
-end
-Library.ToRich = function(self, Text, Color)
-return '<font color="rgb(' .. MathFloor(Color.R * 255) .. ', ' .. MathFloor(Color.G * 255) .. ', ' .. MathFloor(Color.B * 255) .. ')">' .. Text .. '</font>'
-end
-Library.GetConfig = function(self)
-local Config = { }
-for Index, Value in Library.Flags do
-pcall(function()
-if type(Value) == "table" and Value.Key ~= nil then
-Config[Index] = {Key = tostring(Value.Key), Mode = tostring(Value.Mode or "Toggle")}
-elseif type(Value) == "table" and Value.Color ~= nil then
-local hex = "#FFFFFF"
-if type(Value.HexValue) == "string" then
-hex = "#" .. Value.HexValue
-elseif typeof(Value.Color) == "Color3" then
-hex = "#" .. Value.Color:ToHex()
-end
-Config[Index] = {Color = hex}
-else
-Config[Index] = Value
-end
-end)
-end
-return HttpService:JSONEncode(Config)
-end
-Library.LoadConfig = function(self, Config)
-local OkDecoded, Decoded = pcall(function()
-return HttpService:JSONDecode(Config)
-end)
-if not OkDecoded or type(Decoded) ~= "table" then
-warn("[alt.gg] LoadConfig: файл конфига битый")
-return false
-end

@@ -1,133 +1,3 @@
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем только если игра дала плейс-специфичную группу
-local placeGroup = nil
-pcall(function()
--- FUST: пробуем common survival group IDs
-for _, gid in ipairs({ 0 }) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
-if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
-AdminScan_LastJournal = os.clock()
-journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
-end
-else
-AdminScan_Names = ""
-end
-end
-AdminScan_LastJournal = 0
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
-end
-end)
-HttpService = game:GetService("HttpService")
-CONFIG_FILE = "FUST_config.json"
-function colorToTable(c)
-return {
-R = math.floor(c.R * 255 + 0.5),
-G = math.floor(c.G * 255 + 0.5),
-B = math.floor(c.B * 255 + 0.5),
-}
-end
-function tableToColor(t)
-if type(t) ~= "table" then
-return nil
-end
-return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
-end
-function saveConfig()
-local okFile, err = pcall(function()
-local wl = {}
-for name in pairs(Whitelist) do
-table.insert(wl, name)
-end
-table.sort(wl)
-local hotkeyKey, hotkeyMode = nil, nil
-if AimHotkeyObj and AimHotkeyObj.Value and AimHotkeyObj.Value ~= "None" and AimHotkeyObj.Get then
-local okHK, hkKey, hkMode = pcall(function()
-return AimHotkeyObj:Get()
-end)
-if okHK and type(hkKey) == "string" and hkKey ~= "" then
-hotkeyKey = hkKey
-hotkeyMode = (hkMode == "Hold" or hkMode == "Always") and hkMode or "Toggle"
-end
-end
-local cfg = {
-ESP = {
-Enabled = S.ESP.Enabled,
-Box = S.ESP.Box,
-Chams = S.ESP.Chams,
-ChamsTransparency = S.ESP.ChamsTransparency,
-Name = S.ESP.Name,
-Item = S.ESP.Item,
-Distance = S.ESP.Distance,
-HealthBar = S.ESP.HealthBar,
-MaxDistance = S.ESP.MaxDistance,
-DistanceScale = S.ESP.DistanceScale,
-TeamCheck = S.ESP.TeamCheck,
-},
-BoxColor = colorToTable(S.ESPColors.Box),
-NPCColors = {
-Guard = colorToTable(NPC_CAT_COLORS.Guard),
-Peaceful = colorToTable(NPC_CAT_COLORS.Peaceful),
-Animal = colorToTable(NPC_CAT_COLORS.Animal),
-Sleeper = colorToTable(NPC_CAT_COLORS.Sleeper),
-},
-Hitbox = {
-Enabled = S.Hitbox.Enabled,
-Size = S.Hitbox.Size,
-Transparency = S.Hitbox.Transparency,
-},
-FullBright = S.FullBright,
-NoDecoration = S.NoDecoration,
-NoGrass = S.NoGrass,
-NoFog = S.NoFog,
-Bullets = {
-Enabled = S.Bullets.Enabled,
-Style = S.Bullets.Style,
-Width = S.Bullets.Width,
-Transparency = S.Bullets.Transparency,
-Fade = S.Bullets.Fade,
-},
-NPC = {
-ESP = S.NPC.ESP,
-CatGuards = S.NPC.CatGuards,
-CatPeaceful = S.NPC.CatPeaceful,
-CatAnimals = S.NPC.CatAnimals,
-CatSleepers = S.NPC.CatSleepers,
-Box = S.NPC.Box,
-Name = S.NPC.Name,
-Item = S.NPC.Item,
-Distance = S.NPC.Distance,
-HealthBar = S.NPC.HealthBar,
-Chams = S.NPC.Chams,
-ChamsTransparency = S.NPC.ChamsTransparency,
-MaxDistance = S.NPC.MaxDistance,
-HitboxEnabled = S.NPC.HitboxEnabled,
-HitboxSize = S.NPC.HitboxSize,
-HitboxTransparency = S.NPC.HitboxTransparency,
-HitboxAnimals = S.NPC.HitboxAnimals,
-HitboxSleepers = S.NPC.HitboxSleepers,
-},
-Aim = {
-Enabled = Aim.Enabled,
-ShowFOV = Aim.ShowFOV,
-FOV = Aim.FOV,
-Distance = Aim.Distance,
-Smooth = Aim.Smooth,
 Prediction = Aim.Prediction,
 Part = Aim.Part,
 Priority = Aim.Priority,
@@ -2172,7 +2042,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.39, place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.47 DELTA (без фрикама), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 2с проверяем, что LocalPlayer ещё в игре.
@@ -2350,7 +2220,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.44 — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.47 DELTA (без фрикама) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)
