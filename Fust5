@@ -1,3 +1,56 @@
+UIRegistry.EvilAutoPred = EvilSection:Toggle({
+Name = "Злой: авто-предикт (скорость + край хитбокса)",
+Flag = "EvilAutoPred",
+Default = true,
+Color = Color3.fromRGB(255, 64, 64),
+Callback = function(state)
+Evil.AutoPred = state
+journal("ЗЛОЙ АИМ: авто-предикт " .. (state and "ВКЛ" or "ВЫКЛ (центр хитбокса)"))
+end
+})
+hasKeyboardEvil = hasKeyboard
+if hasKeyboardEvil then
+EvilPredHotkeyBusy = true
+UIRegistry.EvilPredHotkey = UIRegistry.EvilAutoPred:Keybind({
+Flag = "EvilPredHotkey",
+Default = Enum.KeyCode.P,
+Mode = "Toggle",
+Callback = function(state)
+if EvilPredHotkeyBusy then return end
+if UIRegistry.EvilAutoPred and UIRegistry.EvilAutoPred.Set then
+pcall(function()
+UIRegistry.EvilAutoPred:Set(state)
+end)
+end
+end
+})
+EvilPredHotkeyBusy = false
+end
+UIRegistry.EvilSnipe = EvilSection:Toggle({
+Name = "Меткий таргет (руфкемперы: без FOV, рывок)",
+Flag = "EvilSnipe",
+Default = false,
+Color = Color3.fromRGB(255, 64, 64),
+Callback = function(state)
+Evil.Snipe = state
+journal("ЗЛОЙ АИМ: меткий таргет " .. (state and "ВКЛ (без FOV, цель у прицела)" or "ВЫКЛ"))
+end
+})
+UIRegistry.EvilK = EvilSection:Slider({
+Name = "Злой: сила предикта",
+Flag = "EvilK",
+Default = 1,
+Min = 0.2,
+Max = 3,
+Decimals = 0.1,
+Suffix = "x",
+Callback = function(Value)
+Evil.K = Value
+end
+})
+EvilSection:Label({
+Name = "Хитбокс целится, но видно ТЕЛО: за стеной = не аимим. Стоит — центр, бежит — край.",
+Color = Color3.fromRGB(200, 120, 255)
 })
 AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
 UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
@@ -61,7 +114,7 @@ Flag = "AutoFireWallCheck",
 Default = true,
 Callback = function(state) AutoFire.WallCheck = state end
 })
-AutoFireSection:Label("ПК: mouse1click / VirtualInputManager. Телефон: Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
+AutoFireSection:Label("Движок выстрела VOMAGLA (0.52): mouse1click → VirtualInputManager → Tool:Activate (телефон). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -2429,61 +2482,12 @@ if now - AF_LastShot >= AutoFire.Delay then
 AF_LastShot = now
 AF_LastTargetPart = part
 pcall(function()
--- ПК: симулируем левый клик мышью через mouse1click (если есть)
--- или VirtualInputManager. НЕ перехватываем управление телефоном.
--- 0.49 FIX: выбор ветки по РЕАЛЬНОМУ вводу — экзекуторы на телефоне врут
--- во флагах (KeyboardEnabled бывает true на Delta). Телефон = TouchEnabled.
-local hasKeyboard = UserInputService.KeyboardEnabled and not UserInputService.TouchEnabled
-if hasKeyboard then
--- Xeno: mouse1click / mouse1press / mouse1release
-local m1c = getgenv().mouse1click
+-- 0.52 FIX (E-17): движок выстрела = VOMAGLA (тот скрипт на телефоне
+-- у юзера не крашился НИ РАЗУ). Порядок: 1) mouse1click, 2) VirtualInputManager:
+-- press + release ЧЕРЕЗ task.defer — клик живёт минимум до конца кадра,
+-- Roblox успевает обработать нажатие (подряд press+release мог глотаться),
+-- 3) Tool:Activate() — финальный фолбэк для телефона. Ветвление по
+-- KeyboardEnabled/TouchEnabled УДАЛЕНО: экзекуторы врут во флагах,
+-- VOMAGLA не ветвится вообще и работает на Delta. task.defer НЕ yield —
+-- aim loop не ломается (запрещён только task.wait, урок 0.39v4).
 local afFired = false
-if type(m1c) == "function" then
-m1c()
-afFired = true
-else
--- фолбэк: VirtualInputManager (Roblox)
-local okV, vim = pcall(function()
-return game:GetService("VirtualInputManager")
-end)
-if okV and vim then
--- 0.39v4 FIX: task.wait здесь ЗАПРЕЩЁН (yield в RenderStepped ломает
--- весь aim loop). Шлём press+release без задержки — Roblox сам
--- обработает порядок.
-vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-afFired = true
-end
-end
-if not afFired then
--- 0.49 FIX: mouse1click/VIM недоступны — стреляем Tool:Activate()
-local afChar = LocalPlayer.Character
-local afTool = afChar and afChar:FindFirstChildOfClass("Tool")
-if afTool then
-pcall(function()
-afTool:Activate()
-end)
-end
-end
-else
--- Телефон: НЕ перехватываем управление. Авто-стрельба только если
--- в игре есть Tool с Activate() — вызываем его напрямую.
-local char = LocalPlayer.Character
-local tool = char and char:FindFirstChildOfClass("Tool")
-if tool then
-pcall(function()
-tool:Activate()
-end)
-end
-end
-end)
-end
-end
-end
-end)
-getgenv().FUST_AimCleanup = function()
-if aimConnection then
-aimConnection:Disconnect()
-aimConnection = nil
-end
-pcall(function()

@@ -1,3 +1,28 @@
+fallingAfterTeleport = false
+if camera then
+camera.CameraType = Enum.CameraType.Custom
+end
+end
+local function fcSetEnabledInner(state)
+if state == fcActive then return end
+if state then
+startFreecam()
+if renderConnection then
+-- старт удался
+fcActive = true
+FreeCam.Enabled = true
+toggleBtn.Text = "CAM: ON"
+runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = FC_RED })
+runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = FC_RED })
+animateHud(true)
+journal("ФРИКАМ ВКЛ (скорость " .. tostring(flySpeed) .. ")")
+else
+-- нет персонажа/камеры — не включаемся, тоггл вернётся в ВЫКЛ
+journal("ФРИКАМ: не смог включиться (нет персонажа?)")
+end
+else
+fcActive = false
+FreeCam.Enabled = false
 stopFreecam()
 toggleBtn.Text = "CAM: OFF"
 runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = Color3.fromRGB(245, 235, 235) })
@@ -49,7 +74,6 @@ fcSetEnabledInner(false)
 screenGui:Destroy()
 end)
 end
-hudCanvasGroup.GroupTransparency = 1
 toggleBtn.Position = UDim2.new(1.2, 0, 0.22, 0)
 runSafeTween("spawn_anim", toggleBtn, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 Position = UDim2.new(1, -125, 0.22, 0),
@@ -1734,7 +1758,7 @@ end
 -- свойство не реплицируется с клиента, анти-читу не на что детектить.
 XRay = { Enabled = false, Transparency = 0.5 }
 XRAY_KEYWORDS = { "TwigWall", "SoloTwigFrame", "TrigTwigRoof", "TwigFrame", "TwigWindow", "TwigRoof" }
-local xrayCache = {}
+local xrayCache = setmetatable({}, { __mode = "k" }) -- 0.51 (E-15): слабые ключи — убитые части не копятся в памяти
 local xrayConn = nil
 local function xrayIsTwig(name)
 for _, k in ipairs(XRAY_KEYWORDS) do
@@ -1767,9 +1791,32 @@ if xrayConn then xrayConn:Disconnect() xrayConn = nil end
 end)
 pcall(setXrayState, false, 0.5)
 end
+-- 0.51 FIX (E-15): стартовый скан ВСЕГО Workspace БЕЗ единого yield
+-- блокировал планировщик Roblox: рендер стоял за чёрным сплэшем, Android
+-- вешал/убивал приложение (Xeno на ПК проходил скан за 1-2 сек и не
+-- замечал). При старте СКАНА БОЛЬШЕ НЕТ: регистрация идёт через
+-- DescendantAdded ниже, а полный скан — ТОЛЬКО по тумблеру X-Ray,
+-- чанками по 2000 объектов с task.wait() (рендер не замирает).
+local xrayScanRunning = false
+function xrayScanAll(onDone)
+if xrayScanRunning then return end
+xrayScanRunning = true
 task.spawn(function()
-for _, o in ipairs(Workspace:GetDescendants()) do pcall(xrayReg, o) end
+local objs = Workspace:GetDescendants()
+local n = #objs
+local i = 0
+for _, o in ipairs(objs) do
+pcall(xrayReg, o)
+i = i + 1
+if i % 2000 == 0 then
+task.wait()
+end
+end
+xrayScanRunning = false
+journal("X-RAY: регистрация объектов завершена (" .. tostring(n) .. ")")
+if onDone then pcall(onDone) end
 end)
+end
 xrayConn = Workspace.DescendantAdded:Connect(function(o)
 pcall(xrayReg, o)
 if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
@@ -1783,7 +1830,16 @@ Flag = "XRayEnabled",
 Default = false,
 Callback = function(state)
 XRay.Enabled = state
-pcall(setXrayState, state, XRay.Transparency)
+if state then
+-- 0.51 (E-15): регистрируем twig-стены чанками, потом применяем прозрачность
+xrayScanAll(function()
+if XRay.Enabled then
+pcall(setXrayState, true, XRay.Transparency)
+end
+end)
+else
+pcall(setXrayState, false, XRay.Transparency)
+end
 journal("X-RAY " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
@@ -2327,56 +2383,3 @@ journal("ЗЛОЙ АИМ (ТЕСТ) " .. (state and "ВКЛ — возможен
 print("[FUST] Злой аим " .. (state and "ВКЛ (ТЕСТ, риск бана)" or "ВЫКЛ"))
 end
 })
-UIRegistry.EvilAutoPred = EvilSection:Toggle({
-Name = "Злой: авто-предикт (скорость + край хитбокса)",
-Flag = "EvilAutoPred",
-Default = true,
-Color = Color3.fromRGB(255, 64, 64),
-Callback = function(state)
-Evil.AutoPred = state
-journal("ЗЛОЙ АИМ: авто-предикт " .. (state and "ВКЛ" or "ВЫКЛ (центр хитбокса)"))
-end
-})
-hasKeyboardEvil = hasKeyboard
-if hasKeyboardEvil then
-EvilPredHotkeyBusy = true
-UIRegistry.EvilPredHotkey = UIRegistry.EvilAutoPred:Keybind({
-Flag = "EvilPredHotkey",
-Default = Enum.KeyCode.P,
-Mode = "Toggle",
-Callback = function(state)
-if EvilPredHotkeyBusy then return end
-if UIRegistry.EvilAutoPred and UIRegistry.EvilAutoPred.Set then
-pcall(function()
-UIRegistry.EvilAutoPred:Set(state)
-end)
-end
-end
-})
-EvilPredHotkeyBusy = false
-end
-UIRegistry.EvilSnipe = EvilSection:Toggle({
-Name = "Меткий таргет (руфкемперы: без FOV, рывок)",
-Flag = "EvilSnipe",
-Default = false,
-Color = Color3.fromRGB(255, 64, 64),
-Callback = function(state)
-Evil.Snipe = state
-journal("ЗЛОЙ АИМ: меткий таргет " .. (state and "ВКЛ (без FOV, цель у прицела)" or "ВЫКЛ"))
-end
-})
-UIRegistry.EvilK = EvilSection:Slider({
-Name = "Злой: сила предикта",
-Flag = "EvilK",
-Default = 1,
-Min = 0.2,
-Max = 3,
-Decimals = 0.1,
-Suffix = "x",
-Callback = function(Value)
-Evil.K = Value
-end
-})
-EvilSection:Label({
-Name = "Хитбокс целится, но видно ТЕЛО: за стеной = не аимим. Стоит — центр, бежит — край.",
-Color = Color3.fromRGB(200, 120, 255)

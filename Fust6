@@ -1,3 +1,40 @@
+if type(mouse1click) == "function" then
+mouse1click()
+afFired = true
+end
+if not afFired then
+local okV, vim = pcall(function()
+return game:GetService("VirtualInputManager")
+end)
+if okV and vim then
+vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+task.defer(function()
+vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end)
+afFired = true
+end
+end
+if not afFired then
+-- телефон без эмуляции мыши: жмём Tool:Activate() напрямую
+local afChar = LocalPlayer.Character
+local afTool = afChar and afChar:FindFirstChildOfClass("Tool")
+if afTool then
+pcall(function()
+afTool:Activate()
+end)
+end
+end
+end)
+end
+end
+end
+end)
+getgenv().FUST_AimCleanup = function()
+if aimConnection then
+aimConnection:Disconnect()
+aimConnection = nil
+end
+pcall(function()
 if fovCircle then
 fovCircle:Remove()
 end
@@ -2275,7 +2312,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.50 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.52 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2375,7 +2412,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.50 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.52 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

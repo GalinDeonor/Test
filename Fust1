@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.50 DELTA+XENO (красно-чёрная)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.52 DELTA+XENO (красно-чёрная)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -21,6 +21,33 @@
     • Всё остальное — как в стабильной 0.39: ESP игроков/НПС, мешки/
       лут (слоты/владелец/чамсы как было), аимбот+злой аим, анти-отдача,
       трассеры, хитбоксы, HUD, CS2-прицел, вайтлист, конфиги, кнопка-петух.
+
+    НОВОЕ В 0.52 — АВТО-СТРЕЛЬБА НА ДВИЖКЕ VOMAGLA (E-17):
+    • Движок выстрела взят ИЗ VOMAGLA (пользователь гонял VOMAGLA на
+      телефоне — НЕ КРАШИЛСЯ НИ РАЗУ): mouse1click → VirtualInputManager
+      (нажатие + отжатие через task.defer — клик живёт до конца кадра)
+      → Tool:Activate() как финальный фолбэк телефона.
+    • УБРАНО ветвление по UserInputService.KeyboardEnabled/TouchEnabled:
+      экзекуторы на телефоне врут во флагах, VOMAGLA не ветвится вообще
+      и работает на Delta. Один путь выстрела для всех устройств.
+    • task.defer НЕ yield — aim loop не ломается (в отличие от task.wait).
+    • Внутри все фиксы 0.51: E-15 (стартовый скан Workspace вешал Delta
+      чёрным экраном — убит, скан X-Ray только по тумблеру, чанками) и
+      E-16 (CanvasGroup → Frame). Остальной код байт-в-байт 0.51.
+
+    НОВОЕ В 0.51 — ФИКС «ЧЁРНОГО ЭКРАНА» НА DELTA (E-15/E-16):
+    • УБИТ СТАРТОВЫЙ СКАН WORKSPACE (регистрация twig-стен X-Ray,
+      стр. 7367 в 0.50): task.spawn с полным GetDescendants() и БЕЗ
+      единого yield блокировал планировщик Roblox целиком — рендер
+      замирал за чёрным сплэшем, Android вешал/убивал приложение.
+      Xeno (ПК) проходил скан за 1-2 сек и не замечал, Delta (телефон)
+      умирал. Теперь скана при старте НЕТ: twig-объекты регистрируются
+      через DescendantAdded, а полный скан запускается ТОЛЬКО при
+      включении X-Ray — чанками по 2000 объектов с task.wait().
+    • CanvasGroup в панели фрикама заменён на Frame (E-16): лишний
+      рендер-таргет на слабых мобильных GPU. Анимация панели теперь
+      через UIScale + Visible.
+    • БОЛЬШЕ НИЧЕГО НЕ ТРОНУТО — остальной код байт-в-байт 0.50.
 
     НОВОЕ В 0.50 — БАГФИКСЫ + X-RAY + ФРИКАМ + КОПТЕРЫ + КРАСНО-ЧЁРНАЯ ТЕМА:
     • ИСПРАВЛЕН КРАШ НА СТАРТЕ (стр.5321 «missing method Colorpicker»):
@@ -486,7 +513,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.50 DELTA+XENO (красно-чёрная)...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.52 DELTA+XENO (красно-чёрная)...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
 LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
@@ -534,7 +561,7 @@ title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.TextSize = 22
 title.TextColor3 = Color3.fromRGB(255, 45, 45)
-title.Text = "ПЬЯНЫЙ ПЕТУХ 0.50"
+title.Text = "ПЬЯНЫЙ ПЕТУХ 0.52"
 title.Parent = bg
 -- прогресс-бар фон
 local barBg = Instance.new("Frame")
@@ -806,7 +833,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.50 DELTA+XENO (красно-чёрная) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.52 DELTA+XENO (красно-чёрная) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -1008,91 +1035,3 @@ return { "BackgroundTransparency", "ScrollBarImageTransparency" }
 elseif Item:IsA("TextBox") then
 return { "TextTransparency", "BackgroundTransparency" }
 elseif Item:IsA("UIStroke") then
-return { "Transparency" }
-end
-end
-Tween.FadeItem = function(self, Item, Property, Visibility, Speed)
-local Item = Item or self.Item
-local OldTransparency = Item[Property]
-Item[Property] = Visibility and 1 or OldTransparency
-local NewTween = Tween:Create(Item, TweenInfo.new(Speed or Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction), {
-[Property] = Visibility and OldTransparency or 1
-}, true)
-Library:Connect(NewTween.Tween.Completed, function()
-if not Visibility then
-task.wait()
-Item[Property] = OldTransparency
-end
-end)
-return NewTween
-end
-Tween.Get = function(self)
-if not self.Tween then
-return
-end
-return self.Tween, self.Info, self.Goal
-end
-Tween.Pause = function(self)
-if not self.Tween then
-return
-end
-self.Tween:Pause()
-end
-Tween.Play = function(self)
-if not self.Tween then
-return
-end
-self.Tween:Play()
-end
-Tween.Clean = function(self)
-if not self.Tween then
-return
-end
-Tween:Pause()
-self = nil
-end
-end
-local Instances = { } do
-Instances.__index = Instances
-Instances.Create = function(self, Class, Properties)
-local NewItem = {
-Instance = InstanceNew(Class),
-Properties = Properties,
-Class = Class
-}
-setmetatable(NewItem, Instances)
-for Property, Value in NewItem.Properties do
-NewItem.Instance[Property] = Value
-end
-return NewItem
-end
-Instances.AddToTheme = function(self, Properties)
-if not self.Instance then
-return
-end
-Library:AddToTheme(self, Properties)
-return self
-end
-Instances.ChangeItemTheme = function(self, Properties)
-if not self.Instance then
-return
-end
-Library:ChangeItemTheme(self, Properties)
-end
-Instances.Connect = function(self, Event, Callback, Name)
-if not self.Instance then
-return
-end
-if not self.Instance[Event] then
-return
-end
-return Library:Connect(self.Instance[Event], Callback, Name)
-end
-Instances.Tween = function(self, Info, Goal)
-if not self.Instance then
-return
-end
-return Tween:Create(self, Info, Goal)
-end
-Instances.Disconnect = function(self, Name)
-if not self.Instance then

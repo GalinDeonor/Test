@@ -1,3 +1,91 @@
+return { "Transparency" }
+end
+end
+Tween.FadeItem = function(self, Item, Property, Visibility, Speed)
+local Item = Item or self.Item
+local OldTransparency = Item[Property]
+Item[Property] = Visibility and 1 or OldTransparency
+local NewTween = Tween:Create(Item, TweenInfo.new(Speed or Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction), {
+[Property] = Visibility and OldTransparency or 1
+}, true)
+Library:Connect(NewTween.Tween.Completed, function()
+if not Visibility then
+task.wait()
+Item[Property] = OldTransparency
+end
+end)
+return NewTween
+end
+Tween.Get = function(self)
+if not self.Tween then
+return
+end
+return self.Tween, self.Info, self.Goal
+end
+Tween.Pause = function(self)
+if not self.Tween then
+return
+end
+self.Tween:Pause()
+end
+Tween.Play = function(self)
+if not self.Tween then
+return
+end
+self.Tween:Play()
+end
+Tween.Clean = function(self)
+if not self.Tween then
+return
+end
+Tween:Pause()
+self = nil
+end
+end
+local Instances = { } do
+Instances.__index = Instances
+Instances.Create = function(self, Class, Properties)
+local NewItem = {
+Instance = InstanceNew(Class),
+Properties = Properties,
+Class = Class
+}
+setmetatable(NewItem, Instances)
+for Property, Value in NewItem.Properties do
+NewItem.Instance[Property] = Value
+end
+return NewItem
+end
+Instances.AddToTheme = function(self, Properties)
+if not self.Instance then
+return
+end
+Library:AddToTheme(self, Properties)
+return self
+end
+Instances.ChangeItemTheme = function(self, Properties)
+if not self.Instance then
+return
+end
+Library:ChangeItemTheme(self, Properties)
+end
+Instances.Connect = function(self, Event, Callback, Name)
+if not self.Instance then
+return
+end
+if not self.Instance[Event] then
+return
+end
+return Library:Connect(self.Instance[Event], Callback, Name)
+end
+Instances.Tween = function(self, Info, Goal)
+if not self.Instance then
+return
+end
+return Tween:Create(self, Info, Goal)
+end
+Instances.Disconnect = function(self, Name)
+if not self.Instance then
 return
 end
 return Library:Disconnect(Name)
@@ -2272,53 +2360,3 @@ Items["Toggle"]:Connect("MouseButton1Down", function()
 Toggle:Set(not Toggle.Value)
 end)
 Toggle:Set(Toggle.Default)
-Library.SetFlags[Toggle.Flag] = function(Value)
-Toggle:Set(Value)
-end
-return Toggle
-end
-Library.Sections.Button = function(self, Data)
-Data = Data or { }
-local Button = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Button",
-Callback = Data.Callback or Data.callback or function() end
-}
-local Items = { } do
-Items["Button"] = Instances:Create("TextButton", {
-Parent = Button.Section.Items["Content"].Instance,
-Name = "\0",
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(1, 0, 0, 30),
-Selectable = false,
-Active = false,
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Button.Name,
-AnchorPoint = Vector2New(0.5, 0.5),
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 16
-}):AddToTheme({TextColor3 = 'Text'})
-Instances:Create("UICorner", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Items["Stroke"] = Instances:Create("UIStroke", {
-Parent = Items["Button"].Instance,
