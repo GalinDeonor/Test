@@ -1,302 +1,3 @@
-fallingAfterTeleport = false
-if camera then
-camera.CameraType = Enum.CameraType.Custom
-end
-end
-local function fcSetEnabledInner(state)
-if state == fcActive then return end
-if state then
-startFreecam()
-if renderConnection then
--- старт удался
-fcActive = true
-FreeCam.Enabled = true
-toggleBtn.Text = "CAM: ON"
-runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = FC_RED })
-runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = FC_RED })
-animateHud(true)
-journal("ФРИКАМ ВКЛ (скорость " .. tostring(flySpeed) .. ")")
-else
--- нет персонажа/камеры — не включаемся, тоггл вернётся в ВЫКЛ
-journal("ФРИКАМ: не смог включиться (нет персонажа?)")
-end
-else
-fcActive = false
-FreeCam.Enabled = false
-stopFreecam()
-toggleBtn.Text = "CAM: OFF"
-runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = Color3.fromRGB(245, 235, 235) })
-runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = Color3.fromRGB(255, 255, 255) })
-animateHud(false)
-journal("ФРИКАМ ВЫКЛ")
-end
-pcall(function()
-if UIRegistry.FCToggle and UIRegistry.FCToggle.Set then
-UIRegistry.FCToggle:Set(fcActive)
-end
-end)
-end
-toggleBtn.MouseButton1Click:Connect(function()
-fcSetEnabledInner(not fcActive)
-end)
-function fcSetEnabled(state)
-fcSetEnabledInner(state and true or false)
-end
-function fcSpeedStep(dir)
-flySpeed = math.clamp(flySpeed + dir * speedStep, minSpeed, maxSpeed)
-FreeCam.Speed = flySpeed
-pcall(function()
-speedLabel.Text = "SPD: " .. tostring(flySpeed)
-end)
-end
-function fcSetSpeed(v)
-flySpeed = math.clamp(math.floor(v), minSpeed, maxSpeed)
-FreeCam.Speed = flySpeed
-pcall(function()
-speedLabel.Text = "SPD: " .. tostring(flySpeed)
-end)
-end
-function fcSetPanelVisible(v)
-FreeCam.PanelVisible = v and true or false
-pcall(function()
-screenGui.Enabled = FreeCam.PanelVisible
-end)
-end
-freecamEnable = function()
-fcSetEnabled(true)
-end
-freecamDisable = function()
-fcSetEnabled(false)
-end
-getgenv().FUST_FreeCamCleanup = function()
-pcall(function()
-fcSetEnabledInner(false)
-screenGui:Destroy()
-end)
-end
-toggleBtn.Position = UDim2.new(1.2, 0, 0.22, 0)
-runSafeTween("spawn_anim", toggleBtn, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-Position = UDim2.new(1, -125, 0.22, 0),
-})
-print("[FUST] фрикам v13 подключён (красно-чёрная тема, без hookfunction по умолчанию)")
-end)
-if not fcOK then
-warn("[FUST] ФРИКАМ: ошибка движка — фрикам не работает, скрин в чат: " .. tostring(fcErr))
-end
-uiStep("Вкладка Аимбот", function()
-Window:Group("Бой")
-AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
-AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
-HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
-TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
-end)
-uiStep("Вкладки ESP/Визуалы/Лут", function()
-Window:Group("Визуал")
-EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
-EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
-VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
-WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
-TracerSection = EspPage:Section({ Name = "Трассеры пуль", Tab = "Визуалы", Side = 2 })
-LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
-end)
-uiStep("Вкладка Фрикам", function()
-Window:Group("Камера")
-FreeCamPage = Window:Page({ Name = "Фрикам", Icon = ICON_VISUALS })
-FreeCamSection = FreeCamPage:Section({ Name = "Свободная камера", Tab = "Фрикам", Side = 1 })
-FreeCamKeySection = FreeCamPage:Section({ Name = "Клавиши и скорость", Tab = "Фрикам", Side = 2 })
--- управление
-UIRegistry.FCToggle = FreeCamSection:Toggle({
-Name = "Фрикам (свободный полёт камеры)",
-Flag = "FreeCamEnabled",
-Default = false,
-Callback = function(state)
-fcSetEnabled(state)
-end
-})
-UIRegistry.FCPanel = FreeCamSection:Toggle({
-Name = "Показывать панель фрикама (кнопка CAM)",
-Flag = "FreeCamPanel",
-Default = true,
-Callback = function(state)
-fcSetPanelVisible(state)
-end
-})
-UIRegistry.FCSpeed = FreeCamSection:Slider({
-Name = "Скорость полёта",
-Flag = "FreeCamSpeed",
-Default = 100,
-Min = 10,
-Max = 1000,
-Decimals = 1,
-Callback = function(v)
-fcSetSpeed(v)
-end
-})
-UIRegistry.FCTouchSens = FreeCamSection:Slider({
-Name = "Чувствительность касания (телефон)",
-Flag = "FreeCamTouchSens",
-Default = 0.35,
-Min = 0.05,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-FC_TouchSens = v
-end
-})
-UIRegistry.FCMouseSens = FreeCamSection:Slider({
-Name = "Чувствительность мыши (ПК)",
-Flag = "FreeCamMouseSens",
-Default = 0.20,
-Min = 0.05,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-FC_MouseSens = v
-end
-})
-UIRegistry.FCRemember = FreeCamSection:Toggle({
-Name = "Запоминать позицию камеры",
-Flag = "FreeCamRemember",
-Default = false,
-Callback = function(state)
-FC_RememberPos = state
-end
-})
-UIRegistry.FCHookKeys = FreeCamSection:Toggle({
-Name = "Подмена IsKeyDown (hookfunction) — РИСК",
-Flag = "FreeCamHookKeys",
-Default = false,
-Callback = function(state)
-FreeCam.HookKeys = state
-if state then
--- hookfunction установится при следующем включении фрикама
-journal("ФРИКАМ: подмена IsKeyDown РАЗРЕШЕНА (хук-метод — анти-чит может детектить!)")
-else
-journal("ФРИКАМ: подмена IsKeyDown запрещена (безопасный режим)")
-end
-end
-})
-FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
-FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Телепорт — кнопка на панели CAM.")
-FreeCamSection:Label("Персонаж стоит на месте (якорь). Аимбот и анти-тряска на время фрикама отключаются.")
--- кейбинды (ПК/Xeno): вкл/выкл + скорость
-local fcHasKb = false
-pcall(function()
-fcHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
-end)
-if fcHasKb then
-FCHotkeyBusy = true
-UIRegistry.FCKey = UIRegistry.FCToggle:Keybind({
-Flag = "FreeCamToggleKey",
-Default = Enum.KeyCode.P,
-Mode = "Toggle",
-Callback = function(state)
-if FCHotkeyBusy then return end
-fcSetEnabled(state)
-end
-})
-FCHotkeyBusy = false
-UIRegistry.FCSpeedUpLabel = FreeCamKeySection:Label("Скорость + (клавиша)")
-UIRegistry.FCSpeedUpKey = UIRegistry.FCSpeedUpLabel:Keybind({
-Flag = "FreeCamSpeedUpKey",
-Default = Enum.KeyCode.RightBracket,
-Mode = "Always",
-Callback = function(state)
-if state then fcSpeedStep(1) end
-end
-})
-UIRegistry.FCSpeedDownLabel = FreeCamKeySection:Label("Скорость - (клавиша)")
-UIRegistry.FCSpeedDownKey = UIRegistry.FCSpeedDownLabel:Keybind({
-Flag = "FreeCamSpeedDownKey",
-Default = Enum.KeyCode.LeftBracket,
-Mode = "Always",
-Callback = function(state)
-if state then fcSpeedStep(-1) end
-end
-})
-FreeCamKeySection:Label("Смена клавиши: тапни по кнопке [..] и нажми новую. Backspace = убрать.")
-else
-FreeCamKeySection:Label("Клавиши доступны только на ПК (Xeno). На телефоне — кнопка CAM и панель.")
-end
-end)
-print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
-S = {
-ESP = {
-Enabled = false,
-Box = false,
-Chams = false,
-ChamsTransparency = 0.5,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-MaxDistance = 1500,
-DistanceScale = true, 
-TeamCheck = false, 
-VisCheck = false, 
-VisHitbox = false, 
-},
-ESPColors = {
-Box = Color3.fromRGB(0, 255, 255),
-},
-Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
-FullBright = false,
-NoDecoration = false,
-NoGrass = false,
-NoFog = false,
-Bullets = { Enabled = false, Style = "Луч", Width = 1.5, Transparency = 0, Fade = 1 },
-NPC = {
-ESP = false,
-CatGuards = true, 
-CatPeaceful = false, 
-CatAnimals = false, 
-CatSleepers = false, 
-DebugLog = false, 
-Box = false,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-Chams = false,
-ChamsTransparency = 0.5,
-MaxDistance = 3000,
-HitboxEnabled = false,
-HitboxSize = 5,
-HitboxTransparency = 0.7,
-HitboxAnimals = false, 
-HitboxSleepers = false, 
-},
-HUD = {
-Enabled = true,
-Size = 11, 
-BgTransparency = 0.35, 
-TextTransparency = 0, 
-Corner = "Лево-низ", 
-ShowTPS = true, 
-ShowBg = true, 
--- 0.39: новые поля
-ColorBg = Color3.fromRGB(12, 12, 16),
-ColorText = Color3.fromRGB(235, 235, 240),
-ColorStroke = Color3.fromRGB(255, 170, 40),
-ShowAdmin = true, 
-Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
-},
-Loot = {
-Enabled = false,
-Owner = true, 
-Slots = true, 
-Distance = true,
-Box = true,
-Chams = true, 
-MaxDistance = 1500,
-DebugLog = false, 
-},
-LootC = {
-Enabled = false,
-Name = true, 
-Distance = true,
-Box = true,
-MaxDistance = 800,
 Chams = false, 
 },
 }
@@ -515,6 +216,7 @@ COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)
 UIRegistry.ESPEnabled = EspSection:Toggle({
 Name = "ESP Enabled",
 Flag = "ESPEnabled",
+Info = "Мастер-тумблер ESP игроков: включает бокс, ник, дистанцию, предмет и хелсбар. Остальные тумблеры ниже — детали оформления.",
 Default = false,
 Callback = function(state)
 S.ESP.Enabled = state
@@ -524,6 +226,7 @@ end
 UIRegistry.ESPBox = EspSection:Toggle({
 Name = "ESP Box",
 Flag = "ESPBox",
+Info = "Рамка по габаритам игрока.",
 Default = false,
 Callback = function(state)
 S.ESP.Box = state
@@ -539,6 +242,7 @@ end
 UIRegistry.ESPChams = EspSection:Toggle({
 Name = "ESP Chams",
 Flag = "ESPChams",
+Info = "Подсветка модели игрока (Highlight) — видно сквозь стены. Если игра сносит Highlight, чамсы не появятся — тогда ориентируйся на бокс.",
 Default = false,
 Callback = function(state)
 S.ESP.Chams = state
@@ -548,6 +252,7 @@ end
 UIRegistry.ESPChamsTransparency = EspSection:Slider({
 Name = "Прозрачность чамсов",
 Flag = "ESPChamsTransparency",
+Info = "Плотность заливки чамсов: 0 — плотная, 0.9 — еле заметная. Рекомендую 0.5–0.7: игрок виден и прицел не мешает.",
 Default = 0.5,
 Min = 0,
 Max = 1,
@@ -560,6 +265,7 @@ end
 UIRegistry.ESPName = EspSection:Toggle({
 Name = "ESP Name",
 Flag = "ESPName",
+Info = "Ник игрока над боксом.",
 Default = false,
 Callback = function(state)
 S.ESP.Name = state
@@ -568,14 +274,16 @@ end
 UIRegistry.ESPDistance = EspSection:Toggle({
 Name = "ESP Distance",
 Flag = "ESPDistance",
+Info = "Дистанция в метрах под ником.",
 Default = false,
 Callback = function(state)
 S.ESP.Distance = state
 end
 })
 UIRegistry.ESPItem = EspSection:Toggle({
-Name = "ESP Предмет (что в руках)",
+Name = "ESP предмет в руках",
 Flag = "ESPItem",
+Info = "Показывает, что у игрока в руках: оружие, инструмент, кирка и т.д. Оценивай угрозу до сближения.",
 Default = false,
 Callback = function(state)
 S.ESP.Item = state
@@ -655,15 +363,26 @@ end
 UIRegistry.ItemRuTranslate = EspSection:Toggle({
 Name = "Перевод названий на русский",
 Flag = "ItemRuTranslate",
+Info = "Переводит названия предметов на русский — словарь ~80 позиций (оружие, патроны, еда, броня, лут).",
 Default = false,
 Callback = function(state)
 ItemRuTranslate = state
 journal("ПЕРЕВОД ПРЕДМЕТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.BulletsEnabled = TracerSection:Toggle({
-Name = "Трассеры пуль (стиль VOMAGLA)",
+-- 0.53: ПУЛИ (ТРЕЙСЕРЫ) — ДВИЖОК И НАСТРОЙКИ VOMAGLA 1-в-1 (вкладка «Пули»)
+BULLET_TEXTURES = {
+["Луч"] = "rbxassetid://12781852245",
+["Молния"] = "rbxassetid://446111271",
+["Сердцебиение"] = "rbxassetid://5830549480",
+["Цепь"] = "rbxassetid://9632168658",
+["Глитч"] = "rbxassetid://8089467613",
+["Вихрь"] = "rbxassetid://5638168605",
+}
+UIRegistry.BulletsEnabled = BulletsSection:Toggle({
+Name = "Пули (трейсеры)",
 Flag = "BulletsEnabled",
+Info = "Трейсеры пуль: линия по траектории выстрела. Движок VOMAGLA — трейс появляется только у РЕАЛЬНОГО выстрела (Raycast из оружия не дальше 5 м от камеры). От бегущих игроков и тимейтов спама больше нет.",
 Default = false,
 Callback = function(state)
 S.Bullets.Enabled = state
@@ -671,57 +390,79 @@ if FUST_BulletsSet then
 pcall(FUST_BulletsSet, state)
 end
 journal("ТРАССЕРЫ " .. (state and "ВКЛ" or "ВЫКЛ"))
-print("[FUST] Трассеры пуль " .. (state and "ВКЛ" or "ВЫКЛ"))
+print("[FUST] Пули (трейсеры) " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
-UIRegistry.BulletsStyle = TracerSection:Dropdown({
-Name = "Трассеры: стиль луча",
-Items = { "Луч", "Квадратный", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
+UIRegistry.BulletsStyle = BulletsSection:Dropdown({
+Name = "Пули: текстура",
+Items = { "Луч", "Молния", "Сердцебиение", "Цепь", "Глитч", "Вихрь" },
 Flag = "BulletsStyle",
+Info = "Текстура трейсера: Луч, Молния, Сердцебиение, Цепь, Глитч, Вихрь — те же 6, что в VOMAGLA.",
 Default = "Луч",
 Callback = function(Value)
 S.Bullets.Style = Value
-journal("ТРАССЕРЫ-СТИЛЬ " .. tostring(Value))
+S.Bullets.TextureID = BULLET_TEXTURES[Value] or BULLET_TEXTURES["Луч"]
+journal("ТРАССЕРЫ-ТЕКСТУРА " .. tostring(Value))
 end
 })
-UIRegistry.BulletsWidth = TracerSection:Slider({
-Name = "Трассеры: толщина",
+UIRegistry.BulletsWidth = BulletsSection:Slider({
+Name = "Пули: толщина",
 Flag = "BulletsWidth",
+Info = "Толщина трейсера (0.1–5).",
 Default = 1.5,
-Min = 0.5,
+Min = 0.1,
 Max = 5,
-Decimals = 0.5,
+Decimals = 0.1,
 Suffix = "ст",
 Callback = function(Value)
 S.Bullets.Width = Value
 end
 })
-UIRegistry.BulletsTransparency = TracerSection:Slider({
-Name = "Трассеры: прозрачность",
+UIRegistry.BulletsTransparency = BulletsSection:Slider({
+Name = "Пули: прозрачность",
 Flag = "BulletsTransparency",
+Info = "Прозрачность трейсера: 0 — плотный, 1 — невидимый.",
 Default = 0,
 Min = 0,
-Max = 0.9,
+Max = 1,
 Decimals = 0.05,
 Callback = function(Value)
 S.Bullets.Transparency = Value
 end
 })
-UIRegistry.BulletsFade = TracerSection:Slider({
-Name = "Трассеры: затухание",
-Flag = "BulletsFade",
-Default = 1,
-Min = 0.5,
-Max = 5,
+UIRegistry.BulletsLifeTime = BulletsSection:Slider({
+Name = "Пули: время жизни",
+Flag = "BulletsLifeTime",
+Info = "Сколько секунд висит трейсер (0.1–3). По умолчанию 0.5, как в VOMAGLA.",
+Default = 0.5,
+Min = 0.1,
+Max = 3,
 Decimals = 0.1,
 Suffix = "с",
 Callback = function(Value)
-S.Bullets.Fade = Value
+S.Bullets.LifeTime = Value
 end
 })
+UIRegistry.BulletsTeamCheck = BulletsSection:Toggle({
+Name = "Тим чек пуль",
+Flag = "BulletsTeamCheck",
+Info = "Пули тимейтов не рисуются. ВКЛ по умолчанию — чтобы трейсеры не спамили от своих, когда они стреляют рядом.",
+Default = true,
+Callback = function(state)
+S.Bullets.TeamCheck = state
+journal("ТИМ ЧЕК ПУЛЬ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.BulletsColor = UIRegistry.BulletsEnabled:Colorpicker({
+Flag = "BulletsColor",
+Default = Color3.new(1, 1, 1),
+Callback = function(c) S.Bullets.Color = c end
+})
+BulletsSection:Label("Как в VOMAGLA: трейс появляется только у РЕАЛЬНОГО выстрела — луч Raycast из оружия не дальше 5 м от твоей камеры. От бегущих игроков и тимейтов пуль больше НЕ будет.")
 UIRegistry.ESPHealthBar = EspSection:Toggle({
 Name = "ESP HealthBar",
 Flag = "ESPHealthBar",
+Info = "Полоска здоровья рядом с боксом.",
 Default = false,
 Callback = function(state)
 S.ESP.HealthBar = state
@@ -730,6 +471,7 @@ end
 UIRegistry.ESPMaxDistance = EspSection:Slider({
 Name = "Max Distance",
 Flag = "ESPMaxDistance",
+Info = "Дальше этого расстояния игроки не рисуются. 3000 — вся карта. Меньше радиус = выше FPS на телефоне.",
 Default = 3000,
 Min = 100,
 Max = 5000,
@@ -740,8 +482,9 @@ S.ESP.MaxDistance = Value
 end
 })
 UIRegistry.ESPDistanceScale = EspSection:Toggle({
-Name = "Сжатие ESP по дистанции (дальше = мельче)",
+Name = "Сжатие ESP по дистанции",
 Flag = "ESPDistanceScale",
+Info = "Дальше 1500 м текст и бокс сжимаются до читаемого минимума вместо исчезновения. Держи ВКЛ — дальние цели остаются видны.",
 Default = true,
 Callback = function(state)
 S.ESP.DistanceScale = state
@@ -750,8 +493,9 @@ end
 })
 espVisCacheClear = function() end
 UIRegistry.ESPVisCheck = EspSection:Toggle({
-Name = "Проверка видимости (за стеной — серый)",
+Name = "Проверка видимости",
 Flag = "ESPVisCheck",
+Info = "Игрок за стеной рисуется серым с пометкой «СТЕНА». Сразу видно, кого реально можно достать.",
 Default = false,
 Callback = function(state)
 S.ESP.VisCheck = state
@@ -760,8 +504,9 @@ journal("ESP ВИДИМОСТЬ " .. (state and "ВКЛ (за стеной — �
 end
 })
 UIRegistry.ESPVisHitbox = EspSection:Toggle({
-Name = "Показывать хитбокс-доступ (жёлтый, если торчит)",
+Name = "Показывать хитбокс-доступ",
 Flag = "ESPVisHitbox",
+Info = "Если за укрытием торчит только увеличенный хитбокс — он подсвечивается жёлтым.",
 Default = false,
 Callback = function(state)
 S.ESP.VisHitbox = state
@@ -1046,8 +791,9 @@ end
 end))
 end
 UIRegistry.HUDEnabled = HudSection:Toggle({
-Name = "Микро-HUD (FPS, пинг, ТПС, игроки)",
+Name = "Микро-HUD",
 Flag = "HUDEnabled",
+Info = "Мини-панель на экране: FPS, пинг, ТПС, игроки. Перетаскивается пальцем/мышью, позиция сохраняется в конфиг.",
 Default = true,
 Callback = function(state)
 S.HUD.Enabled = state
@@ -1063,6 +809,7 @@ end
 UIRegistry.HUDSize = HudSection:Slider({
 Name = "Размер текста HUD",
 Flag = "HUDSize",
+Info = "Размер текста HUD (10–20).",
 Default = 11,
 Min = 8,
 Max = 16,
@@ -1075,6 +822,7 @@ end
 UIRegistry.HUDBgTransparency = HudSection:Slider({
 Name = "Прозрачность фона HUD",
 Flag = "HUDBgTransparency",
+Info = "0 — плотный фон, 1 — полностью прозрачный.",
 Default = 0.35,
 Min = 0,
 Max = 0.95,
@@ -1087,6 +835,7 @@ end
 UIRegistry.HUDTextTransparency = HudSection:Slider({
 Name = "Прозрачность текста HUD",
 Flag = "HUDTextTransparency",
+Info = "Прозрачность текста HUD: 0 — жирно, 0.9 — еле видно.",
 Default = 0,
 Min = 0,
 Max = 0.9,
@@ -1127,6 +876,7 @@ end
 UIRegistry.HUDShowAdmin = HudSection:Toggle({
 Name = "Показывать админ/VIP чек",
 Flag = "HUDShowAdmin",
+Info = "Строка «АДМИН: N» красным — рядом игрок с правами выше обычного (badge, группа, атрибуты). Увидел — убери явные читы.",
 Default = true,
 Callback = function(state)
 S.HUD.ShowAdmin = state
@@ -1146,6 +896,7 @@ end
 UIRegistry.HUDShowTPS = HudSection:Toggle({
 Name = "Показывать ТПС сервера",
 Flag = "HUDShowTPS",
+Info = "Показывать ТПС сервера: просел — лагает не ты, а сервер.",
 Default = true,
 Callback = function(state)
 S.HUD.ShowTPS = state
@@ -1155,6 +906,7 @@ end
 UIRegistry.HUDShowBg = HudSection:Toggle({
 Name = "Фон панельки",
 Flag = "HUDShowBg",
+Info = "Тёмная подложка под текстом HUD — читаемость на светлом небе.",
 Default = true,
 Callback = function(state)
 S.HUD.ShowBg = state
@@ -1168,11 +920,15 @@ end)
 end
 getgenv().FUST_HUDCleanup = hudDestroy
 UIRegistry.LootEnabled = LootSection:Toggle({
-Name = "ESP мешков с добычей (рюкзаки игроков)",
+Name = "ESP мешков с добычей",
 Flag = "LootEnabled",
+Info = "ESP мешков с добычей — рюкзаки убитых игроков. Карта сканируется один раз при включении (чанками, без фризов), новые мешки ловятся автоматически.",
 Default = false,
 Callback = function(state)
 S.Loot.Enabled = state
+if state and bpScanContainerChunked then
+task.defer(bpScanContainerChunked)
+end
 journal("ESP МЕШКОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
@@ -1184,8 +940,9 @@ LOOT_COLOR = color
 end
 })
 UIRegistry.LootOwner = LootSection:Toggle({
-Name = "Чей лут (из подписи игры)",
+Name = "Чей лут",
 Flag = "LootOwner",
+Info = "Чей мешок: имя берётся из подписи игры (промпт «Обыскать»), атрибутов и текстов. Если данных нет — строка не рисуется.",
 Default = true,
 Callback = function(state)
 S.Loot.Owner = state
@@ -1194,6 +951,7 @@ end
 UIRegistry.LootSlots = LootSection:Toggle({
 Name = "Сколько слотов забито",
 Flag = "LootSlots",
+Info = "Сколько слотов забито (например 2/6). Читается из атрибутов, текстов над мешком и экрана обыска: если пусто — открой мешок один раз, дальше помнится 30 минут.",
 Default = true,
 Callback = function(state)
 S.Loot.Slots = state
@@ -1202,6 +960,7 @@ end
 UIRegistry.LootDistance = LootSection:Toggle({
 Name = "Дистанция",
 Flag = "LootDistance",
+Info = "Дистанция до мешка в метрах.",
 Default = true,
 Callback = function(state)
 S.Loot.Distance = state
@@ -1210,14 +969,16 @@ end
 UIRegistry.LootBox = LootSection:Toggle({
 Name = "Рамка вокруг рюкзака",
 Flag = "LootBox",
+Info = "Рамка по габаритам мешка.",
 Default = true,
 Callback = function(state)
 S.Loot.Box = state
 end
 })
 UIRegistry.LootChams = LootSection:Toggle({
-Name = "Чамсы рюкзаков (видно сквозь траву и стены)",
+Name = "Чамсы рюкзаков",
 Flag = "LootChams",
+Info = "Подсветка мешков Highlight'ом — видно сквозь траву и стены. Если игра сносит Highlight, автоматически рисуются полупрозрачные квадраты-заливки (фикс 0.53).",
 Default = true,
 Callback = function(state)
 S.Loot.Chams = state
@@ -1227,6 +988,7 @@ end
 UIRegistry.LootMaxDistance = LootSection:Slider({
 Name = "Рюкзаки: Max Distance",
 Flag = "LootMaxDistance",
+Info = "Радиус отрисовки мешков (100–3000 м). 1500 хватает; меньше — выше FPS.",
 Default = 1500,
 Min = 100,
 Max = 3000,
@@ -1237,8 +999,9 @@ S.Loot.MaxDistance = Value
 end
 })
 UIRegistry.LootDebugLog = LootSection:Toggle({
-Name = "Диагностика: лог рюкзаков в консоль (раз в 10 сек)",
+Name = "Диагностика: лог рюкзаков",
 Flag = "LootDebugLog",
+Info = "Раз в 10 сек печатает в консоль все найденные мешки с атрибутами и промптами. Только для отладки — в бою не нужно.",
 Default = false,
 Callback = function(state)
 S.Loot.DebugLog = state
@@ -1250,11 +1013,15 @@ end
 })
 LootCSection = EspPage:Section({ Name = "Лут (бочки и ящики)", Tab = "Лут", Side = 2 })
 UIRegistry.LootCEnabled = LootCSection:Toggle({
-Name = "ESP лута (бочки/ящики/элитные/военные)",
+Name = "ESP лута",
 Flag = "LootCEnabled",
+Info = "ESP контейнеров лута: бочки, ящики, элитные и военные ящики. Отдельно от мешков, свой цвет и радиус.",
 Default = false,
 Callback = function(state)
 S.LootC.Enabled = state
+if state and bpScanContainerChunked then
+task.defer(bpScanContainerChunked)
+end
 journal("ESP ЛУТА " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
@@ -1268,6 +1035,7 @@ end
 UIRegistry.LootCName = LootCSection:Toggle({
 Name = "Название контейнера",
 Flag = "LootCName",
+Info = "Название контейнера над боксом.",
 Default = true,
 Callback = function(state)
 S.LootC.Name = state
@@ -1276,6 +1044,7 @@ end
 UIRegistry.LootCDistance = LootCSection:Toggle({
 Name = "Дистанция",
 Flag = "LootCDistance",
+Info = "Дистанция до контейнера.",
 Default = true,
 Callback = function(state)
 S.LootC.Distance = state
@@ -1284,6 +1053,7 @@ end
 UIRegistry.LootCBox = LootCSection:Toggle({
 Name = "Рамка вокруг контейнера",
 Flag = "LootCBox",
+Info = "Рамка вокруг контейнера.",
 Default = true,
 Callback = function(state)
 S.LootC.Box = state
@@ -1292,6 +1062,7 @@ end
 UIRegistry.LootCMaxDistance = LootCSection:Slider({
 Name = "Лут: Max Distance",
 Flag = "LootCMaxDistance",
+Info = "Радиус отрисовки контейнеров. По умолчанию 800 м — дальше лут всё равно не добежать взять.",
 Default = 800,
 Min = 100,
 Max = 3000,
@@ -1302,8 +1073,9 @@ S.LootC.MaxDistance = Value
 end
 })
 UIRegistry.LootCChams = LootCSection:Toggle({
-Name = "Чамсы контейнеров (по модельке, пул 12)",
+Name = "Чамсы контейнеров",
 Flag = "LootCChams",
+Info = "Пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ контейнеров. Дальний лут не подсвечивается — плата за FPS на телефоне.",
 Default = false,
 Callback = function(state)
 S.LootC.Chams = state
@@ -1311,14 +1083,265 @@ journal("ЧАМСЫ КОНТЕЙНЕРОВ (пул) " .. (state and "ВКЛ" or 
 end
 })
 LootCSection:Label("Чамсы — это пул из 12 Highlight'ов: подсвечиваются 12 БЛИЖАЙШИХ моделей. Дальний лут не подсвечивается — это плата за FPS на телефоне.")
+
+-- =============================================================
+-- 0.53: ЧАМСЫ МЕБЕЛИ — ВОЗВРАТ из 0.45 (0.39v6, был вырезан в 0.49).
+-- Шкафы/ящики/локеры/стеллажи/комоды/кровати/двери. Пул 20 Highlight'ов,
+-- подсвечиваются ближайшие. Скан БЕЗ E-15: один раз при включении чанками
+-- + новые объекты через DescendantAdded и теги CollectionService.
+uiStep("Чамсы мебели", function()
+FurnitureChams = { Enabled = false, Color = Color3.fromRGB(100, 200, 255), Transparency = 0.4 }
+FURNITURE_PATTERNS = {
+"шкаф", "стеллаж", "ящик", "сундук", "контейнер", "локер", "locker",
+"металлический шкаф", "metal cabinet", "шкаф для базы", "base cabinet",
+"гардероб", "wardrobe", "closet", "полка", "shelf", "комод", "chest",
+"тумба", "стол", "table", "стул", "chair", "кровать", "bed", "диван", "couch",
+"дверь", "door", "ворота", "gate",
+}
+FURNITURE_TAGS = { "FustFurniture", "FustContainer", "FustStorage", "Furniture", "Container" }
+local furnitureList = {}
+local furnitureListSet = {}
+local furnitureChamsPool = {}
+local furnitureChamsAt = 0
+local furnitureScanDone = false
+local furniturePoolWanted = false
+local function furnitureMatches(name)
+local n = string.lower(tostring(name or ""))
+if n == "" then
+return false
+end
+for _, pat in ipairs(FURNITURE_PATTERNS) do
+if string.find(n, pat, 1, true) then
+return true
+end
+end
+return false
+end
+local function furnitureAdd(inst)
+if not inst or not inst.Parent then
+return
+end
+if not (inst:IsA("Model") or inst:IsA("BasePart")) then
+return
+end
+if furnitureListSet[inst] then
+return
+end
+if not inst:IsDescendantOf(Workspace) then
+return
+end
+furnitureListSet[inst] = true
+table.insert(furnitureList, inst)
+end
+local function furnitureScanChunked()
+if furnitureScanDone then
+return
+end
+furnitureScanDone = true
+task.spawn(function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+local okD, objs = pcall(function()
+return Workspace:GetDescendants()
+end)
+if not okD or type(objs) ~= "table" then
+return
+end
+local i = 0
+for _, d in ipairs(objs) do
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+pcall(function()
+if d:IsA("Model") or d:IsA("BasePart") then
+if furnitureMatches(d.Name) then
+furnitureAdd(d)
+end
+end
+end)
+i = i + 1
+if i % 500 == 0 then
+task.wait()
+end
+end
+print("[FUST] МЕБЕЛЬ: первичный скан завершён, найдено: " .. tostring(#furnitureList))
+furnitureChamsAt = 0
+end)
+end
+pcall(function()
+Library:Connect(Workspace.DescendantAdded, function(inst)
+if not FurnitureChams.Enabled then
+return
+end
+task.defer(function()
+pcall(function()
+if inst and (inst:IsA("Model") or inst:IsA("BasePart")) and furnitureMatches(inst.Name) then
+furnitureAdd(inst)
+end
+end)
+end)
+end)
+end)
+local function furnitureChamsTick()
+if not FurnitureChams.Enabled then
+if furniturePoolWanted then
+for i = 1, #furnitureChamsPool do
+pcall(function()
+furnitureChamsPool[i].Enabled = false
+furnitureChamsPool[i].Adornee = nil
+end)
+end
+furniturePoolWanted = false
+end
+return
+end
+local now = os.clock()
+if now - furnitureChamsAt < 1.5 then
+return
+end
+furnitureChamsAt = now
+for i = #furnitureList, 1, -1 do
+local inst = furnitureList[i]
+if not inst.Parent or not inst:IsDescendantOf(Workspace) then
+furnitureListSet[inst] = nil
+table.remove(furnitureList, i)
+end
+end
+for _, tag in ipairs(FURNITURE_TAGS) do
+local okT, tagged = pcall(CollectionService.GetTagged, CollectionService, tag)
+if okT and type(tagged) == "table" then
+for _, inst in ipairs(tagged) do
+if inst.Parent and (inst:IsA("Model") or inst:IsA("BasePart")) then
+furnitureAdd(inst)
+end
+end
+end
+end
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+local list = {}
+if myRoot then
+for _, inst in ipairs(furnitureList) do
+local okD, d = pcall(function()
+return (inst:GetPivot().Position - myRoot.Position).Magnitude
+end)
+if okD and d then
+table.insert(list, { inst = inst, d = d })
+end
+end
+table.sort(list, function(a, b)
+return a.d < b.d
+end)
+else
+for _, inst in ipairs(furnitureList) do
+table.insert(list, { inst = inst, d = 0 })
+end
+end
+local POOL_MAX = 20
+for i = 1, math.min(#list, POOL_MAX) do
+local inst = list[i].inst
+local h = furnitureChamsPool[i]
+if not h then
+local okH, created = pcall(function()
+local nh = Instance.new("Highlight")
+nh.Name = "PETUH_FurnitureChams"
+nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+nh.FillTransparency = FurnitureChams.Transparency
+nh.OutlineTransparency = 0
+nh.Parent = Workspace
+return nh
+end)
+if okH and created then
+h = created
+furnitureChamsPool[i] = created
+end
+end
+if h then
+pcall(function()
+h.Adornee = inst
+h.FillColor = FurnitureChams.Color
+h.OutlineColor = FurnitureChams.Color
+h.FillTransparency = FurnitureChams.Transparency
+h.Enabled = true
+end)
+if not h.Parent then
+-- игра сносит Highlight — чамсы мебели невозможны, глушим честно
+FurnitureChams.Enabled = false
+furniturePoolWanted = false
+if UIRegistry.FurnitureChams and UIRegistry.FurnitureChams.Set then
+pcall(function() UIRegistry.FurnitureChams:Set(false) end)
+end
+warn("[FUST] МЕБЕЛЬ: Highlight сносится игрой — чамсы мебели отключены")
+break
+end
+end
+end
+for i = math.min(#list, POOL_MAX) + 1, #furnitureChamsPool do
+pcall(function()
+furnitureChamsPool[i].Enabled = false
+furnitureChamsPool[i].Adornee = nil
+end)
+end
+furniturePoolWanted = true
+end
+task.spawn(function()
+while getgenv().FUST_SESSION == FUST_SESSION do
+pcall(furnitureChamsTick)
+task.wait(0.5)
+end
+end)
+FurnSection = EspPage:Section({ Name = "Мебель (чамсы)", Tab = "Лут", Side = 2 })
+UIRegistry.FurnitureChams = FurnSection:Toggle({
+Name = "Чамсы мебели",
+Flag = "FurnitureChams",
+Info = "Чамсы мебели: шкафы, ящики, локеры, стеллажи, комоды, кровати, двери. Пул из 20 Highlight'ов — подсвечены ближайшие. Скан идёт один раз при включении, новые объекты ловятся на лету.",
+Default = false,
+Callback = function(state)
+FurnitureChams.Enabled = state
+if state then
+furnitureScanChunked()
+else
+furniturePoolWanted = false
+for i = 1, #furnitureChamsPool do
+pcall(function()
+furnitureChamsPool[i].Enabled = false
+furnitureChamsPool[i].Adornee = nil
+end)
+end
+end
+journal("ЧАМСЫ МЕБЕЛИ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.FurnitureChamsColor = UIRegistry.FurnitureChams:Colorpicker({
+Flag = "FurnitureChamsColor",
+Default = Color3.fromRGB(100, 200, 255),
+Callback = function(c) FurnitureChams.Color = c end
+})
+UIRegistry.FurnitureChamsTransparency = FurnSection:Slider({
+Name = "Прозрачность чамсов мебели",
+Flag = "FurnitureChamsTransparency",
+Info = "Плотность заливки мебели: 0 — плотная, 0.95 — еле заметная. Рекомендую 0.4.",
+Default = 0.4,
+Min = 0,
+Max = 0.95,
+Decimals = 0.05,
+Callback = function(v)
+FurnitureChams.Transparency = v
+end
+})
+FurnSection:Label("Шкафы/ящики/локеры/стеллажи/комоды/кровати/двери — пул из 20 Highlight'ов, подсвечены ближайшие. Возвращено из 0.45 по приказу.")
+end)
+-- /ЧАМСЫ МЕБЕЛИ ==============================================================
 uiStep("Вкладка Боты и НПС", function()
 BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
 BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
 BotHitSection = BotPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты", Side = 2 })
 end)
 UIRegistry.NPCEsp = BotEspSection:Toggle({
-Name = "ESP ботов и НПС (мастер)",
+Name = "ESP ботов и НПС",
 Flag = "NPCEsp",
+Info = "Мастер ESP ботов и НПС. Категории ниже выбирают, кого показывать; цвета — по категории.",
 Default = false,
 Callback = function(state)
 S.NPC.ESP = state
@@ -1326,8 +1349,9 @@ journal("ESP БОТОВ " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 UIRegistry.NPCGuards = BotEspSection:Toggle({
-Name = "Охранники (враждебные НПС)",
+Name = "Охранники",
 Flag = "NPCGuards",
+Info = "Охранники — враждебные НПС, рисуются красным. Основная угроза на локациях.",
 Default = true,
 Callback = function(state)
 S.NPC.CatGuards = state
@@ -1341,8 +1365,9 @@ NPC_CAT_COLORS.Guard = color
 end
 })
 UIRegistry.NPCPeaceful = BotEspSection:Toggle({
-Name = "Мирные НПС (зелёные)",
+Name = "Мирные НПС",
 Flag = "NPCPeaceful",
+Info = "Мирные НПС, зелёные. Не бей без нужды — агрятся охранники.",
 Default = false,
 Callback = function(state)
 S.NPC.CatPeaceful = state
@@ -1356,8 +1381,9 @@ NPC_CAT_COLORS.Peaceful = color
 end
 })
 UIRegistry.NPCAnimals = BotEspSection:Toggle({
-Name = "Животные: медведь, волк, олень, кабан",
+Name = "Животные",
 Flag = "NPCAnimals",
+Info = "Животные: медведь, волк, олень, кабан.",
 Default = false,
 Callback = function(state)
 S.NPC.CatAnimals = state
@@ -1371,8 +1397,9 @@ NPC_CAT_COLORS.Animal = color
 end
 })
 UIRegistry.NPCSleepers = BotEspSection:Toggle({
-Name = "Слиперы (спящие игроки)",
+Name = "Слиперы",
 Flag = "NPCSleepers",
+Info = "Слиперы — спящие игроки у баз. Рисуются отдельным цветом.",
 Default = false,
 Callback = function(state)
 S.NPC.CatSleepers = state
@@ -1388,6 +1415,7 @@ end
 UIRegistry.NPCBox = BotEspSection:Toggle({
 Name = "Боты: бокс",
 Flag = "NPCBox",
+Info = "Рамка вокруг бота.",
 Default = false,
 Callback = function(state)
 S.NPC.Box = state
@@ -1396,6 +1424,7 @@ end
 UIRegistry.NPCName = BotEspSection:Toggle({
 Name = "Боты: ник модели",
 Flag = "NPCName",
+Info = "Имя/тип бота над боксом.",
 Default = false,
 Callback = function(state)
 S.NPC.Name = state
@@ -1404,6 +1433,7 @@ end
 UIRegistry.NPCItem = BotEspSection:Toggle({
 Name = "Боты: предмет в руках",
 Flag = "NPCItem",
+Info = "Что у бота в руках.",
 Default = false,
 Callback = function(state)
 S.NPC.Item = state
@@ -1412,6 +1442,7 @@ end
 UIRegistry.NPCDistance = BotEspSection:Toggle({
 Name = "Боты: дистанция",
 Flag = "NPCDistance",
+Info = "Дистанция до бота.",
 Default = false,
 Callback = function(state)
 S.NPC.Distance = state
@@ -1420,6 +1451,7 @@ end
 UIRegistry.NPCHealthBar = BotEspSection:Toggle({
 Name = "Боты: хелсбар",
 Flag = "NPCHealthBar",
+Info = "Полоска здоровья бота.",
 Default = false,
 Callback = function(state)
 S.NPC.HealthBar = state
@@ -1428,6 +1460,7 @@ end
 UIRegistry.NPCMaxDistance = BotEspSection:Slider({
 Name = "Боты: Max Distance",
 Flag = "NPCMaxDistance",
+Info = "Радиус отрисовки ботов. Дальше — скрываем, FPS выше.",
 Default = 3000,
 Min = 100,
 Max = 3000,
@@ -1438,8 +1471,9 @@ S.NPC.MaxDistance = Value
 end
 })
 UIRegistry.NPCChams = BotEspSection:Toggle({
-Name = "Чамсы ботов (цвет категории, до потолка)",
+Name = "Чамсы ботов",
 Flag = "NPCChams",
+Info = "Чамсы ботов цветом категории (охранники — оранжевые), видно сквозь стены, AlwaysOnTop.",
 Default = false,
 Callback = function(state)
 S.NPC.Chams = state
@@ -1449,6 +1483,7 @@ end
 UIRegistry.NPCChamsTransparency = BotEspSection:Slider({
 Name = "Чамсы ботов: прозрачность",
 Flag = "NPCChamsTransparency",
+Info = "Плотность заливки чамсов ботов.",
 Default = 0.5,
 Min = 0,
 Max = 1,
@@ -1459,8 +1494,9 @@ S.NPC.ChamsTransparency = Value
 end
 })
 UIRegistry.NPCDebugLog = BotEspSection:Toggle({
-Name = "Диагностика: лог НПС в консоль (раз в 10 сек)",
+Name = "Диагностика: лог НПС",
 Flag = "NPCDebugLog",
+Info = "Раз в 10 сек печатает ботов в консоль с атрибутами. Для отладки.",
 Default = false,
 Callback = function(state)
 S.NPC.DebugLog = state
@@ -1473,6 +1509,7 @@ end
 UIRegistry.NPCHitboxEnabled = BotHitSection:Toggle({
 Name = "Хитбоксы НПС и ботов",
 Flag = "NPCHitboxEnabled",
+Info = "Увеличенные хитбоксы на ботах: попадания засчитываются по всему объёму. Боты умирают заметно легче.",
 Default = false,
 Callback = function(state)
 S.NPC.HitboxEnabled = state
@@ -1486,6 +1523,7 @@ end
 UIRegistry.NPCHitboxSize = BotHitSection:Slider({
 Name = "Размер хитбокса НПС",
 Flag = "NPCHitboxSize",
+Info = "Размер хитбокса НПС (1–8). 3–4 — баланс между наглостью и эффектом.",
 Default = 5,
 Min = 2,
 Max = 6,
@@ -1498,6 +1536,7 @@ end
 UIRegistry.NPCHitboxTransparency = BotHitSection:Slider({
 Name = "Прозрачность хитбокса НПС",
 Flag = "NPCHitboxTransparency",
+Info = "0 — хитбокс виден, 0.95 — почти невидим.",
 Default = 0.7,
 Min = 0,
 Max = 0.95,
@@ -1508,8 +1547,9 @@ S.NPC.HitboxTransparency = Value
 end
 })
 UIRegistry.NPCHitboxAnimals = BotHitSection:Toggle({
-Name = "Хитбокс: животные (по умолчанию выкл)",
+Name = "Хитбокс: животные",
 Flag = "NPCHitboxAnimals",
+Info = "Хитбоксы и на животных. По умолчанию выкл — чтобы не палиться на ферме.",
 Default = false,
 Callback = function(state)
 S.NPC.HitboxAnimals = state
@@ -1517,8 +1557,9 @@ journal("ХИТБОКС ЖИВОТНЫЕ " .. (state and "ВКЛ" or "ВЫКЛ")
 end
 })
 UIRegistry.NPCHitboxSleepers = BotHitSection:Toggle({
-Name = "Хитбокс: слиперы (по умолчанию выкл)",
+Name = "Хитбокс: слиперы",
 Flag = "NPCHitboxSleepers",
+Info = "Хитбоксы на спящих. По умолчанию выкл.",
 Default = false,
 Callback = function(state)
 S.NPC.HitboxSleepers = state
@@ -1528,6 +1569,7 @@ end
 UIRegistry.HitboxEnabled = HitboxSection:Toggle({
 Name = "Hitbox Expander",
 Flag = "HitboxEnabled",
+Info = "Hitbox Expander игроков: увеличивает HumanoidRootPart — пули попадают по всему увеличенному объёму.",
 Default = false,
 Callback = function(state)
 S.Hitbox.Enabled = state
@@ -1541,6 +1583,7 @@ end
 UIRegistry.HitboxSize = HitboxSection:Slider({
 Name = "Hitbox Size",
 Flag = "HitboxSize",
+Info = "Размер хитбокса (2–6). Больше — легче попадать, но заметнее на демке/скрине.",
 Default = 5,
 Min = 2,
 Max = 6,
@@ -1553,6 +1596,7 @@ end
 UIRegistry.HitboxTransparency = HitboxSection:Slider({
 Name = "Hitbox Transparency",
 Flag = "HitboxTransparency",
+Info = "0 — хитбокс заливкой, 0.95 — почти невидим. Рекомендую 0.7.",
 Default = 0.7,
 Min = 0,
 Max = 0.95,
@@ -1564,17 +1608,29 @@ end
 })
 FullBrightBackup = nil
 UIRegistry.ESPTeamCheck = VisFilterSection:Toggle({
-Name = "Team Check (не показывать тимейтов)",
+Name = "Тим чек ESP",
 Flag = "ESPTeamCheck",
+Info = "Тимейты не рисуются в ESP. В игре без команд ни на что не влияет.",
 Default = false,
 Callback = function(state)
 S.ESP.TeamCheck = state
 journal("TEAM CHECK (ESP) " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
+-- 0.53: ТИМ ЧЕК АИМА переехал сюда (был на вкладке Аимбот)
+UIRegistry.AimTeamCheck = VisFilterSection:Toggle({
+Name = "Тим чек аима",
+Flag = "AimTeamCheck",
+Default = false,
+Callback = function(state)
+Aim.TeamCheck = state
+journal("ТИМ ЧЕК (АИМ) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
 UIRegistry.FullBright = WorldSection:Toggle({
 Name = "FullBright",
 Flag = "FullBright",
+Info = "Максимальная яркость: свет как днём, тени выключены. В шахтах и ночью обязательно.",
 Default = false,
 Callback = function(state)
 S.FullBright = state
@@ -1596,8 +1652,9 @@ end
 end
 })
 UIRegistry.NoDecoration = WorldSection:Toggle({
-Name = "Убрать декорации (NoDecoration)",
+Name = "Убрать декорации",
 Flag = "NoDecoration",
+Info = "Убирает декорации карты (Decorations/TerrainDecorations). Обратимо — выключил, вернулось.",
 Default = false,
 Callback = function(state)
 S.NoDecoration = state
@@ -1617,8 +1674,9 @@ end)
 end
 })
 UIRegistry.NoGrass = WorldSection:Toggle({
-Name = "Убрать траву (No Grass)",
+Name = "Убрать траву",
 Flag = "NoGrass",
+Info = "Убирает траву — врагов в поле видно сквозь неё.",
 Default = false,
 Callback = function(state)
 S.NoGrass = state
@@ -1641,8 +1699,9 @@ end
 })
 NoFogBackup = nil
 UIRegistry.NoFog = WorldSection:Toggle({
-Name = "Убрать туман (No Fog)",
+Name = "Убрать туман",
 Flag = "NoFog",
+Info = "Убирает туман и атмосферу — дальняя видимость по всей карте.",
 Default = false,
 Callback = function(state)
 S.NoFog = state
@@ -1719,8 +1778,9 @@ end
 end)
 end
 UIRegistry.TextureDegradation = WorldSection:Toggle({
-Name = "Ухудшение текстур (макс FPS)",
+Name = "Ухудшение текстур",
 Flag = "TextureDegradation",
+Info = "Все материалы → Plastic, текстуры срезаны: заметно выше FPS на телефоне. Карта выглядит проще.",
 Default = false,
 Callback = function(state)
 S.TextureDegradation = state
@@ -1731,6 +1791,7 @@ end
 UIRegistry.StreamBoost = WorldSection:Toggle({
 Name = "Увеличить дальность прогрузки",
 Flag = "StreamBoost",
+Info = "Прогружает чанки вокруг дальше обычного (легитимный RequestStreamAroundAsync). Меньше «пустых» зон вдали.",
 Default = false,
 Callback = function(state)
 S.StreamBoost = state
@@ -1825,8 +1886,9 @@ end
 end)
 -- UI: секция «Мир и освещение», вкладка «Визуалы»
 UIRegistry.XRayToggle = WorldSection:Toggle({
-Name = "X-Ray (просвет twig-стен)",
+Name = "X-Ray twig-стен",
 Flag = "XRayEnabled",
+Info = "Просвет twig-стен (деревянных строений). Скан при включении идёт чанками 1–3 сек и не фризит; новые стены ловятся автоматически.",
 Default = false,
 Callback = function(state)
 XRay.Enabled = state
@@ -1846,6 +1908,7 @@ end
 UIRegistry.XRayTrans = WorldSection:Slider({
 Name = "X-Ray: прозрачность стен",
 Flag = "XRayTransparency",
+Info = "Насколько прозрачными станут twig-стены: 0.1 — почти стекло, 0.95 — еле заметны.",
 Default = 0.5,
 Min = 0.1,
 Max = 0.95,
@@ -1875,6 +1938,96 @@ end
 })
 XRayKeyBusy = false
 end
+
+-- 0.53: КНОПКА XRAY НА ЭКРАНЕ — бинд для телефона (Delta): плавающая
+-- кнопка, тап включает/выключает X-Ray, можно перетащить пальцем
+-- (Draggable на телефоне не работает — свой drag через InputBegan/Changed).
+xrayQuickGui = nil
+xrayQuickBuild = function(state)
+if state then
+if xrayQuickGui and xrayQuickGui.Parent then
+return
+end
+local okG, guiOrErr = pcall(function()
+local g = Instance.new("ScreenGui")
+g.Name = "FUST_XRayQuick"
+g.ResetOnSpawn = false
+local parent = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+if not parent then
+parent = game:GetService("CoreGui")
+end
+g.Parent = parent
+local btn = Instance.new("TextButton")
+btn.Name = "XRayBtn"
+btn.Size = UDim2.new(0, 92, 0, 34)
+btn.Position = UDim2.new(1, -110, 0.34, 0)
+btn.Text = "XRAY"
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 14
+btn.TextColor3 = Color3.fromRGB(255, 70, 70)
+btn.BackgroundColor3 = Color3.fromRGB(16, 10, 10)
+btn.BackgroundTransparency = 0.25
+btn.AutoButtonColor = false
+btn.Active = true
+btn.BorderSizePixel = 0
+btn.Parent = g
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = btn
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 45, 45)
+stroke.Thickness = 1.4
+stroke.Transparency = 0.35
+stroke.Parent = btn
+local dragging = false
+local dragStart, startPos = nil, nil
+btn.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+dragging = true
+dragStart = input.Position
+startPos = btn.Position
+input.Changed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End then
+dragging = false
+end
+end)
+end
+end)
+UserInputService.InputChanged:Connect(function(input)
+if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+local delta = input.Position - dragStart
+btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+end)
+btn.MouseButton1Click:Connect(function()
+if UIRegistry.XRayToggle and UIRegistry.XRayToggle.Set then
+UIRegistry.XRayToggle:Set(not XRay.Enabled)
+end
+end)
+return g
+end)
+if okG then
+xrayQuickGui = guiOrErr
+else
+warn("[FUST] Кнопка XRAY не создалась: " .. tostring(guiOrErr))
+end
+else
+if xrayQuickGui then
+pcall(function() xrayQuickGui:Destroy() end)
+xrayQuickGui = nil
+end
+end
+end
+UIRegistry.XRayQuickBtn = WorldSection:Toggle({
+Name = "Кнопка XRAY на экране",
+Flag = "XRayQuickBtn",
+Info = "Плавающая кнопка XRAY на экране — бинд для телефона: тап включает/выключает X-Ray. Кнопку можно перетащить. Работает и на ПК.",
+Default = true,
+Callback = function(state)
+pcall(function() xrayQuickBuild(state) end)
+journal("КНОПКА XRAY " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
 
 function normalizeName(raw)
 if type(raw) ~= "string" then
@@ -2185,8 +2338,9 @@ AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ",
 AimHotkeyObj = nil 
 AimHotkeyBusy = false 
 UIRegistry.AimEnabled = AimSection:Toggle({
-Name = "Аимбот (камера-лок)",
+Name = "Аимбот",
 Flag = "AimEnabled",
+Info = "Аимбот-камера-лок: камера доводится до цели в радиусе FOV. На ПК есть хоткей (RightAlt по умолчанию, меняется рядом).",
 Default = false,
 Callback = function(state)
 Aim.Enabled = state
@@ -2202,184 +2356,3 @@ hasKeyboard = (UserInputService.KeyboardEnabled == true)
 end)
 if hasKeyboard then
 AimHotkeyBusy = true
-AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
-Flag = "AimHotkey",
-Default = Enum.KeyCode.RightAlt,
-Mode = "Toggle",
-Callback = function(state)
-if AimHotkeyBusy then return end
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-UIRegistry.AimEnabled:Set(state)
-end
-end
-})
-AimHotkeyBusy = false
-UIRegistry.AimHotkey = AimHotkeyObj
-end
-UIRegistry.AimShowFOV = AimSection:Toggle({
-Name = "FOV круг (зеленеет при захвате)",
-Flag = "AimShowFOV",
-Default = false,
-Callback = function(state)
-Aim.ShowFOV = state
-end
-})
-UIRegistry.AimWallCheck = AimSection:Toggle({
-Name = "Проверка стен",
-Flag = "AimWallCheck",
-Default = true,
-Callback = function(state)
-Aim.WallCheck = state
-end
-})
-UIRegistry.AimTeamCheck = AimSection:Toggle({
-Name = "Не целить тимейтов (одна команда)",
-Flag = "AimTeamCheck",
-Default = false,
-Callback = function(state)
-Aim.TeamCheck = state
-end
-})
-UIRegistry.AimCrosshair = AimSection:Toggle({
-Name = "Прицел по центру (CS2-стиль)",
-Flag = "AimCrosshair",
-Default = false,
-Callback = function(state)
-Aim.Crosshair = state
-end
-})
--- 0.39: настройки прицела CS2
-UIRegistry.CHLength = AimSection:Slider({
-Name = "Прицел: длина лучей",
-Flag = "CHLength",
-Default = 7,
-Min = 1,
-Max = 20,
-Decimals = 1,
-Callback = function(v) CH.Length = v end
-})
-UIRegistry.CHThickness = AimSection:Slider({
-Name = "Прицел: толщина",
-Flag = "CHThickness",
-Default = 2,
-Min = 1,
-Max = 5,
-Decimals = 0.5,
-Callback = function(v) CH.Thickness = v end
-})
-UIRegistry.CHGap = AimSection:Slider({
-Name = "Прицел: зазор от центра",
-Flag = "CHGap",
-Default = 5,
-Min = 0,
-Max = 15,
-Decimals = 0.5,
-Callback = function(v) CH.Gap = v end
-})
-UIRegistry.CHDot = AimSection:Toggle({
-Name = "Прицел: точка в центре",
-Flag = "CHDot",
-Default = false,
-Callback = function(state) CH.Dot = state end
-})
-UIRegistry.CHOutline = AimSection:Toggle({
-Name = "Прицел: обводка (чёрная)",
-Flag = "CHOutline",
-Default = true,
-Callback = function(state) CH.Outline = state end
-})
-UIRegistry.CHColor = UIRegistry.AimCrosshair:Colorpicker({
-Name = "Прицел: цвет",
-Flag = "CHColor",
-Default = Color3.fromRGB(255, 30, 30),
-Callback = function(c) CH.Color = c end
-})
-UIRegistry.AimFOV = AimSection:Slider({
-Name = "FOV радиус",
-Flag = "AimFOV",
-Default = 150,
-Min = 50,
-Max = 400,
-Decimals = 5,
-Suffix = "px",
-Callback = function(Value)
-Aim.FOV = Value
-end
-})
-UIRegistry.AimDistance = AimSection:Slider({
-Name = "Дистанция аима",
-Flag = "AimDistance",
-Default = 500,
-Min = 50,
-Max = 1500,
-Decimals = 10,
-Suffix = "m",
-Callback = function(Value)
-Aim.Distance = Value
-end
-})
-UIRegistry.AimSmooth = AimSection:Slider({
-Name = "Smooth (1 резко — 20 плавно)",
-Flag = "AimSmooth",
-Default = 4,
-Min = 1,
-Max = 20,
-Decimals = 1,
-Callback = function(Value)
-Aim.Smooth = Value
-end
-})
-UIRegistry.AimPrediction = AimSection:Slider({
-Name = "Предикт (упреждение)",
-Flag = "AimPrediction",
-Default = 0.5,
-Min = 0,
-Max = 2,
-Decimals = 0.05,
-Suffix = "с",
-Callback = function(Value)
-Aim.Prediction = Value
-end
-})
-UIRegistry.AimAutoPredict = AimSection:Toggle({
-Name = "Авто-предикт (подстраивается под цель)",
-Flag = "AimAutoPredict",
-Default = false,
-Callback = function(state)
-Aim.AutoPredict = state
-journal("АВТО-ПРЕДИКТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.AimAutoPredictK = AimSection:Slider({
-Name = "Авто-предикт: коэффициент",
-Flag = "AimAutoPredictK",
-Default = 1,
-Min = 0.2,
-Max = 3,
-Decimals = 0.1,
-Suffix = "x",
-Callback = function(Value)
-Aim.AutoPredictK = Value
-end
-})
-EvilSection = AimPage:Section({ Name = "ЗЛОЙ АИМ — ТЕСТ", Tab = "Аимбот", Side = 1 })
-EvilSection:Label({
-Name = "!! ЭТО ТЕСТ-РЕЖИМ: возможен БАН. Весь риск на тебе !!",
-Color = Color3.fromRGB(255, 64, 64)
-})
-UIRegistry.EvilEnabled = EvilSection:Toggle({
-Name = "ЗЛОЙ АИМ (хитбокс + авторедикт, мгновенно)",
-Flag = "EvilEnabled",
-Default = false,
-Color = Color3.fromRGB(255, 64, 64),
-Callback = function(state)
-Evil.Enabled = state
-if state and not Aim.Enabled and UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-pcall(function()
-UIRegistry.AimEnabled:Set(true)
-end)
-end
-journal("ЗЛОЙ АИМ (ТЕСТ) " .. (state and "ВКЛ — возможен БАН" or "ВЫКЛ"))
-print("[FUST] Злой аим " .. (state and "ВКЛ (ТЕСТ, риск бана)" or "ВЫКЛ"))
-end
-})

@@ -1,202 +1,3 @@
-Library.SetFlags[Toggle.Flag] = function(Value)
-Toggle:Set(Value)
-end
-return Toggle
-end
-Library.Sections.Button = function(self, Data)
-Data = Data or { }
-local Button = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Button",
-Callback = Data.Callback or Data.callback or function() end
-}
-local Items = { } do
-Items["Button"] = Instances:Create("TextButton", {
-Parent = Button.Section.Items["Content"].Instance,
-Name = "\0",
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(1, 0, 0, 30),
-Selectable = false,
-Active = false,
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Button.Name,
-AnchorPoint = Vector2New(0.5, 0.5),
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-BorderSizePixel = 0,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 16
-}):AddToTheme({TextColor3 = 'Text'})
-Instances:Create("UICorner", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Items["Stroke"] = Instances:Create("UIStroke", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Icon"] = Instances:Create("ImageLabel", {
-Parent = Items["Button"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0, 16, 0, 16),
-AnchorPoint = Vector2New(1, 0.5),
-Image = "rbxassetid://117716971575946",
-BackgroundTransparency = 1,
-Position = UDim2New(1, -6, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0
-}):AddToTheme({ImageColor3 = 'Text'})
-end
-function Button:SetVisibility(Bool)
-Items["Button"].Instance.Visible = Bool
-end
-function Button:Press()
-Items["Stroke"]:ChangeItemTheme({Color = "Accent"})
-Items["Stroke"]:Tween(nil, {Color = Library.Theme.Accent})
-task.wait(0.1)
-Library:SafeCall(Button.Callback)
-Items["Stroke"]:ChangeItemTheme({Color = "Outline"})
-Items["Stroke"]:Tween(nil, {Color = Library.Theme.Outline})
-end
-Items["Button"]:Connect("MouseButton1Down", function()
-Button:Press()
-end)
-return Button
-end
-Library.Sections.Slider = function(self, Data)
-Data = Data or { }
-local Slider = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Slider",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Min = Data.Min or Data.min or 0,
-Default = Data.Default or Data.default or 0,
-Max = Data.Max or Data.max or 100,
-Suffix = Data.Suffix or Data.suffix or "",
-Decimals = Data.Decimals or Data.decimals or 1,
-Callback = Data.Callback or Data.callback or function() end,
-Value = 0,
-Sliding = false
-}
-local Items = { } do
-Items["Slider"] = Instances:Create("Frame", {
-Parent = Slider.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 32),
-BorderSizePixel = 0
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Slider"].Instance,
-Name = "\0",
-FillDirection = Enum.FillDirection.Vertical,
-VerticalAlignment = Enum.VerticalAlignment.Center,
-Padding = UDimNew(0, 4),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Items["Header"] = Instances:Create("Frame", {
-Parent = Items["Slider"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 15),
-BorderSizePixel = 0,
-LayoutOrder = 1
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Header"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Slider.Name,
-Size = UDim2New(1, -56, 0, 15),
-BackgroundTransparency = 1,
-BorderSizePixel = 0,
-TextXAlignment = Enum.TextXAlignment.Left,
-TextTruncate = Enum.TextTruncate.AtEnd,
-TextSize = 14
-}):AddToTheme({TextColor3 = 'Text'})
-Items["Value"] = Instances:Create("TextLabel", {
-Parent = Items["Header"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-Text = "50%",
-Size = UDim2New(0, 48, 0, 15),
-AnchorPoint = Vector2New(1, 0),
-Position = UDim2New(1, 0, 0, 0),
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Element"],
-TextXAlignment = Enum.TextXAlignment.Center,
-TextTruncate = Enum.TextTruncate.AtEnd,
-TextSize = 12
-}):AddToTheme({BackgroundColor3 = 'Element', TextColor3 = 'Text'})
-Instances:Create("UICorner", {
-Parent = Items["Value"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 6)
-})
-Items["RealSlider"] = Instances:Create("TextButton", {
-Parent = Items["Slider"].Instance,
-Name = "\0",
-Active = false,
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
-AutoButtonColor = false,
-Size = UDim2New(1, 0, 0, 7),
-Selectable = false,
-BorderSizePixel = 0,
-LayoutOrder = 2,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-Instances:Create("UICorner", {
-Parent = Items["RealSlider"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Instances:Create("UIStroke", {
-Parent = Items["RealSlider"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Accent"] = Instances:Create("Frame", {
-Parent = Items["RealSlider"].Instance,
-Name = "\0",
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0.6000000238418579, 0, 1, 0),
-BorderSizePixel = 0,
-BackgroundColor3 = Library.Theme["Accent"]
-}):AddToTheme({BackgroundColor3 = 'Accent'})
-Instances:Create("UICorner", {
-Parent = Items["Accent"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Items["Glow"] = Instances:Create("ImageLabel", {
 Parent = Items["Accent"].Instance,
 Name = "\0",
 ImageColor3 = Library.Theme["Accent"],
@@ -242,6 +43,21 @@ ZIndex = 2,
 BorderSizePixel = 0,
 SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
 }):AddToTheme({ImageColor3 = 'Accent'})
+end
+if Data.Info then
+local InfoBtn = Library:CreateInfoUI(Data.Info, {
+Parent = Items["Header"].Instance,
+Name = "\0",
+AnchorPoint = Vector2New(1, 0.5),
+Position = UDim2New(1, -52, 0.5, 0),
+Size = UDim2New(0, 16, 0, 16)
+}, Slider.Section.Items["Content"].Instance, nil)
+if InfoBtn then
+Slider.InfoBtn = InfoBtn
+pcall(function()
+Items["Text"].Instance.Size = UDim2New(1, -74, 0, 15)
+end)
+end
 end
 table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
 function Slider:Get()
@@ -448,6 +264,18 @@ PaddingBottom = UDimNew(0, 10),
 PaddingRight = UDimNew(0, 10),
 PaddingLeft = UDimNew(0, 10)
 })
+end
+if Data.Info then
+Items["RealDropdown"].Instance.LayoutOrder = 3
+local InfoBtn = Library:CreateInfoUI(Data.Info, {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+Size = UDim2New(0, 16, 0, 16),
+LayoutOrder = 2
+}, Dropdown.Section.Items["Content"].Instance, nil)
+if InfoBtn then
+Dropdown.InfoBtn = InfoBtn
+end
 end
 table.insert(Library.SearchRows, {Frame = Items["Dropdown"].Instance, Text = StringLower(Dropdown.Name), Page = Dropdown.Page})
 function Dropdown:Get()
@@ -965,8 +793,9 @@ do
 local MenuSection = SettingsPage:Section({Name = "Кнопка меню", Tab = "Меню", Icon = "rbxassetid://73803440257131"})
 if MenuSection and MenuSection.Toggle then
 local MenuHideBtnToggle = MenuSection:Toggle({
-Name = "Скрыть кнопку-петух (только хоткей)",
+Name = "Скрыть кнопку-петух",
 Flag = "PetuhBtnHidden",
+Info = "Прячет круглую кнопку-петуха с экрана. Меню тогда открывается только хоткеем (по умолчанию RightControl, меняется рядом). Включай, если кнопка мешает стрелять или палится.",
 Default = false,
 Callback = function(state)
 petuhSetBtnHidden(state)
@@ -999,8 +828,9 @@ end
 })
 end
 MenuSection:Toggle({
-Name = "Экран загрузки при старте (петух + проверки)",
+Name = "Экран загрузки при старте",
 Flag = "LoadScreenEnabled",
+Info = "Красный сплэш с петухом при запуске (~3 сек): за это время скрипт проверяет экзекутор и риски функций. Отключи для быстрого входа — при следующем запуске сплэша не будет.",
 Default = true,
 Callback = function(state)
 LoadScreenEnabled = state
@@ -1039,6 +869,7 @@ local ConfigSelected
 local ConfigsDropdown = ConfigsSection:Dropdown({
 Name = "Configs",
 Flag = "Configs",
+Info = "Какой конфиг загружать/сохранять. Save — записать текущие настройки, Load — применить выбранный. Файлы лежат в Petuh/Configs.",
 Items = { },
 Multi = false,
 MaxSize = 120,
@@ -2194,3 +2025,313 @@ root.AssemblyLinearVelocity = Vector3.zero
 root.AssemblyAngularVelocity = Vector3.zero
 end
 end
+fallingAfterTeleport = false
+if camera then
+camera.CameraType = Enum.CameraType.Custom
+end
+end
+local function fcSetEnabledInner(state)
+if state == fcActive then return end
+if state then
+startFreecam()
+if renderConnection then
+-- старт удался
+fcActive = true
+FreeCam.Enabled = true
+toggleBtn.Text = "CAM: ON"
+runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = FC_RED })
+runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = FC_RED })
+animateHud(true)
+journal("ФРИКАМ ВКЛ (скорость " .. tostring(flySpeed) .. ")")
+else
+-- нет персонажа/камеры — не включаемся, тоггл вернётся в ВЫКЛ
+journal("ФРИКАМ: не смог включиться (нет персонажа?)")
+end
+else
+fcActive = false
+FreeCam.Enabled = false
+stopFreecam()
+toggleBtn.Text = "CAM: OFF"
+runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = Color3.fromRGB(245, 235, 235) })
+runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = Color3.fromRGB(255, 255, 255) })
+animateHud(false)
+journal("ФРИКАМ ВЫКЛ")
+end
+pcall(function()
+if UIRegistry.FCToggle and UIRegistry.FCToggle.Set then
+UIRegistry.FCToggle:Set(fcActive)
+end
+end)
+end
+toggleBtn.MouseButton1Click:Connect(function()
+fcSetEnabledInner(not fcActive)
+end)
+function fcSetEnabled(state)
+fcSetEnabledInner(state and true or false)
+end
+function fcSpeedStep(dir)
+flySpeed = math.clamp(flySpeed + dir * speedStep, minSpeed, maxSpeed)
+FreeCam.Speed = flySpeed
+pcall(function()
+speedLabel.Text = "SPD: " .. tostring(flySpeed)
+end)
+end
+function fcSetSpeed(v)
+flySpeed = math.clamp(math.floor(v), minSpeed, maxSpeed)
+FreeCam.Speed = flySpeed
+pcall(function()
+speedLabel.Text = "SPD: " .. tostring(flySpeed)
+end)
+end
+function fcSetPanelVisible(v)
+-- 0.53: кнопка CAM — бинд фрикама на телефоне — теперь живёт отдельно:
+-- панель/HUD не глушат весь ScreenGui, кнопка прячется только сама.
+FreeCam.PanelVisible = v and true or false
+pcall(function()
+toggleBtn.Visible = FreeCam.PanelVisible
+end)
+end
+freecamEnable = function()
+fcSetEnabled(true)
+end
+freecamDisable = function()
+fcSetEnabled(false)
+end
+getgenv().FUST_FreeCamCleanup = function()
+pcall(function()
+fcSetEnabledInner(false)
+screenGui:Destroy()
+end)
+end
+toggleBtn.Position = UDim2.new(1.2, 0, 0.22, 0)
+runSafeTween("spawn_anim", toggleBtn, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+Position = UDim2.new(1, -125, 0.22, 0),
+})
+print("[FUST] фрикам v13 подключён (красно-чёрная тема, без hookfunction по умолчанию)")
+end)
+if not fcOK then
+warn("[FUST] ФРИКАМ: ошибка движка — фрикам не работает, скрин в чат: " .. tostring(fcErr))
+end
+uiStep("Вкладка Аимбот", function()
+Window:Group("Бой")
+AimPage = Window:Page({ Name = "Аимбот", Icon = ICON_COMBAT })
+AimSection = AimPage:Section({ Name = "Аимбот", Tab = "Аимбот", Side = 1 })
+ScreenSection = AimPage:Section({ Name = "Экран", Tab = "Экран", Side = 1 })
+CrosshairSection = AimPage:Section({ Name = "Прицел", Tab = "Прицел", Side = 1 })
+BulletsSection = AimPage:Section({ Name = "Пули", Tab = "Пули", Side = 2 })
+HitboxSection = AimPage:Section({ Name = "Хитбокс", Tab = "Аимбот", Side = 2 })
+TargetSection = AimPage:Section({ Name = "Цель", Tab = "Аимбот", Side = 2 })
+end)
+uiStep("Вкладки ESP/Визуалы/Лут", function()
+Window:Group("Визуал")
+EspPage = Window:Page({ Name = "ESP", Icon = ICON_VISUALS })
+EspSection = EspPage:Section({ Name = "ESP", Tab = "ESP", Side = 1 })
+VisFilterSection = EspPage:Section({ Name = "Фильтры", Tab = "Визуалы", Side = 1 })
+WorldSection = EspPage:Section({ Name = "Мир и освещение", Tab = "Визуалы", Side = 1 })
+LootSection = EspPage:Section({ Name = "Мешки с добычей", Tab = "Лут", Side = 1 })
+end)
+uiStep("Вкладка Фрикам", function()
+Window:Group("Камера")
+FreeCamPage = Window:Page({ Name = "Фрикам", Icon = ICON_VISUALS })
+FreeCamSection = FreeCamPage:Section({ Name = "Свободная камера", Tab = "Фрикам", Side = 1 })
+FreeCamKeySection = FreeCamPage:Section({ Name = "Клавиши и скорость", Tab = "Фрикам", Side = 2 })
+-- управление
+UIRegistry.FCToggle = FreeCamSection:Toggle({
+Name = "Фрикам (свободный полёт камеры)",
+Flag = "FreeCamEnabled",
+Info = "Свободная камера: персонаж стоит на якоре, камера летает. Телефон: джойстик слева, обзор — правая половина экрана. ПК: WASD, Q/E — вниз/вверх, Shift — x2. Аимбот и анти-тряска на время фрикама отключаются.",
+Default = false,
+Callback = function(state)
+fcSetEnabled(state)
+end
+})
+UIRegistry.FCPanel = FreeCamSection:Toggle({
+Name = "Кнопка CAM на экране",
+Flag = "FreeCamPanel",
+Info = "Плавающая кнопка CAM на экране — это и есть бинд фрикама для телефона: тап включает/выключает полёт. Кнопку можно перетащить в удобное место. Скрой, если мешает.",
+Default = true,
+Callback = function(state)
+fcSetPanelVisible(state)
+end
+})
+UIRegistry.FCSpeed = FreeCamSection:Slider({
+Name = "Скорость полёта",
+Flag = "FreeCamSpeed",
+Info = "Скорость полёта камеры (10–1000). Меняй ползунком, кнопками −/+ на панели CAM, а на ПК — клавишами [ и ].",
+Default = 100,
+Min = 10,
+Max = 1000,
+Decimals = 1,
+Callback = function(v)
+fcSetSpeed(v)
+end
+})
+UIRegistry.FCTouchSens = FreeCamSection:Slider({
+Name = "Чувствительность касания",
+Flag = "FreeCamTouchSens",
+Info = "Насколько резко камера поворачивается от пальца. Мало — вяло, много — дёргано. Рекомендую 0.3–0.5.",
+Default = 0.35,
+Min = 0.05,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+FC_TouchSens = v
+end
+})
+UIRegistry.FCMouseSens = FreeCamSection:Slider({
+Name = "Чувствительность мыши",
+Flag = "FreeCamMouseSens",
+Info = "Чувствительность обзора мышью на ПК. Рекомендую 0.15–0.25.",
+Default = 0.20,
+Min = 0.05,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+FC_MouseSens = v
+end
+})
+UIRegistry.FCRemember = FreeCamSection:Toggle({
+Name = "Запоминать позицию камеры",
+Flag = "FreeCamRemember",
+Info = "При включении фрикама камера возвращается в запомненную точку. Точка запоминается кнопкой REMEMBER POS на панели CAM.",
+Default = false,
+Callback = function(state)
+FC_RememberPos = state
+end
+})
+UIRegistry.FCHookKeys = FreeCamSection:Toggle({
+Name = "Подмена IsKeyDown — РИСК",
+Flag = "FreeCamHookKeys",
+Info = "Подменяет IsKeyDown, чтобы WASD летали без перехвата игры. РИСК: хук-методы анти-чит может детектить. Включай только если клавиши полёта не работают.",
+Default = false,
+Callback = function(state)
+FreeCam.HookKeys = state
+if state then
+-- hookfunction установится при следующем включении фрикама
+journal("ФРИКАМ: подмена IsKeyDown РАЗРЕШЕНА (хук-метод — анти-чит может детектить!)")
+else
+journal("ФРИКАМ: подмена IsKeyDown запрещена (безопасный режим)")
+end
+end
+})
+FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
+FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Телепорт — кнопка на панели CAM.")
+FreeCamSection:Label("Персонаж стоит на месте (якорь). Аимбот и анти-тряска на время фрикама отключаются.")
+-- кейбинды (ПК/Xeno): вкл/выкл + скорость
+local fcHasKb = false
+pcall(function()
+fcHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
+end)
+if fcHasKb then
+FCHotkeyBusy = true
+UIRegistry.FCKey = UIRegistry.FCToggle:Keybind({
+Flag = "FreeCamToggleKey",
+Default = Enum.KeyCode.P,
+Mode = "Toggle",
+Callback = function(state)
+if FCHotkeyBusy then return end
+fcSetEnabled(state)
+end
+})
+FCHotkeyBusy = false
+UIRegistry.FCSpeedUpLabel = FreeCamKeySection:Label("Скорость + (клавиша)")
+UIRegistry.FCSpeedUpKey = UIRegistry.FCSpeedUpLabel:Keybind({
+Flag = "FreeCamSpeedUpKey",
+Default = Enum.KeyCode.RightBracket,
+Mode = "Always",
+Callback = function(state)
+if state then fcSpeedStep(1) end
+end
+})
+UIRegistry.FCSpeedDownLabel = FreeCamKeySection:Label("Скорость - (клавиша)")
+UIRegistry.FCSpeedDownKey = UIRegistry.FCSpeedDownLabel:Keybind({
+Flag = "FreeCamSpeedDownKey",
+Default = Enum.KeyCode.LeftBracket,
+Mode = "Always",
+Callback = function(state)
+if state then fcSpeedStep(-1) end
+end
+})
+FreeCamKeySection:Label("Смена клавиши: тапни по кнопке [..] и нажми новую. Backspace = убрать.")
+else
+FreeCamKeySection:Label("Клавиши доступны только на ПК (Xeno). На телефоне — кнопка CAM и панель.")
+end
+end)
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Color = Color3.fromRGB(255, 255, 255), TextureID = "rbxassetid://12781852245", Width = 1.5, Transparency = 0, LifeTime = 0.5, TeamCheck = true },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 5,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+-- 0.39: новые поля
+ColorBg = Color3.fromRGB(12, 12, 16),
+ColorText = Color3.fromRGB(235, 235, 240),
+ColorStroke = Color3.fromRGB(255, 170, 40),
+ShowAdmin = true, 
+Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,

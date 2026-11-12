@@ -1,154 +1,3 @@
-return { "Transparency" }
-end
-end
-Tween.FadeItem = function(self, Item, Property, Visibility, Speed)
-local Item = Item or self.Item
-local OldTransparency = Item[Property]
-Item[Property] = Visibility and 1 or OldTransparency
-local NewTween = Tween:Create(Item, TweenInfo.new(Speed or Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction), {
-[Property] = Visibility and OldTransparency or 1
-}, true)
-Library:Connect(NewTween.Tween.Completed, function()
-if not Visibility then
-task.wait()
-Item[Property] = OldTransparency
-end
-end)
-return NewTween
-end
-Tween.Get = function(self)
-if not self.Tween then
-return
-end
-return self.Tween, self.Info, self.Goal
-end
-Tween.Pause = function(self)
-if not self.Tween then
-return
-end
-self.Tween:Pause()
-end
-Tween.Play = function(self)
-if not self.Tween then
-return
-end
-self.Tween:Play()
-end
-Tween.Clean = function(self)
-if not self.Tween then
-return
-end
-Tween:Pause()
-self = nil
-end
-end
-local Instances = { } do
-Instances.__index = Instances
-Instances.Create = function(self, Class, Properties)
-local NewItem = {
-Instance = InstanceNew(Class),
-Properties = Properties,
-Class = Class
-}
-setmetatable(NewItem, Instances)
-for Property, Value in NewItem.Properties do
-NewItem.Instance[Property] = Value
-end
-return NewItem
-end
-Instances.AddToTheme = function(self, Properties)
-if not self.Instance then
-return
-end
-Library:AddToTheme(self, Properties)
-return self
-end
-Instances.ChangeItemTheme = function(self, Properties)
-if not self.Instance then
-return
-end
-Library:ChangeItemTheme(self, Properties)
-end
-Instances.Connect = function(self, Event, Callback, Name)
-if not self.Instance then
-return
-end
-if not self.Instance[Event] then
-return
-end
-return Library:Connect(self.Instance[Event], Callback, Name)
-end
-Instances.Tween = function(self, Info, Goal)
-if not self.Instance then
-return
-end
-return Tween:Create(self, Info, Goal)
-end
-Instances.Disconnect = function(self, Name)
-if not self.Instance then
-return
-end
-return Library:Disconnect(Name)
-end
-Instances.Clean = function(self)
-if not self.Instance then
-return
-end
-self.Instance:Destroy()
-self = nil
-end
-Instances.MakeDraggable = function(self)
-if not self.Instance then
-return
-end
-local Gui = self.Instance
-local Dragging = false
-local DragStart
-local StartPosition
-local Set = function(Input)
-local DragDelta = Input.Position - DragStart
-local NewX = StartPosition.X.Offset + DragDelta.X
-local NewY = StartPosition.Y.Offset + DragDelta.Y
-local ScreenSize = Gui.Parent.AbsoluteSize
-local GuiSize = Gui.AbsoluteSize
-local MaxX = ScreenSize.X - GuiSize.X
-local MaxY = ScreenSize.Y - GuiSize.Y
-if MaxX >= 0 then
-NewX = MathClamp(NewX, 0, MaxX)
-end
-if MaxY >= 0 then
-NewY = MathClamp(NewY, 0, MaxY)
-end
-self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, NewX, 0, NewY)})
-end
-local InputChanged
-self:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-Dragging = true
-DragStart = Input.Position
-StartPosition = Gui.Position
-if InputChanged then
-return
-end
-InputChanged = Input.Changed:Connect(function()
-if Input.UserInputState == Enum.UserInputState.End then
-Dragging = false
-InputChanged:Disconnect()
-InputChanged = nil
-end
-end)
-end
-end)
-Library:Connect(UserInputService.InputChanged, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-if Dragging then
-Set(Input)
-end
-end
-end)
-return Dragging
-end
-Instances.MakeResizeable = function(self, Minimum, Maximum)
 if not self.Instance then
 return
 end
@@ -2153,6 +2002,108 @@ Section.Items = Items
 end
 return setmetatable(Section, Library.Sections)
 end
+-- 0.53: ПОДСКАЗКИ «i» — у каждой функции кнопка-инфо в кружочке. Тап
+-- раскрывает описание: что делает, как настроить ползунок, когда включать.
+-- ЗАЩИТА ОТ СЛУЧАЙНЫХ СРАБАТЫВАНИЙ (телефон):
+-- 1) открывается только короткий чистый тап: сдвиг < 14px и удержание
+--    < 0.7с — свайп-скролл, начатый на кнопке, подсказку НЕ открывает;
+-- 2) повторный тап гасится 0.25с (дребезг пальца);
+-- 3) пока подсказка открыта, первый тап по строке закрывает её и НЕ
+--    жмёт саму функцию (нельзя случайно выключить аимбот);
+-- 4) открыта может быть только одна подсказка — новая закрывает старую.
+Library.InfoOpen = nil
+Library.CreateInfoUI = function(self, InfoText, BtnProps, PanelParent, OnOpenChanged)
+if not InfoText or InfoText == "" then
+return nil
+end
+local InfoBtn = Instances:Create("TextButton", BtnProps)
+InfoBtn.Instance.Text = "i"
+InfoBtn.Instance.FontFace = Library.Font
+InfoBtn.Instance.TextSize = 11
+InfoBtn.Instance.AutoButtonColor = false
+InfoBtn.Instance.BackgroundColor3 = Library.Theme["Element"]
+InfoBtn.Instance.TextColor3 = Library.Theme["Text"]
+InfoBtn.Instance.BackgroundTransparency = 0.2
+InfoBtn.Instance.TextTransparency = 0.3
+InfoBtn:AddToTheme({BackgroundColor3 = 'Element', TextColor3 = 'Text'})
+Instances:Create("UICorner", {Parent = InfoBtn.Instance, Name = "\0", CornerRadius = UDimNew(1, 0)})
+Instances:Create("UIStroke", {Parent = InfoBtn.Instance, Name = "\0", Color = Library.Theme["Outline"], ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Transparency = 0.25}):AddToTheme({Color = 'Outline'})
+local InfoPanel = Instances:Create("Frame", {
+Parent = PanelParent,
+Name = "\0",
+BackgroundColor3 = Library.Theme["Element"],
+BorderColor3 = FromRGB(0, 0, 0),
+BorderSizePixel = 0,
+Visible = false,
+Size = UDim2New(1, -8, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y
+})
+InfoPanel:AddToTheme({BackgroundColor3 = 'Element'})
+Instances:Create("UICorner", {Parent = InfoPanel.Instance, Name = "\0", CornerRadius = UDimNew(0, 6)})
+Instances:Create("UIStroke", {Parent = InfoPanel.Instance, Name = "\0", Color = Library.Theme["Accent"], ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Transparency = 0.55}):AddToTheme({Color = 'Accent'})
+Instances:Create("UIPadding", {Parent = InfoPanel.Instance, Name = "\0", PaddingTop = UDimNew(0, 7), PaddingBottom = UDimNew(0, 8), PaddingLeft = UDimNew(0, 9), PaddingRight = UDimNew(0, 9)})
+Instances:Create("TextLabel", {
+Parent = InfoPanel.Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+Text = InfoText,
+TextWrapped = true,
+TextXAlignment = Enum.TextXAlignment.Left,
+TextYAlignment = Enum.TextYAlignment.Top,
+TextTransparency = 0.12,
+TextSize = 12,
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+Size = UDim2New(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y
+}):AddToTheme({TextColor3 = 'Text'})
+local open = false
+local lastTapAt = 0
+local function setOpen(v)
+open = v
+InfoPanel.Instance.Visible = v
+InfoBtn.Instance.TextColor3 = v and Library.Theme.Accent or Library.Theme["Text"]
+if v then
+if Library.InfoOpen and Library.InfoOpen ~= InfoPanel and Library.InfoOpen._setOpen then
+pcall(Library.InfoOpen._setOpen, false)
+end
+Library.InfoOpen = InfoPanel
+elseif Library.InfoOpen == InfoPanel then
+Library.InfoOpen = nil
+end
+if OnOpenChanged then
+pcall(OnOpenChanged, v)
+end
+end
+InfoPanel._setOpen = setOpen
+InfoBtn._panelSetOpen = setOpen
+local pressPos, pressAt = nil, nil
+InfoBtn:Connect("InputBegan", function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+pressPos = input.Position
+pressAt = os.clock()
+end
+end)
+InfoBtn:Connect("InputEnded", function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+if pressPos and pressAt then
+local moved = 0
+pcall(function()
+moved = (input.Position - pressPos).Magnitude
+end)
+local held = os.clock() - pressAt
+if moved <= 14 and held <= 0.7 and os.clock() - lastTapAt > 0.25 then
+lastTapAt = os.clock()
+setOpen(not open)
+end
+end
+pressPos = nil
+pressAt = nil
+end
+end)
+return InfoBtn
+end
 Library.Sections.Toggle = function(self, Data)
 Data = Data or { }
 local Toggle = {
@@ -2273,6 +2224,20 @@ BorderSizePixel = 0,
 SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
 }):AddToTheme({ImageColor3 = 'Accent'})
 end
+Toggle.InfoOpen = false
+if Data.Info then
+local InfoBtn = Library:CreateInfoUI(Data.Info, {
+Parent = Items["SubElements"].Instance,
+Name = "\0",
+Size = UDim2New(0, 16, 0, 16),
+LayoutOrder = 9999
+}, Toggle.Section.Items["Content"].Instance, function(v)
+Toggle.InfoOpen = v
+end)
+if InfoBtn then
+Toggle.InfoBtn = InfoBtn
+end
+end
 table.insert(Library.SearchRows, {Frame = Items["Toggle"].Instance, Text = StringLower(Toggle.Name), Page = Toggle.Page})
 function Toggle:Get()
 return Toggle.Value
@@ -2357,6 +2322,214 @@ Callback = Keybind.Callback
 return NewKeybind
 end
 Items["Toggle"]:Connect("MouseButton1Down", function()
+-- 0.53: защита подсказок — пока открыт (i), первый тап по строке
+-- закрывает подсказку и НЕ переключает функцию
+if Toggle.InfoOpen then
+Toggle.InfoOpen = false
+if Toggle.InfoBtn and Toggle.InfoBtn._panelSetOpen then
+pcall(Toggle.InfoBtn._panelSetOpen, false)
+end
+return
+end
 Toggle:Set(not Toggle.Value)
 end)
 Toggle:Set(Toggle.Default)
+Library.SetFlags[Toggle.Flag] = function(Value)
+Toggle:Set(Value)
+end
+return Toggle
+end
+Library.Sections.Button = function(self, Data)
+Data = Data or { }
+local Button = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Button",
+Callback = Data.Callback or Data.callback or function() end
+}
+local Items = { } do
+Items["Button"] = Instances:Create("TextButton", {
+Parent = Button.Section.Items["Content"].Instance,
+Name = "\0",
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(1, 0, 0, 30),
+Selectable = false,
+Active = false,
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Button.Name,
+AnchorPoint = Vector2New(0.5, 0.5),
+Size = UDim2New(0, 0, 0, 15),
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+BorderSizePixel = 0,
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 16
+}):AddToTheme({TextColor3 = 'Text'})
+Instances:Create("UICorner", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 6)
+})
+Items["Stroke"] = Instances:Create("UIStroke", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Icon"] = Instances:Create("ImageLabel", {
+Parent = Items["Button"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 16, 0, 16),
+AnchorPoint = Vector2New(1, 0.5),
+Image = "rbxassetid://117716971575946",
+BackgroundTransparency = 1,
+Position = UDim2New(1, -6, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0
+}):AddToTheme({ImageColor3 = 'Text'})
+end
+function Button:SetVisibility(Bool)
+Items["Button"].Instance.Visible = Bool
+end
+function Button:Press()
+Items["Stroke"]:ChangeItemTheme({Color = "Accent"})
+Items["Stroke"]:Tween(nil, {Color = Library.Theme.Accent})
+task.wait(0.1)
+Library:SafeCall(Button.Callback)
+Items["Stroke"]:ChangeItemTheme({Color = "Outline"})
+Items["Stroke"]:Tween(nil, {Color = Library.Theme.Outline})
+end
+Items["Button"]:Connect("MouseButton1Down", function()
+Button:Press()
+end)
+return Button
+end
+Library.Sections.Slider = function(self, Data)
+Data = Data or { }
+local Slider = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Slider",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Min = Data.Min or Data.min or 0,
+Default = Data.Default or Data.default or 0,
+Max = Data.Max or Data.max or 100,
+Suffix = Data.Suffix or Data.suffix or "",
+Decimals = Data.Decimals or Data.decimals or 1,
+Callback = Data.Callback or Data.callback or function() end,
+Value = 0,
+Sliding = false
+}
+local Items = { } do
+Items["Slider"] = Instances:Create("Frame", {
+Parent = Slider.Section.Items["Content"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 32),
+BorderSizePixel = 0
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Slider"].Instance,
+Name = "\0",
+FillDirection = Enum.FillDirection.Vertical,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Padding = UDimNew(0, 4),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Header"] = Instances:Create("Frame", {
+Parent = Items["Slider"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 15),
+BorderSizePixel = 0,
+LayoutOrder = 1
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Header"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Slider.Name,
+Size = UDim2New(1, -56, 0, 15),
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+TextXAlignment = Enum.TextXAlignment.Left,
+TextTruncate = Enum.TextTruncate.AtEnd,
+TextSize = 14
+}):AddToTheme({TextColor3 = 'Text'})
+Items["Value"] = Instances:Create("TextLabel", {
+Parent = Items["Header"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+Text = "50%",
+Size = UDim2New(0, 48, 0, 15),
+AnchorPoint = Vector2New(1, 0),
+Position = UDim2New(1, 0, 0, 0),
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Element"],
+TextXAlignment = Enum.TextXAlignment.Center,
+TextTruncate = Enum.TextTruncate.AtEnd,
+TextSize = 12
+}):AddToTheme({BackgroundColor3 = 'Element', TextColor3 = 'Text'})
+Instances:Create("UICorner", {
+Parent = Items["Value"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 6)
+})
+Items["RealSlider"] = Instances:Create("TextButton", {
+Parent = Items["Slider"].Instance,
+Name = "\0",
+Active = false,
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
+AutoButtonColor = false,
+Size = UDim2New(1, 0, 0, 7),
+Selectable = false,
+BorderSizePixel = 0,
+LayoutOrder = 2,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+Instances:Create("UICorner", {
+Parent = Items["RealSlider"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Instances:Create("UIStroke", {
+Parent = Items["RealSlider"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Accent"] = Instances:Create("Frame", {
+Parent = Items["RealSlider"].Instance,
+Name = "\0",
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0.6000000238418579, 0, 1, 0),
+BorderSizePixel = 0,
+BackgroundColor3 = Library.Theme["Accent"]
+}):AddToTheme({BackgroundColor3 = 'Accent'})
+Instances:Create("UICorner", {
+Parent = Items["Accent"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow"] = Instances:Create("ImageLabel", {

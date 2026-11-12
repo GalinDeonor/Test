@@ -1,6 +1,247 @@
+AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
+Flag = "AimHotkey",
+Default = Enum.KeyCode.RightAlt,
+Mode = "Toggle",
+Callback = function(state)
+if AimHotkeyBusy then return end
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+UIRegistry.AimEnabled:Set(state)
+end
+end
+})
+AimHotkeyBusy = false
+UIRegistry.AimHotkey = AimHotkeyObj
+end
+UIRegistry.AimShowFOV = ScreenSection:Toggle({
+Name = "FOV круг",
+Flag = "AimShowFOV",
+Info = "Круг захвата аимбота: красный — цели нет, зелёный — цель захвачена. Сам аимбот работает и с выключенным кругом.",
+Default = false,
+Callback = function(state)
+Aim.ShowFOV = state
+end
+})
+UIRegistry.AimWallCheck = AimSection:Toggle({
+Name = "Проверка стен",
+Flag = "AimWallCheck",
+Info = "Не брать цель за стеной — камера не дёргается на невидимых. Держи ВКЛ.",
+Default = true,
+Callback = function(state)
+Aim.WallCheck = state
+end
+})
+-- 0.53: ПРИЦЕЛ И ЕГО НАСТРОЙКИ ВЗЯТЫ ИЗ VOMAGLA 1-в-1 (вкладка «Прицел»)
+UIRegistry.CHEnabled = CrosshairSection:Toggle({
+Name = "Прицел",
+Flag = "CHEnabled",
+Info = "Прицел в центре экрана. Движок перенесён из VOMAGLA: 4 линии, вращение, пульс, радуга, точка, следование за целью.",
+Default = false,
+Callback = function(state)
+CH.Enabled = state
+journal("ПРИЦЕЛ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.CHRainbow = CrosshairSection:Toggle({
+Name = "Прицел: радуга",
+Flag = "CHRainbow",
+Info = "Цвет прицела переливается радугой (перекрывает выбранный цвет).",
+Default = false,
+Callback = function(state) CH.Rainbow = state end
+})
+UIRegistry.CHDot = CrosshairSection:Toggle({
+Name = "Прицел: точка в центре",
+Flag = "CHDot",
+Info = "Точка в центре прицела — помогает с вертикальной поправкой.",
+Default = false,
+Callback = function(state) CH.Dot = state end
+})
+UIRegistry.CHPulse = CrosshairSection:Toggle({
+Name = "Прицел: пульс",
+Flag = "CHPulse",
+Info = "Зазор прицела «дышит» — визуально приятнее и заметнее при отдаче.",
+Default = false,
+Callback = function(state) CH.Pulse = state end
+})
+UIRegistry.CHPulseSpeed = CrosshairSection:Slider({
+Name = "Прицел: скорость пульса",
+Flag = "CHPulseSpeed",
+Info = "Скорость пульса зазора (0.5–10).",
+Default = 3,
+Min = 0.5,
+Max = 10,
+Decimals = 0.1,
+Callback = function(v) CH.PulseSpeed = v end
+})
+UIRegistry.CHFollowAim = CrosshairSection:Toggle({
+Name = "Прицел: следовать за точкой аима",
+Flag = "CHFollowAim",
+Info = "Прицел ездит за точкой, куда доводит аимбот — видно, куда реально смотрит авто-аим. Нужен включённый аимбот.",
+Default = false,
+Callback = function(state) CH.FollowAimPoint = state end
+})
+UIRegistry.CHFollowTarget = CrosshairSection:Toggle({
+Name = "Прицел: следовать за целью",
+Flag = "CHFollowTarget",
+Info = "Прицел прилипает к текущей цели аимбота (плавно, с настраиваемой мягкостью).",
+Default = false,
+Callback = function(state) CH.FollowTarget = state end
+})
+UIRegistry.CHFollowSmooth = CrosshairSection:Slider({
+Name = "Прицел: плавность следования",
+Flag = "CHFollowSmooth",
+Info = "Плавность следования: 1 — жёстко, 20 — мягко. Рекомендую 8.",
+Default = 8,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(v) CH.FollowSmooth = v end
+})
+UIRegistry.CHLength = CrosshairSection:Slider({
+Name = "Прицел: длина лучей",
+Flag = "CHLength",
+Info = "Длина лучей креста (2–40).",
+Default = 8,
+Min = 2,
+Max = 40,
+Decimals = 1,
+Callback = function(v) CH.Length = v end
+})
+UIRegistry.CHGap = CrosshairSection:Slider({
+Name = "Прицел: зазор от центра",
+Flag = "CHGap",
+Info = "Зазор от центра (0–25). 0 — линии сходятся в центре.",
+Default = 4,
+Min = 0,
+Max = 25,
+Decimals = 0.5,
+Callback = function(v) CH.Gap = v end
+})
+UIRegistry.CHRotation = CrosshairSection:Slider({
+Name = "Прицел: скорость вращения",
+Flag = "CHRotation",
+Info = "Скорость вращения креста (−360..360 об/с). 0 — статичный, как в CS.",
+Default = 0,
+Min = -360,
+Max = 360,
+Decimals = 1,
+Callback = function(v) CH.RotationSpeed = v end
+})
+UIRegistry.CHThickness = CrosshairSection:Slider({
+Name = "Прицел: толщина",
+Flag = "CHThickness",
+Info = "Толщина линий прицела (0.5–5).",
+Default = 1.5,
+Min = 0.5,
+Max = 5,
+Decimals = 0.5,
+Callback = function(v) CH.Thickness = v end
+})
+UIRegistry.CHColor = UIRegistry.CHEnabled:Colorpicker({
+Flag = "CHColor",
+Default = Color3.new(1, 1, 1),
+Callback = function(c) CH.Color = c end
+})
+CrosshairSection:Label("Настройки перенесены из VOMAGLA: вращение, пульс, радуга, точка, следование за целью/точкой аима. Следование работает при включённом аимботе.")
+UIRegistry.AimFOV = ScreenSection:Slider({
+Name = "FOV радиус",
+Flag = "AimFOV",
+Info = "Радиус круга захвата (50–400 px). Меньше — цепляет только у прицела (легит), больше — берёт по всему экрану.",
+Default = 150,
+Min = 50,
+Max = 400,
+Decimals = 5,
+Suffix = "px",
+Callback = function(Value)
+Aim.FOV = Value
+end
+})
+UIRegistry.AimDistance = AimSection:Slider({
+Name = "Дистанция аима",
+Flag = "AimDistance",
+Info = "Максимальная дистанция до цели в метрах. Коптеры берутся без ограничения дистанции.",
+Default = 500,
+Min = 50,
+Max = 1500,
+Decimals = 10,
+Suffix = "m",
+Callback = function(Value)
+Aim.Distance = Value
+end
+})
+UIRegistry.AimSmooth = AimSection:Slider({
+Name = "Smooth",
+Flag = "AimSmooth",
+Info = "Плавность ведения: 1 — резко (снап), 20 — плавно. Для легита ставь 8–15.",
+Default = 4,
+Min = 1,
+Max = 20,
+Decimals = 1,
+Callback = function(Value)
+Aim.Smooth = Value
+end
+})
+UIRegistry.AimPrediction = AimSection:Slider({
+Name = "Предикт",
+Flag = "AimPrediction",
+Info = "Упреждение: целится чуть впереди бегущей цели. Включай против тех, кто стрейфит.",
+Default = 0.5,
+Min = 0,
+Max = 2,
+Decimals = 0.05,
+Suffix = "с",
+Callback = function(Value)
+Aim.Prediction = Value
+end
+})
+UIRegistry.AimAutoPredict = AimSection:Toggle({
+Name = "Авто-предикт",
+Flag = "AimAutoPredict",
+Info = "Сам подбирает силу упреждения по скорости цели — не надо крутить ползунок вручную.",
+Default = false,
+Callback = function(state)
+Aim.AutoPredict = state
+journal("АВТО-ПРЕДИКТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.AimAutoPredictK = AimSection:Slider({
+Name = "Авто-предикт: коэффициент",
+Flag = "AimAutoPredictK",
+Info = "Коэффициент авто-предикта: сила упреждения. Больше — сильнее ведёт впереди.",
+Default = 1,
+Min = 0.2,
+Max = 3,
+Decimals = 0.1,
+Suffix = "x",
+Callback = function(Value)
+Aim.AutoPredictK = Value
+end
+})
+EvilSection = AimPage:Section({ Name = "ЗЛОЙ АИМ — ТЕСТ", Tab = "Аимбот", Side = 1 })
+EvilSection:Label({
+Name = "!! ЭТО ТЕСТ-РЕЖИМ: возможен БАН. Весь риск на тебе !!",
+Color = Color3.fromRGB(255, 64, 64)
+})
+UIRegistry.EvilEnabled = EvilSection:Toggle({
+Name = "ЗЛОЙ АИМ",
+Flag = "EvilEnabled",
+Info = "ЗЛОЙ АИМ — тест: мгновенный рывок камеры к цели без плавности, лерп адаптивный по дистанции. Палевно; для рейдов и ПвП на близке.",
+Default = false,
+Color = Color3.fromRGB(255, 64, 64),
+Callback = function(state)
+Evil.Enabled = state
+if state and not Aim.Enabled and UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+pcall(function()
+UIRegistry.AimEnabled:Set(true)
+end)
+end
+journal("ЗЛОЙ АИМ (ТЕСТ) " .. (state and "ВКЛ — возможен БАН" or "ВЫКЛ"))
+print("[FUST] Злой аим " .. (state and "ВКЛ (ТЕСТ, риск бана)" or "ВЫКЛ"))
+end
+})
 UIRegistry.EvilAutoPred = EvilSection:Toggle({
-Name = "Злой: авто-предикт (скорость + край хитбокса)",
+Name = "Злой: авто-предикт",
 Flag = "EvilAutoPred",
+Info = "Авто-предикт для злого аима: берёт скорость цели и край хитбокса.",
 Default = true,
 Color = Color3.fromRGB(255, 64, 64),
 Callback = function(state)
@@ -27,8 +268,9 @@ end
 EvilPredHotkeyBusy = false
 end
 UIRegistry.EvilSnipe = EvilSection:Toggle({
-Name = "Меткий таргет (руфкемперы: без FOV, рывок)",
+Name = "Меткий таргет",
 Flag = "EvilSnipe",
+Info = "Меткий таргет: цель у прицела берётся БЕЗ FOV-проверки, рывок максимальный. Против руфкемперов.",
 Default = false,
 Color = Color3.fromRGB(255, 64, 64),
 Callback = function(state)
@@ -39,6 +281,7 @@ end
 UIRegistry.EvilK = EvilSection:Slider({
 Name = "Злой: сила предикта",
 Flag = "EvilK",
+Info = "Сила предикта злого аима.",
 Default = 1,
 Min = 0.2,
 Max = 3,
@@ -54,8 +297,9 @@ Color = Color3.fromRGB(200, 120, 255)
 })
 AutoAimSection = AimPage:Section({ Name = "Авто-аим (враги рядом)", Tab = "Аимбот", Side = 1 })
 UIRegistry.AutoAimEnabled = AutoAimSection:Toggle({
-Name = "Авто вкл/выкл аима (враги в радиусе)",
+Name = "Авто вкл/выкл аима",
 Flag = "AutoAimEnabled",
+Info = "Авто вкл/выкл аимбота: враг в радиусе — аим включился, ушёл — выключился. Не надо тогглить руками.",
 Default = false,
 Callback = function(state)
 AutoAim.Enabled = state
@@ -67,6 +311,7 @@ end
 UIRegistry.AutoAimRadius = AutoAimSection:Slider({
 Name = "Радиус авто-включения",
 Flag = "AutoAimRadius",
+Info = "Радиус авто-включения аима в метрах.",
 Default = 500,
 Min = 50,
 Max = 2000,
@@ -79,8 +324,9 @@ end
 -- 0.39v2: АВТО-СТРЕЛЬБА
 AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "Аимбот", Side = 1 })
 UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
-Name = "Авто-стрельба (когда есть цель)",
+Name = "Авто-стрельба",
 Flag = "AutoFireEnabled",
+Info = "Авто-стрельба: жмёт выстрел сама, когда цель в захвате. Движок выстрела — VOMAGLA (0.52): mouse1click → VirtualInputManager → Tool:Activate.",
 Default = false,
 Callback = function(state)
 AutoFire.Enabled = state
@@ -88,8 +334,9 @@ journal("АВТО-СТРЕЛЬБА " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 UIRegistry.AutoFireDelay = AutoFireSection:Slider({
-Name = "Задержка между выстрелами (0 = макс)",
+Name = "Задержка между выстрелами",
 Flag = "AutoFireDelay",
+Info = "Пауза между выстрелами в секундах. 0 — каждый кадр (максимальная скорость).",
 Default = 0,
 Min = 0,
 Max = 0.5,
@@ -99,18 +346,21 @@ Callback = function(v) AutoFire.Delay = v end
 UIRegistry.AutoFireOnlyOnTarget = AutoFireSection:Toggle({
 Name = "Стрелять только при захвате цели",
 Flag = "AutoFireOnlyOnTarget",
+Info = "Стрелять только при захваченной цели — не жмёт в пустоту и не палит себя без причины.",
 Default = true,
 Callback = function(state) AutoFire.OnlyOnTarget = state end
 })
 UIRegistry.AutoFireUntilDead = AutoFireSection:Toggle({
 Name = "Стрелять пока цель не умрёт",
 Flag = "AutoFireUntilDead",
+Info = "Стрелять, пока цель не умрёт: не бросает стрелять после первого выстрела.",
 Default = true,
 Callback = function(state) AutoFire.UntilDead = state end
 })
 UIRegistry.AutoFireWallCheck = AutoFireSection:Toggle({
-Name = "Не стрелять через стены (WallCheck)",
+Name = "Не стрелять через стены",
 Flag = "AutoFireWallCheck",
+Info = "Не стрелять через стены — не тратит патроны по целям за укрытием.",
 Default = true,
 Callback = function(state) AutoFire.WallCheck = state end
 })
@@ -119,6 +369,7 @@ RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска"
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
 Flag = "AntiRecoilEnabled",
+Info = "Анти-отдача: глушит кик камеры при выстреле — прицел остаётся на цели.",
 Default = false,
 Callback = function(state)
 AntiRecoil.Enabled = state
@@ -129,6 +380,7 @@ end
 UIRegistry.AntiRecoilRollback = RecoilSection:Toggle({
 Name = "АО: откат кика камеры",
 Flag = "AntiRecoilRollback",
+Info = "Возвращает камеру в исходное положение после кика (мягче, чем блокировать).",
 Default = true,
 Callback = function(state)
 AntiRecoil.Rollback = state
@@ -138,6 +390,7 @@ end
 UIRegistry.AntiRecoilOffset = RecoilSection:Toggle({
 Name = "АО: сброс CameraOffset",
 Flag = "AntiRecoilOffset",
+Info = "Сбрасывает CameraOffset humanоида после выстрела — убирает увод обзора.",
 Default = true,
 Callback = function(state)
 AntiRecoil.Offset = state
@@ -147,6 +400,7 @@ end
 UIRegistry.AntiRecoilThreshold = RecoilSection:Slider({
 Name = "АО: порог кика",
 Flag = "AntiRecoilThreshold",
+Info = "Порог срабатывания: от какого размера кика включаться. Меньше — чувствительнее.",
 Default = 1.2,
 Min = 0.3,
 Max = 5,
@@ -159,6 +413,7 @@ end
 UIRegistry.AntiRecoilDrift = RecoilSection:Toggle({
 Name = "АО: компенсация дрифта",
 Flag = "AntiRecoilDrift",
+Info = "Компенсация дрифта: прицеле уводит в сторону при спрее — тянется обратно.",
 Default = true,
 Callback = function(state)
 AntiRecoil.Drift = state
@@ -168,6 +423,7 @@ end
 UIRegistry.AntiRecoilDriftStrength = RecoilSection:Slider({
 Name = "АО: сила компенсации",
 Flag = "AntiRecoilDriftStrength",
+Info = "Сила компенсации дрифта (0–1). Больше — агрессивнее тянет обратно.",
 Default = 1,
 Min = 0.1,
 Max = 1,
@@ -178,8 +434,9 @@ AntiRecoil.DriftStrength = Value
 end
 })
 UIRegistry.AntiShakeEnabled = RecoilSection:Toggle({
-Name = "Анти-тряска (выстрел)",
+Name = "Анти-тряска",
 Flag = "AntiShakeEnabled",
+Info = "Анти-тряска при выстреле: гасит крен, дёрганье позиции и дрожь прицела.",
 Default = false,
 Callback = function(state)
 AntiShake.Enabled = state
@@ -188,8 +445,9 @@ print("[FUST] Анти-тряска " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
 UIRegistry.AntiShakeRoll = RecoilSection:Toggle({
-Name = "АТ: крен (наклон вбок)",
+Name = "АТ: крен",
 Flag = "AntiShakeRoll",
+Info = "Гасит наклон камеры вбок (крен) после выстрела.",
 Default = true,
 Callback = function(state)
 AntiShake.Roll = state
@@ -199,6 +457,7 @@ end
 UIRegistry.AntiShakePosition = RecoilSection:Toggle({
 Name = "АТ: дёрганье позиции",
 Flag = "AntiShakePosition",
+Info = "Гасит дёрганье позиции камеры.",
 Default = true,
 Callback = function(state)
 AntiShake.Position = state
@@ -208,6 +467,7 @@ end
 UIRegistry.AntiShakeOscillation = RecoilSection:Toggle({
 Name = "АТ: дрожь прицела",
 Flag = "AntiShakeOscillation",
+Info = "Гасит дрожь прицела (осцилляцию).",
 Default = true,
 Callback = function(state)
 AntiShake.Oscillation = state
@@ -498,6 +758,7 @@ Name = "Аим парт",
 Items = { "Голова", "Тело", "Ноги", "Рандом" },
 Default = "Голова",
 Flag = "AimPart",
+Info = "Куда целиться: ГОЛОВА, ТЕЛО, НОГИ или РАНДОМ (перемешивает — палевнее меньше).",
 Multi = false,
 Callback = function(label)
 Aim.Part = AIM_PART_LABELS[label] or "Head"
@@ -509,6 +770,7 @@ Name = "Приоритет",
 Items = { "Прицел", "Дистанция" },
 Default = "Прицел",
 Flag = "AimPriority",
+Info = "Приоритет выбора цели: ближе к прицелу (Прицел) или ближе по дистанции (Дистанция).",
 Multi = false,
 Callback = function(value)
 Aim.Priority = value
@@ -520,6 +782,7 @@ Name = "Кого аимить",
 Items = { "Игроки", "Боты и НПС", "Животные", "Слиперы", "Коптеры" },
 Default = { "Игроки" },
 Flag = "AimTargets",
+Info = "Кого брать в цель: Игроки, Боты и НПС, Животные, Слиперы, Коптеры.",
 Multi = true,
 Callback = function(list)
 local players, npc, animals, sleepers, copters = false, false, false, false, false
@@ -599,116 +862,123 @@ fovCircle.Visible = false
 else
 warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
 end
--- 0.39: ПРИЦЕЛ В СТИЛЕ CS2 — настраиваемые длина/толщина/зазор/точка/обводка/цвет
+-- 0.53: ДВИЖОК ПРИЦЕЛА ИЗ VOMAGLA (1-в-1): крест из 4 Drawing-линий,
+-- вращение, пульс зазора, радуга, точка-квадрат, следование за целью
+-- или за точкой аима (гладко, через exp-лерп). Старый CS2-прицел убран.
 CH = {
-Gap = 5,        -- зазор от центра
-Length = 7,     -- длина лучей
-Thickness = 2,  -- толщина линий
-Dot = false,    -- точка в центре
-Outline = true, -- обводка (чёрная за цветом)
-Color = Color3.fromRGB(255, 30, 30),
+Enabled = false,
+Color = Color3.new(1, 1, 1),
+Rainbow = false,
+Length = 8,
+Gap = 4,
+Thickness = 1.5,
+Dot = false,
+RotationSpeed = 0,
+Pulse = false,
+PulseSpeed = 3,
+FollowTarget = false,
+FollowSmooth = 8,
+FollowAimPoint = false,
 }
-CH_GAP, CH_LEN = 5, 7 -- legacy aliases (синхронизируются из CH)
 chLines = {}
 for i = 1, 4 do
 local l = SafeDrawing("Line")
 if l then
-l.Thickness = 2
-l.Color = Color3.fromRGB(255, 30, 30)
 l.Visible = false
+l.Thickness = CH.Thickness
+l.Color = CH.Color
 chLines[i] = l
 end
 end
-chDot = SafeDrawing("Circle")
+chDot = SafeDrawing("Square")
 if chDot then
-chDot.Radius = 1
-chDot.Thickness = 1
+chDot.Visible = false
 chDot.Filled = true
-chDot.Color = Color3.fromRGB(255, 30, 30)
+chDot.Thickness = 1
+chDot.Size = Vector2.new(2, 2)
+chDot.Color = CH.Color
+end
+local chSmoothX, chSmoothY = nil, nil
+local chElapsed = 0
+local chRot = 0
+AIM_TargetPart = nil
+AIM_TargetScreenPos = nil
+function updateCrosshairV(dt, center)
+if not chLines[1] then
+return
+end
+if not CH.Enabled then
+for _, l in ipairs(chLines) do
+l.Visible = false
+end
+if chDot then
 chDot.Visible = false
 end
--- обводка: 8 линий вокруг основных (4 направления × 2 смещения)
-chOutline = {}
-for i = 1, 8 do
-local l = SafeDrawing("Line")
-if l then
-l.Thickness = 3
-l.Color = Color3.fromRGB(0, 0, 0)
-l.Visible = false
-chOutline[i] = l
+return
+end
+local camera = Workspace.CurrentCamera
+if not camera then
+return
+end
+local vp = camera.ViewportSize
+local cx, cy = center.X, center.Y
+if CH.FollowAimPoint and AIM_TargetScreenPos then
+cx, cy = AIM_TargetScreenPos.X, AIM_TargetScreenPos.Y
+elseif CH.FollowTarget and AIM_TargetPart and AIM_TargetPart.Parent then
+local okS, sp, vis = pcall(function()
+local s, v = camera:WorldToViewportPoint(AIM_TargetPart.Position)
+return s, v
+end)
+if okS and sp and vis then
+cx, cy = sp.X, sp.Y
+elseif okS and sp then
+-- цель за спиной — прижимаем прицел к краю экрана (как в VOMAGLA)
+local dx, dy = sp.X - cx, sp.Y - cy
+local adx, ady = math.abs(dx), math.abs(dy)
+local margin = 18
+local sx = (vp.X * 0.5) - margin
+local sy = (vp.Y * 0.5) - margin
+local scale = 1
+if adx > 0 or ady > 0 then
+scale = math.min(sx / math.max(adx, 1e-6), sy / math.max(ady, 1e-6))
+end
+cx, cy = cx + dx * scale, cy + dy * scale
 end
 end
-function updateCrosshair(center, visible)
+local smooth = math.clamp(CH.FollowSmooth, 1, 20)
+local a = 1 - math.exp(-(dt or 0.016) * smooth)
+if chSmoothX == nil then
+chSmoothX, chSmoothY = cx, cy
+end
+chSmoothX = chSmoothX + (cx - chSmoothX) * a
+chSmoothY = chSmoothY + (cy - chSmoothY) * a
+chElapsed = chElapsed + (dt or 0.016)
+chRot = (chRot + (dt or 0.016) * CH.RotationSpeed) % 360
+local col = CH.Color
+if CH.Rainbow then
+col = Color3.fromHSV((chElapsed * 0.5) % 1, 1, 1)
+end
 local gap = CH.Gap
+if CH.Pulse then
+gap = gap + math.sin(chElapsed * CH.PulseSpeed) * math.max(CH.Gap * 0.4, 2)
+end
 local len = CH.Length
-local th = CH.Thickness
--- top
-if chLines[1] then
-chLines[1].From = Vector2.new(center.X, center.Y - gap)
-chLines[1].To = Vector2.new(center.X, center.Y - gap - len)
-chLines[1].Thickness = th
-chLines[1].Color = CH.Color
-chLines[1].Visible = visible
+for i = 0, 3 do
+local l = chLines[i + 1]
+if l then
+local ang = math.rad(chRot + i * 90)
+local dx, dy = math.cos(ang), math.sin(ang)
+l.Visible = true
+l.Thickness = CH.Thickness
+l.Color = col
+l.From = Vector2.new(chSmoothX + dx * gap, chSmoothY + dy * gap)
+l.To = Vector2.new(chSmoothX + dx * (gap + len), chSmoothY + dy * (gap + len))
 end
--- bottom
-if chLines[2] then
-chLines[2].From = Vector2.new(center.X, center.Y + gap)
-chLines[2].To = Vector2.new(center.X, center.Y + gap + len)
-chLines[2].Thickness = th
-chLines[2].Color = CH.Color
-chLines[2].Visible = visible
 end
--- left
-if chLines[3] then
-chLines[3].From = Vector2.new(center.X - gap, center.Y)
-chLines[3].To = Vector2.new(center.X - gap - len, center.Y)
-chLines[3].Thickness = th
-chLines[3].Color = CH.Color
-chLines[3].Visible = visible
-end
--- right
-if chLines[4] then
-chLines[4].From = Vector2.new(center.X + gap, center.Y)
-chLines[4].To = Vector2.new(center.X + gap + len, center.Y)
-chLines[4].Thickness = th
-chLines[4].Color = CH.Color
-chLines[4].Visible = visible
-end
--- точка
 if chDot then
-chDot.Position = center
-chDot.Radius = math.max(1, math.floor(th / 2))
-chDot.Color = CH.Color
-chDot.Visible = visible and CH.Dot
-end
--- обводка (8 линий с микро-смещением вокруг основных)
-if CH.Outline and visible then
-local offs = { {1,0}, {-1,0}, {0,1}, {0,-1} }
-local oi = 1
-for dir = 1, 4 do
-local base = chLines[dir]
-if base then
-for _, off in ipairs(offs) do
-local o = chOutline[oi]
-if o then
-o.From = Vector2.new(base.From.X + off[1], base.From.Y + off[2])
-o.To = Vector2.new(base.To.X + off[1], base.To.Y + off[2])
-o.Thickness = th + 2
-o.Color = Color3.fromRGB(0, 0, 0)
-o.Visible = true
-end
-oi = oi + 1
-end
-end
-end
--- скрыть неиспользованные
-for i = oi, 8 do
-if chOutline[i] then chOutline[i].Visible = false end
-end
-else
-for i = 1, 8 do
-if chOutline[i] then chOutline[i].Visible = false end
-end
+chDot.Visible = CH.Dot
+chDot.Color = col
+chDot.Position = Vector2.new(chSmoothX - 1, chSmoothY - 1)
 end
 end
 aimRayParams = RaycastParams.new()
@@ -1038,6 +1308,42 @@ end
 end
 end
 walk(root, 1)
+end
+-- 0.53: первичный скан лута — ТОЛЬКО по включению тумблера, ЧАНКАМИ
+-- с task.wait() (урок E-15: сплошной обход без yield вешал Delta).
+-- Паттерн тот же, что у xrayScanAll: GetDescendants один раз, yield каждые N.
+function bpScanContainerChunked()
+task.spawn(function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+local okD, objs = pcall(function()
+return Workspace:GetDescendants()
+end)
+if not okD or type(objs) ~= "table" then
+return
+end
+local i = 0
+for _, d in ipairs(objs) do
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+pcall(function()
+if d:IsA("Model") or d:IsA("BasePart") then
+bpTryTrack(d)
+end
+end)
+i = i + 1
+if i % 500 == 0 then
+task.wait()
+end
+end
+local cnt = 0
+for _ in pairs(trackedBackpacks) do
+cnt = cnt + 1
+end
+print("[FUST] ЛУТ: первичный скан завершён, отслеживается: " .. tostring(cnt))
+end)
 end
 function bpEnsureDrawings(inst)
 local ed = bpDrawings[inst]
@@ -1807,6 +2113,15 @@ h.FillColor = (item.cat == "bag") and LOOT_COLOR or LOOTC_COLOR
 h.OutlineColor = (item.cat == "bag") and LOOT_COLOR or LOOTC_COLOR
 h.Enabled = true
 end)
+-- 0.53 ФИКС «ЧАМСЫ ЛУТА НЕ РАБОТАЮТ»: если игра сносит Highlight из
+-- Workspace (pcall не падает, но Parent становится nil), раньше чамсы
+-- молча не рисовались. Теперь детектим и включаем квадраты-заливки.
+if not h.Parent then
+lootChamPoolBlocked = true
+LootChamsBlocked = true
+LootChamsBlockedAt = os.clock()
+break
+end
 end
 for i = used + 1, #lootChamPool do
 pcall(function()
@@ -1835,14 +2150,6 @@ local catOn = (cat == "bag" and S.Loot.Enabled) or (cat == "cont" and S.LootC.En
 if not catOn then
 bpHideDrawings(inst)
 else
-if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 6) then
-local deep = not e.DeepAt or now - e.DeepAt > 60 -- 0.39: было 4с/30с — лагало. 6с/60с.
-if deep then
-e.DeepAt = now
-end
-e.Info = bpReadInfo(inst, deep)
-e.InfoAt = now
-end
 local cf, sz = bpGetBBox(inst)
 local dist = cf and (cf.Position - myRoot.Position).Magnitude
 local maxD = (cat == "bag") and S.Loot.MaxDistance or S.LootC.MaxDistance
@@ -1865,6 +2172,17 @@ local bw = boxSize.X + pad * 2
 local bh = boxSize.Y + pad * 2
 local centerX = bx + bw * 0.5
 local ed = bpEnsureDrawings(inst)
+-- 0.53 ФИКС ЛАГА: слоты/владелец читаются ТОЛЬКО у мешков в радиусе
+-- отрисовки. Раньше bpReadInfo гонялся по КАЖДОМУ отслеженному мешку
+-- (атрибуты + дети + промпт + тексты) — на сотнях мешков лагало даже на ПК.
+if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 6) then
+local deep = not e.DeepAt or now - e.DeepAt > 60
+if deep then
+e.DeepAt = now
+end
+e.Info = bpReadInfo(inst, deep)
+e.InfoAt = now
+end
 local info = e.Info or {}
 local wantChams = (cat == "bag" and S.Loot.Enabled and S.Loot.Chams)
 or (cat == "cont" and S.LootC.Enabled and S.LootC.Chams)
@@ -1973,11 +2291,10 @@ bpOpenCacheInst[inst] = nil
 trackedBackpacks[inst] = nil
 end
 end
-walkTick = walkTick + 1
-if walkTick >= 3 then
-walkTick = 0
-bpScanContainer(Workspace, 3)
-end
+-- 0.53 ФИКС ЛАГА ЛУТА: постоянный обход Workspace каждые 3с УДАЛЁН —
+-- он сканировал всю карту (тысячи объектов) даже на ПК. Первичный скан —
+-- один раз при включении тумблера (чанками, E-15-безопасно), новые
+-- мешки/контейнеры ловят DescendantAdded и теги CollectionService.
 for _, tag in ipairs(BP_TAGS) do
 local okT, tagged = pcall(CollectionService.GetTagged, CollectionService, tag)
 if okT and type(tagged) == "table" then
@@ -2311,183 +2628,3 @@ local toPoint = aimPos - camPos
 if toPoint:Dot(look) > 0 then
 local sp = camera:WorldToViewportPoint(aimPos)
 local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
-local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "игрок"
-end
-end
-end
-end
-end
-end
-end
-end
-end
-end
-end
-if Aim.TargetsNPC or Aim.TargetsAnimals or Aim.TargetsSleepers then
-for model in pairs(trackedNPCs) do
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local aimCat = npcGetCategory(model, hum, root)
-local catWanted =
-((aimCat == "Guard" or aimCat == "Peaceful") and Aim.TargetsNPC)
-or (aimCat == "Animal" and Aim.TargetsAnimals)
-or (aimCat == "Sleeper" and Aim.TargetsSleepers)
-if not catWanted then
-continue
-end
-local worldDist = (root.Position - localRoot.Position).Magnitude
-if worldDist <= Aim.Distance then
-local part = resolveAimPart(model, Aim.Part)
-if part then
-local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
-local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
-local aimPos = part.Position + vel * lead
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
-local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "бот/НПС"
-end
-end
-end
-end
-end
-end
-end
-end
-end
--- 0.50: КОПТЕРЫ как цель — БЕЗ проверки дистанции (по приказу).
--- Стрелять можно и по пустому коптеру (чтобы сбить), поэтому
--- занятость сиденья не проверяем. Свой коптер (в котором сидишь) исключён.
-if Aim.TargetsCopters then
-for model, part in pairs(trackedCopters) do
-if model.Parent and part and part.Parent then
-local aimPos = part.Position
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
--- ДИСТАНЦИЯ НЕ ПРОВЕРЯЕТСЯ: коптеры далеко/высоко —
--- лимит Aim.Distance их никогда не пропускал
-local score = (Aim.Priority == "Дистанция") and (aimPos - camPos).Magnitude or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "коптер"
-end
-end
-end
-end
-else
-trackedCopters[model] = nil
-end
-end
-end
-return bestPart, bestPoint, bestType
-end
-if getgenv().FUST_AimCleanup then
-pcall(getgenv().FUST_AimCleanup)
-end
-aimConnection = nil
-aimConnection = RunService.RenderStepped:Connect(function()
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-aimConnection:Disconnect()
-return
-end
-local camera = Workspace.CurrentCamera
-if not camera then
-return
-end
-local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-updateCrosshair(center, Aim.Crosshair)
-if not Aim.Enabled then
-if fovCircle then
-fovCircle.Visible = false
-end
-return
-end
-if FreeCam.Enabled then
-if fovCircle then
-fovCircle.Visible = false
-end
-return
-end
-local part, aimPos = getAimTarget(camera)
-if fovCircle then
-fovCircle.Position = center
-fovCircle.Radius = Aim.FOV
-fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
-fovCircle.Visible = Aim.ShowFOV
-end
-if part and aimPos then
-AR_AimBusyUntil = os.clock() + 0.15
-local newCF = CFrame.new(camera.CFrame.Position, aimPos)
-if Evil.Enabled then
--- STEALTH 0.39: фикс «кривого прицеливания» злого аима.
--- Проблема 0.38: фиксированный лерп 0.85 недолёт при быстрой цели
--- (успевает убежать за 1 кадр), и перелёт при близкой (камера
--- проскакивает). Решение: лерп АДАПТИВНЫЙ по дистанции до цели.
--- < 30м → 0.92 (быстрая коррекция, цель близко — резче)
--- 30..80м → 0.85 (средне)
--- > 80м → 0.78 (далеко — меньше перелётов)
--- Snipe-режим — +0.06 ко всем (максимум 0.98).
-local dist = (aimPos - camera.CFrame.Position).Magnitude
-local baseA = 0.78
-if dist < 30 then baseA = 0.92
-elseif dist < 80 then baseA = 0.85
-end
-if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
-camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
-else
-local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
-camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
-end
--- 0.39v2: АВТО-СТРЕЛЬБА
--- 0.39v4: WallCheck — не стрелять если цель за стеной
-local afCanFire = AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part)
-if afCanFire and AutoFire.WallCheck and part and aimPos then
--- ищем модель цели для raycast (part.Parent обычно модель игрока/НПС/вертолёта)
-local targetModel = part.Parent
-if not targetModel or not targetModel:IsA("Model") then
-targetModel = part:FindFirstAncestorOfClass("Model")
-end
-if targetModel then
-local camPos2 = camera.CFrame.Position
-if wallBetween(camPos2, targetModel, aimPos) then
-afCanFire = false
-end
-end
-end
-if afCanFire then
-local now = os.clock()
-if now - AF_LastShot >= AutoFire.Delay then
-AF_LastShot = now
-AF_LastTargetPart = part
-pcall(function()
--- 0.52 FIX (E-17): движок выстрела = VOMAGLA (тот скрипт на телефоне
--- у юзера не крашился НИ РАЗУ). Порядок: 1) mouse1click, 2) VirtualInputManager:
--- press + release ЧЕРЕЗ task.defer — клик живёт минимум до конца кадра,
--- Roblox успевает обработать нажатие (подряд press+release мог глотаться),
--- 3) Tool:Activate() — финальный фолбэк для телефона. Ветвление по
--- KeyboardEnabled/TouchEnabled УДАЛЕНО: экзекуторы врут во флагах,
--- VOMAGLA не ветвится вообще и работает на Delta. task.defer НЕ yield —
--- aim loop не ломается (запрещён только task.wait, урок 0.39v4).
-local afFired = false

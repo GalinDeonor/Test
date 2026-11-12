@@ -1,3 +1,197 @@
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
+local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "игрок"
+end
+end
+end
+end
+end
+end
+end
+end
+end
+end
+end
+if Aim.TargetsNPC or Aim.TargetsAnimals or Aim.TargetsSleepers then
+for model in pairs(trackedNPCs) do
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local aimCat = npcGetCategory(model, hum, root)
+local catWanted =
+((aimCat == "Guard" or aimCat == "Peaceful") and Aim.TargetsNPC)
+or (aimCat == "Animal" and Aim.TargetsAnimals)
+or (aimCat == "Sleeper" and Aim.TargetsSleepers)
+if not catWanted then
+continue
+end
+local worldDist = (root.Position - localRoot.Position).Magnitude
+if worldDist <= Aim.Distance then
+local part = resolveAimPart(model, Aim.Part)
+if part then
+local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
+local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
+local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "бот/НПС"
+end
+end
+end
+end
+end
+end
+end
+end
+end
+-- 0.50: КОПТЕРЫ как цель — БЕЗ проверки дистанции (по приказу).
+-- Стрелять можно и по пустому коптеру (чтобы сбить), поэтому
+-- занятость сиденья не проверяем. Свой коптер (в котором сидишь) исключён.
+if Aim.TargetsCopters then
+for model, part in pairs(trackedCopters) do
+if model.Parent and part and part.Parent then
+local aimPos = part.Position
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if screenDist <= Aim.FOV then
+if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
+-- ДИСТАНЦИЯ НЕ ПРОВЕРЯЕТСЯ: коптеры далеко/высоко —
+-- лимит Aim.Distance их никогда не пропускал
+local score = (Aim.Priority == "Дистанция") and (aimPos - camPos).Magnitude or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = part
+bestPoint = aimPos
+bestType = "коптер"
+end
+end
+end
+end
+else
+trackedCopters[model] = nil
+end
+end
+end
+return bestPart, bestPoint, bestType
+end
+if getgenv().FUST_AimCleanup then
+pcall(getgenv().FUST_AimCleanup)
+end
+aimConnection = nil
+aimConnection = RunService.RenderStepped:Connect(function(dt)
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+aimConnection:Disconnect()
+return
+end
+local camera = Workspace.CurrentCamera
+if not camera then
+return
+end
+local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+updateCrosshairV(dt, center)
+if not Aim.Enabled then
+AIM_TargetPart = nil
+AIM_TargetScreenPos = nil
+if fovCircle then
+fovCircle.Visible = false
+end
+return
+end
+if FreeCam.Enabled then
+AIM_TargetPart = nil
+AIM_TargetScreenPos = nil
+if fovCircle then
+fovCircle.Visible = false
+end
+return
+end
+local part, aimPos = getAimTarget(camera)
+-- 0.53: текущая цель аима — для прицела «следовать за целью/точкой аима»
+AIM_TargetPart = part
+if part and aimPos then
+pcall(function()
+local sp = camera:WorldToViewportPoint(aimPos)
+AIM_TargetScreenPos = Vector2.new(sp.X, sp.Y)
+end)
+else
+AIM_TargetScreenPos = nil
+end
+if fovCircle then
+fovCircle.Position = center
+fovCircle.Radius = Aim.FOV
+fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
+fovCircle.Visible = Aim.ShowFOV
+end
+if part and aimPos then
+AR_AimBusyUntil = os.clock() + 0.15
+local newCF = CFrame.new(camera.CFrame.Position, aimPos)
+if Evil.Enabled then
+-- STEALTH 0.39: фикс «кривого прицеливания» злого аима.
+-- Проблема 0.38: фиксированный лерп 0.85 недолёт при быстрой цели
+-- (успевает убежать за 1 кадр), и перелёт при близкой (камера
+-- проскакивает). Решение: лерп АДАПТИВНЫЙ по дистанции до цели.
+-- < 30м → 0.92 (быстрая коррекция, цель близко — резче)
+-- 30..80м → 0.85 (средне)
+-- > 80м → 0.78 (далеко — меньше перелётов)
+-- Snipe-режим — +0.06 ко всем (максимум 0.98).
+local dist = (aimPos - camera.CFrame.Position).Magnitude
+local baseA = 0.78
+if dist < 30 then baseA = 0.92
+elseif dist < 80 then baseA = 0.85
+end
+if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
+camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
+else
+local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
+camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
+end
+-- 0.39v2: АВТО-СТРЕЛЬБА
+-- 0.39v4: WallCheck — не стрелять если цель за стеной
+local afCanFire = AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part)
+if afCanFire and AutoFire.WallCheck and part and aimPos then
+-- ищем модель цели для raycast (part.Parent обычно модель игрока/НПС/вертолёта)
+local targetModel = part.Parent
+if not targetModel or not targetModel:IsA("Model") then
+targetModel = part:FindFirstAncestorOfClass("Model")
+end
+if targetModel then
+local camPos2 = camera.CFrame.Position
+if wallBetween(camPos2, targetModel, aimPos) then
+afCanFire = false
+end
+end
+end
+if afCanFire then
+local now = os.clock()
+if now - AF_LastShot >= AutoFire.Delay then
+AF_LastShot = now
+AF_LastTargetPart = part
+pcall(function()
+-- 0.52 FIX (E-17): движок выстрела = VOMAGLA (тот скрипт на телефоне
+-- у юзера не крашился НИ РАЗУ). Порядок: 1) mouse1click, 2) VirtualInputManager:
+-- press + release ЧЕРЕЗ task.defer — клик живёт минимум до конца кадра,
+-- Roblox успевает обработать нажатие (подряд press+release мог глотаться),
+-- 3) Tool:Activate() — финальный фолбэк для телефона. Ветвление по
+-- KeyboardEnabled/TouchEnabled УДАЛЕНО: экзекуторы врут во флагах,
+-- VOMAGLA не ветвится вообще и работает на Delta. task.defer НЕ yield —
+-- aim loop не ломается (запрещён только task.wait, урок 0.39v4).
+local afFired = false
 if type(mouse1click) == "function" then
 mouse1click()
 afFired = true
@@ -284,10 +478,31 @@ NoGrass = S.NoGrass,
 NoFog = S.NoFog,
 Bullets = {
 Enabled = S.Bullets.Enabled,
-Style = S.Bullets.Style,
+Style = S.Bullets.Style or "Луч",
 Width = S.Bullets.Width,
 Transparency = S.Bullets.Transparency,
-Fade = S.Bullets.Fade,
+LifeTime = S.Bullets.LifeTime,
+TeamCheck = S.Bullets.TeamCheck,
+Color = colorToTable(S.Bullets.Color),
+},
+CrosshairV = {
+Enabled = CH.Enabled,
+Rainbow = CH.Rainbow,
+Length = CH.Length,
+Gap = CH.Gap,
+Thickness = CH.Thickness,
+Dot = CH.Dot,
+RotationSpeed = CH.RotationSpeed,
+Pulse = CH.Pulse,
+PulseSpeed = CH.PulseSpeed,
+FollowTarget = CH.FollowTarget,
+FollowSmooth = CH.FollowSmooth,
+FollowAimPoint = CH.FollowAimPoint,
+},
+Furniture = {
+Enabled = (FurnitureChams and FurnitureChams.Enabled) or false,
+Color = colorToTable((FurnitureChams and FurnitureChams.Color) or Color3.fromRGB(100, 200, 255)),
+Transparency = (FurnitureChams and FurnitureChams.Transparency) or 0.4,
 },
 NPC = {
 ESP = S.NPC.ESP,
@@ -320,7 +535,7 @@ Part = Aim.Part,
 Priority = Aim.Priority,
 WallCheck = Aim.WallCheck,
 TeamCheck = Aim.TeamCheck,
-Crosshair = Aim.Crosshair,
+Crosshair = CH.Enabled,
 Targets = (function()
 local t = {}
 if Aim.TargetsPlayers then
@@ -493,10 +708,44 @@ applyFlag("NoGrass", cfg.NoGrass)
 applyFlag("NoFog", cfg.NoFog)
 if type(cfg.Bullets) == "table" then
 applyFlag("BulletsEnabled", cfg.Bullets.Enabled)
-applyFlag("BulletsStyle", cfg.Bullets.Style)
+local bstyle = cfg.Bullets.Style
+if bstyle == "Квадратный" then
+bstyle = "Луч"
+end
+if bstyle then
+applyFlag("BulletsStyle", bstyle)
+end
 applyFlag("BulletsWidth", cfg.Bullets.Width)
 applyFlag("BulletsTransparency", cfg.Bullets.Transparency)
-applyFlag("BulletsFade", cfg.Bullets.Fade)
+applyFlag("BulletsLifeTime", cfg.Bullets.LifeTime or cfg.Bullets.Fade)
+applyFlag("BulletsTeamCheck", cfg.Bullets.TeamCheck)
+local bcol = tableToColor(cfg.Bullets.Color)
+if bcol and UIRegistry.BulletsColor and UIRegistry.BulletsColor.Set then
+pcall(function() UIRegistry.BulletsColor:Set(bcol) end)
+end
+end
+if type(cfg.CrosshairV) == "table" then
+local c = cfg.CrosshairV
+applyFlag("CHEnabled", c.Enabled)
+applyFlag("CHRainbow", c.Rainbow)
+applyFlag("CHLength", c.Length)
+applyFlag("CHGap", c.Gap)
+applyFlag("CHThickness", c.Thickness)
+applyFlag("CHDot", c.Dot)
+applyFlag("CHRotation", c.RotationSpeed)
+applyFlag("CHPulse", c.Pulse)
+applyFlag("CHPulseSpeed", c.PulseSpeed)
+applyFlag("CHFollowTarget", c.FollowTarget)
+applyFlag("CHFollowSmooth", c.FollowSmooth)
+applyFlag("CHFollowAim", c.FollowAimPoint)
+end
+if type(cfg.Furniture) == "table" then
+applyFlag("FurnitureChams", cfg.Furniture.Enabled)
+applyFlag("FurnitureChamsTransparency", cfg.Furniture.Transparency)
+local fcol = tableToColor(cfg.Furniture.Color)
+if fcol and UIRegistry.FurnitureChamsColor and UIRegistry.FurnitureChamsColor.Set then
+pcall(function() UIRegistry.FurnitureChamsColor:Set(fcol) end)
+end
 end
 if type(cfg.AntiRecoil) == "table" then
 applyFlag("AntiRecoilEnabled", cfg.AntiRecoil.Enabled)
@@ -580,7 +829,7 @@ applyFlag("AimAutoPredict", a.AutoPredict)
 applyFlag("AimAutoPredictK", a.AutoPredictK)
 applyFlag("AimWallCheck", a.WallCheck)
 applyFlag("AimTeamCheck", a.TeamCheck)
-applyFlag("AimCrosshair", a.Crosshair)
+applyFlag("CHEnabled", a.Crosshair)
 if a.Part and table.find(AIM_PARTS, a.Part) then
 applyFlag("AimPart", AIM_PART_TO_LABEL[a.Part])
 end
@@ -726,84 +975,31 @@ end
 botEspDrawings[model] = nil
 end
 end
-BULLET_COLOR_ENEMY = Color3.fromRGB(255, 60, 60)
-BULLET_COLOR_TEAM = Color3.fromRGB(255, 215, 0)
-BULLET_TEXTURES = {
-["Луч"] = "rbxassetid://12781852245",
-["Молния"] = "rbxassetid://446111271",
-["Сердцебиение"] = "rbxassetid://5830549480",
-["Цепь"] = "rbxassetid://9632168658",
-["Глитч"] = "rbxassetid://8089467613",
-["Вихрь"] = "rbxassetid://5638168605",
-}
-bulletTracks = {} 
-bulletConn = nil
-bulletOn = false
-bulletPool = {} 
-bulletPoolSize = 0
-function bulletPoolGet(kind)
-if bulletPoolSize > 0 then
-for i = bulletPoolSize, 1, -1 do
-local item = bulletPool[i]
-if item and item.Kind == kind then
-bulletPool[i] = bulletPool[bulletPoolSize]
-bulletPool[bulletPoolSize] = nil
-bulletPoolSize = bulletPoolSize - 1
-return item.Part
+-- 0.53: ПУЛИ (ТРЕЙСЕРЫ) — ДВИЖОК VOMAGLA 1-в-1. Перехватываются РЕАЛЬНЫЕ
+-- выстрелы: hookmetamethod __namecall ловит Raycast у Workspace, луч длиннее
+-- 50 стадов и не дальше 5 м от камеры = чей-то выстрел вплотную к тебе
+-- (практически всегда — твой). Старый детектор «быстрая часть + прямая»
+-- СПАМИЛ: считал пулями любые летящие части, в т.ч. от бегущих игроков и
+-- тимейтов — УДАЛЁН. Пул Beam'ов VOMAGLA: Part + 2 Attachment + Beam
+-- (FaceCamera, LightEmission 1, TextureLength/Speed 2).
+local btPool, btPoolSize = {}, 0
+local btActive = {}
+local function btGet()
+if btPoolSize > 0 then
+local p = btPool[btPoolSize]
+btPool[btPoolSize] = nil
+btPoolSize = btPoolSize - 1
+return p
 end
-end
-end
-local okP, p = pcall(function()
-local part = Instance.new("Part")
-part.Anchored = true
-part.CanCollide = false
-part.CanQuery = false
-part.CanTouch = false
-part.CastShadow = false
-part.Transparency = 1
-part.Size = Vector3.new(0.1, 0.1, 0.1)
-if kind == "square" then
-local c0 = Instance.new("Attachment")
-c0.Name = "C0"
-c0.Parent = part
-local c1 = Instance.new("Attachment")
-c1.Name = "C1"
-c1.Parent = part
-local core = Instance.new("Beam")
-core.Name = "Core"
-core.Attachment0 = c0
-core.Attachment1 = c1
-core.FaceCamera = true
-core.LightEmission = 1
-core.LightInfluence = 0
-core.Enabled = false
-core.Parent = part
-for idx, corner in ipairs({ { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }) do
-local a0 = Instance.new("Attachment")
-a0.Name = "E" .. idx .. "A"
-a0.Parent = part
-local a1 = Instance.new("Attachment")
-a1.Name = "E" .. idx .. "B"
-a1.Parent = part
-local b = Instance.new("Beam")
-b.Name = "E" .. idx
-b.Attachment0 = a0
-b.Attachment1 = a1
-b.FaceCamera = false
-b.LightEmission = 1
-b.LightInfluence = 0
-b.Enabled = false
-b.Parent = part
-end
-part:SetAttribute("PetuhKind", "square")
-return part
-end
-local a0 = Instance.new("Attachment")
+local p = Instance.new("Part")
+p.Anchored = true
+p.CanCollide = false
+p.Transparency = 1
+p.Size = Vector3.new(0.1, 0.1, 0.1)
+local a0 = Instance.new("Attachment", p)
 a0.Name = "A0"
-a0.Parent = part
-local a1 = Instance.new("Attachment")
+local a1 = Instance.new("Attachment", p)
 a1.Name = "A1"
-a1.Parent = part
 local b = Instance.new("Beam")
 b.Name = "B"
 b.Attachment0 = a0
@@ -813,367 +1009,156 @@ b.LightEmission = 1
 b.LightInfluence = 0
 b.TextureLength = 2
 b.TextureSpeed = 2
-b.Enabled = false
-b.Parent = part
-part:SetAttribute("PetuhKind", "ribbon")
-return part
-end)
-if okP then
+b.Parent = p
 return p
 end
-return nil
+local function btRelease(p, b)
+if b then
+b.Enabled = false
 end
-function bulletPoolRelease(p, kind)
 if p then
-pcall(function()
 p.Parent = nil
-end)
-bulletPoolSize = bulletPoolSize + 1
-bulletPool[bulletPoolSize] = {
-Part = p,
-Kind = kind or p:GetAttribute("PetuhKind") or "ribbon",
-}
+btPoolSize = btPoolSize + 1
+btPool[btPoolSize] = p
 end
 end
-function bulletPoolDestroy()
-for i = 1, bulletPoolSize do
-local item = bulletPool[i]
-if item and item.Part then
-pcall(function()
-item.Part:Destroy()
-end)
+function btDestroyAll()
+for i = #btActive, 1, -1 do
+local t = btActive[i]
+if t and t.p then
+pcall(function() t.p:Destroy() end)
 end
+btActive[i] = nil
 end
-bulletPool = {}
-bulletPoolSize = 0
+for i = 1, btPoolSize do
+pcall(function() btPool[i]:Destroy() end)
 end
-function setupTracerPart(t, square)
-local kind = square and "square" or "ribbon"
-local newPart = bulletPoolGet(kind)
-if not newPart then
+btPool = {}
+btPoolSize = 0
+end
+-- ТИМ ЧЕК ПУЛЬ: если стреляли вплотную к камере и ближе всех к точке
+-- выстрела стоит тимейт — его пули не рисуем (антиспам от своих).
+local function btIsTeammateShot(origin)
+if not S.Bullets.TeamCheck then
 return false
 end
-local refsOk = true
-local core = nil
-local edges = {}
-local signs = { { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
-if square then
-core = newPart:FindFirstChild("Core")
-if not core then
-refsOk = false
-end
-for idx = 1, 4 do
-local b = newPart:FindFirstChild("E" .. idx)
-local a0 = newPart:FindFirstChild("E" .. idx .. "A")
-local a1 = newPart:FindFirstChild("E" .. idx .. "B")
-if not (b and a0 and a1) then
-refsOk = false
-else
-edges[idx] = { Beam = b, A0 = a0, A1 = a1 }
-end
-end
-else
-local b = newPart:FindFirstChild("B")
-local a0 = newPart:FindFirstChild("A0")
-local a1 = newPart:FindFirstChild("A1")
-if not (b and a0 and a1) then
-refsOk = false
-else
-t.Beam = b
-t.A0 = a0
-t.A1 = a1
-end
-end
-if not refsOk then
-pcall(function()
-newPart:Destroy()
-end)
+local myTeam = LocalPlayer.Team
+if not myTeam then
 return false
 end
-t.BeamPart = newPart
-t.Kind = kind
-if square then
-t.Sq = { Core = core, Edges = edges, Signs = signs }
-end
-newPart.Parent = Workspace
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer and plr.Team == myTeam then
+local c = plr.Character
+local r = c and c:FindFirstChild("HumanoidRootPart")
+if r and (r.Position - origin).Magnitude < 6 then
 return true
 end
-function resolveBulletCreator(inst)
-local okC, creator = pcall(function()
-for _, ch in ipairs(inst:GetChildren()) do
-if ch:IsA("ObjectValue") then
-local v = ch.Value
-if typeof(v) == "Instance" and v:IsA("Player") then
-return v
 end
 end
+return false
 end
-for _, attr in ipairs({ "Player", "Creator", "Owner", "Plr" }) do
-local a = inst:GetAttribute(attr)
-if a ~= nil then
-if typeof(a) == "Instance" and a:IsA("Player") then
-return a
-elseif type(a) == "string" then
-return Players:FindFirstChild(a)
-end
-end
-end
-return nil
-end)
-if okC then
-return creator
-end
-return nil
-end
-function clearBulletDrawings()
-for _, t in ipairs(bulletTracks) do
-if t.BeamPart then
-if t.Beam then
-pcall(function()
-t.Beam.Enabled = false
-end)
-end
-if t.Sq then
-for _, e in ipairs(t.Sq.Edges) do
-pcall(function()
-e.Beam.Enabled = false
-end)
-end
-pcall(function()
-t.Sq.Core.Enabled = false
-end)
-end
-bulletPoolRelease(t.BeamPart, t.Kind)
-end
-end
-bulletTracks = {}
-end
-function onNewWorldPart(inst)
-if #bulletTracks > 40 then
+function btCreateTrace(startPos, endPos)
+if not S.Bullets.Enabled then
 return
 end
-local okTrack, isPart = pcall(function()
-if not inst:IsA("BasePart") then
-return false
+local camera = Workspace.CurrentCamera
+if camera then
+local d = (startPos - camera.CFrame.Position).Magnitude
+if d < 4 then
+startPos = (camera.CFrame * CFrame.new(2.5, -1.5, -1)).Position
 end
-local sz = inst.Size
-if math.max(sz.X, sz.Y, sz.Z) > 2.5 then
-return false
 end
-local model = inst:FindFirstAncestorOfClass("Model")
-while model do
-if model:FindFirstChildOfClass("Humanoid") then
-return false
+local p = btGet()
+p.Parent = Workspace
+local a0 = p:FindFirstChild("A0")
+local a1 = p:FindFirstChild("A1")
+if a0 then
+a0.WorldPosition = startPos
 end
-model = model:FindFirstAncestorOfClass("Model")
+if a1 then
+a1.WorldPosition = endPos
 end
-return true
-end)
-if okTrack and isPart then
-table.insert(bulletTracks, {
-Part = inst,
-Born = os.clock(),
-Pos = inst.Position,
-LastTime = os.clock(),
-LastMoveAt = os.clock(),
-Straight = 0,
-LastDir = nil,
-Promoted = false,
-Origin = nil,
-BeamPart = nil,
-Beam = nil,
-A0 = nil,
-A1 = nil,
-Died = nil,
-IsTeam = false,
-})
+local b = p:FindFirstChild("B")
+if not b then
+btRelease(p)
+return
+end
+b.Color = ColorSequence.new(S.Bullets.Color)
+b.Transparency = NumberSequence.new(S.Bullets.Transparency)
+b.Texture = S.Bullets.TextureID
+b.Width0 = S.Bullets.Width
+b.Width1 = S.Bullets.Width
+b.Enabled = true
+btActive[#btActive + 1] = { p = p, b = b, start = os.clock() }
+end
+function FUST_TracersUpdate()
+if #btActive == 0 then
+return
+end
+local lt = math.max(S.Bullets.LifeTime or 0.5, 0.05)
+local nowT = os.clock()
+for i = #btActive, 1, -1 do
+local t = btActive[i]
+local p, b = t.p, t.b
+if not p or not p.Parent then
+table.remove(btActive, i)
+else
+local alpha = 1 - ((nowT - t.start) / lt)
+if alpha <= 0 then
+btRelease(p, b)
+table.remove(btActive, i)
+elseif b then
+b.Transparency = NumberSequence.new(alpha * S.Bullets.Transparency)
+end
+end
 end
 end
 function setBulletsEnabled(on)
-on = on and true or false
-if on == bulletOn then
-return
-end
-bulletOn = on
-if bulletConn then
-pcall(function()
-bulletConn:Disconnect()
-end)
-bulletConn = nil
-end
-clearBulletDrawings()
-if on then
-bulletConn = Workspace.DescendantAdded:Connect(onNewWorldPart)
+if not on then
+btDestroyAll()
 end
 end
 FUST_BulletsSet = setBulletsEnabled
-function updateBullets()
-local now = os.clock()
-if not bulletOn then
-if #bulletTracks > 0 then
-clearBulletDrawings()
+do
+local hookOK = (type(hookmetamethod) == "function")
+and (type(getnamecallmethod) == "function")
+and (type(newcclosure) == "function")
+if hookOK then
+local okH, errH = pcall(function()
+local old
+old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+local method = getnamecallmethod()
+if method == "Raycast" and self == Workspace and S.Bullets.Enabled then
+local origin, direction, rayParams = ...
+if typeof(origin) == "Vector3" and typeof(direction) == "Vector3" then
+local mag = direction.Magnitude
+local cam = Workspace.CurrentCamera
+local camPos = cam and cam.CFrame.Position
+if mag > 50 and camPos and (origin - camPos).Magnitude <= 5 then
+if not btIsTeammateShot(origin) then
+local result = old(self, ...)
+if result then
+task.spawn(btCreateTrace, origin, result.Position)
 end
-return
-end
-local width = math.clamp(S.Bullets.Width or 1.5, 0.1, 5)
-local baseT = math.clamp(S.Bullets.Transparency or 0, 0, 0.95)
-local texture = BULLET_TEXTURES[S.Bullets.Style or "Луч"] or BULLET_TEXTURES["Луч"]
-for i = #bulletTracks, 1, -1 do
-local t = bulletTracks[i]
-local part = t.Part
-if part.Parent then
-local pos = part.Position
-local dt = now - t.LastTime
-t.LastTime = now
-if not t.Promoted then
-local seg = pos - t.Pos
-local dist = seg.Magnitude
-if dt > 0 and dist > 0.001 then
-local sp = dist / dt
-if sp > 40 then
-local dir = seg.Unit
-if not t.LastDir or dir:Dot(t.LastDir) > 0.75 then
-t.Straight = t.Straight + 1
-else
-t.Straight = 0
-end
-t.LastDir = dir
-else
-t.Straight = 0
-t.LastDir = nil
+return result
 end
 end
-if t.Straight >= 2 then
-local cr = resolveBulletCreator(part)
-if cr == LocalPlayer then
-table.remove(bulletTracks, i)
-else
-t.Promoted = true
-t.IsTeam = cr ~= nil and cr.Team ~= nil and cr.Team == LocalPlayer.Team
-t.Origin = pos - seg.Unit * dist * 2
-if not setupTracerPart(t, (S.Bullets.Style or "Луч") == "Квадратный") then
-table.remove(bulletTracks, i)
 end
 end
-elseif now - t.Born > 1 then
-table.remove(bulletTracks, i)
-end
-else
-if (pos - t.Pos).Magnitude > 0.02 then
-t.LastMoveAt = now
-end
-end
-t.Pos = pos
-elseif not t.Promoted then
-table.remove(bulletTracks, i)
-else
-if not t.Died then
-t.Died = now
-end
-end
-if t.Promoted and not t.Died and now - (t.LastMoveAt or t.Born) > 0.35 then
-t.Died = now
-end
-if t.Promoted then
-local wantSquare = (S.Bullets.Style or "Луч") == "Квадратный"
-if (t.Kind == "square") ~= wantSquare then
-if t.BeamPart then
-pcall(function()
-if t.Beam then
-t.Beam.Enabled = false
-end
-if t.Sq then
-for _, e in ipairs(t.Sq.Edges) do
-e.Beam.Enabled = false
-end
-t.Sq.Core.Enabled = false
-end
+return old(self, ...)
+end))
+return old
 end)
-bulletPoolRelease(t.BeamPart, t.Kind)
-end
-t.BeamPart = nil
-t.Beam = nil
-t.A0 = nil
-t.A1 = nil
-t.Sq = nil
-if not setupTracerPart(t, wantSquare) then
-table.remove(bulletTracks, i)
-end
-end
-end
-if t.Promoted and t.BeamPart then
-local fade = math.max(S.Bullets.Fade or 1, 0.05)
-local age = t.Died and (now - t.Died) or 0
-if age > fade then
-pcall(function()
-if t.Beam then
-t.Beam.Enabled = false
-end
-if t.Sq then
-for _, e in ipairs(t.Sq.Edges) do
-e.Beam.Enabled = false
-end
-t.Sq.Core.Enabled = false
-end
-end)
-bulletPoolRelease(t.BeamPart, t.Kind)
-t.BeamPart = nil
-t.Beam = nil
-t.A0 = nil
-t.A1 = nil
-t.Sq = nil
-table.remove(bulletTracks, i)
-elseif t.Kind == "square" and t.Sq then
-pcall(function()
-local segV = t.Pos - t.Origin
-if segV.Magnitude > 0.01 then
-local upVec = (math.abs(segV.Unit.Y) > 0.99) and Vector3.zAxis or Vector3.yAxis
-t.BeamPart.CFrame = CFrame.lookAt(t.Origin, t.Pos, upVec)
-end
-local half = math.clamp(width, 0.5, 5) * 0.75
-local edgeW = math.clamp(width * 0.1, 0.06, 0.3)
-local color = ColorSequence.new(t.IsTeam and BULLET_COLOR_TEAM or BULLET_COLOR_ENEMY)
-local alpha = t.Died and (baseT + (1 - baseT) * math.clamp(age / fade, 0, 1)) or baseT
-local seq = NumberSequence.new(alpha)
-for idx, edge in ipairs(t.Sq.Edges) do
-local off = Vector3.new(t.Sq.Signs[idx][1] * half, t.Sq.Signs[idx][2] * half, 0)
-edge.A0.Position = off
-edge.A1.Position = off
-edge.Beam.Color = color
-edge.Beam.Transparency = seq
-edge.Beam.Width0 = edgeW
-edge.Beam.Width1 = edgeW
-edge.Beam.Enabled = true
-end
-t.Sq.Core.Color = color
-t.Sq.Core.Transparency = seq
-t.Sq.Core.Width0 = math.max(width * 0.35, 0.08)
-t.Sq.Core.Width1 = math.max(width * 0.35, 0.08)
-t.Sq.Core.Enabled = true
-end)
-elseif t.Beam then
-pcall(function()
-if t.A0 then
-t.A0.WorldPosition = t.Origin
-end
-if t.A1 then
-t.A1.WorldPosition = t.Pos
-end
-t.Beam.Color = ColorSequence.new(t.IsTeam and BULLET_COLOR_TEAM or BULLET_COLOR_ENEMY)
-if t.Died then
-local progress = math.clamp(age / fade, 0, 1)
-t.Beam.Transparency = NumberSequence.new(baseT + (1 - baseT) * progress)
+if okH then
+print("[FUST] Пули: перехват выстрелов активен (движок VOMAGLA)")
 else
-t.Beam.Transparency = NumberSequence.new(baseT)
+warn("[FUST] Пули: hookmetamethod не сработал — трейсеров не будет: " .. tostring(errH))
 end
-t.Beam.Width0 = width
-t.Beam.Width1 = width
-t.Beam.Texture = texture
-end)
+else
+warn("[FUST] Пули: в экзекуторе нет hookmetamethod — трейсеры пуль недоступны")
 end
 end
-end
-end
+
 function removeEspDrawings(plr)
 local ed = espDrawings[plr]
 if ed then
@@ -1382,7 +1367,7 @@ atm.Haze = 0
 end
 end
 end
-updateBullets()
+FUST_TracersUpdate()
 local myChar = LocalPlayer.Character
 local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
 if AntiRecoil.Enabled and AntiRecoil.Offset and myChar
@@ -1894,7 +1879,12 @@ NpcHitboxAppliedCount = 0
 end
 if myRoot then
 lootPoolUpdate(myRoot, os.clock())
+-- 0.53 ФИКС ЛАГА: ESP лута обновляется 20 раз/с вместо каждого кадра —
+-- мешки почти не двигаются, зато на сотнях мешков FPS не проседает
+if os.clock() - (bpLastDrawAt or 0) >= 0.05 then
+bpLastDrawAt = os.clock()
 updateBackpackEsp(Camera, myRoot)
+end
 else
 bpHideAll()
 lootPoolDisableAll()
@@ -1935,12 +1925,8 @@ orig.Root.CanQuery = orig.CanQuery
 end
 end)
 end
-if bulletConn then
-bulletConn:Disconnect()
-bulletConn = nil
-end
-clearBulletDrawings()
-bulletPoolDestroy()
+-- 0.53: пул трейсеров теперь VOMAGLA-механики (btDestroyAll)
+pcall(function() btDestroyAll() end)
 for plr in pairs(espDrawings) do
 pcall(removeEspDrawings, plr)
 end
@@ -2312,7 +2298,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.52 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.53 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2335,6 +2321,84 @@ end)
 
 journal("ЛОГ КИКОВ/БАНОВ активен — файл " .. KICKLOG_FILE)
 print("[FUST-KL] лог киков/банов активен. Файл: " .. KICKLOG_FILE)
+-- =============================================================
+-- 0.53: СТРАНИЦА «ЛОГИ» — ВОЗВРАТ из 0.45 (была вырезана в 0.49).
+-- Движок FUST_kicks.log и так работал, но посмотреть лог было негде —
+-- «логи не работают». Теперь: страница Логи, кнопки Обновить/Очистить,
+-- текстовое поле + авто-обновление раз в 5 сек.
+uiStep("Страница Логи", function()
+LogPage = Window:Page({ Name = "Логи", Icon = "rbxassetid://80758916183665" })
+LogSection = LogPage:Section({ Name = "Лог киков/банов", Tab = "Логи", Side = 1 })
+LogSection:Label("Лог пишется в FUST_kicks.log и переживает перезапуск чита и перезаход в игру. Записи появляются после кика/бана: время, place, что было включено, причина если найдена.")
+UIRegistry.LogRefresh = LogSection:Button({
+Name = "Обновить лог",
+Callback = function()
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+})
+UIRegistry.LogClear = LogSection:Button({
+Name = "Очистить лог",
+Callback = function()
+pcall(function()
+if type(writefile) == "function" then
+writefile(KICKLOG_FILE, "")
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set("(лог очищен)")
+end
+journal("ЛОГ ОЧИЩЕН вручную")
+end)
+end
+})
+local logText0 = ""
+pcall(function()
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+logText0 = readfile(KICKLOG_FILE) or ""
+end
+if #logText0 > 4000 then
+logText0 = "...(предыдущие записи скрыты)...\n" .. logText0:sub(#logText0 - 3900)
+end
+end)
+UIRegistry.LogText = LogSection:Textbox({
+Name = "Содержимое лога",
+Default = logText0,
+Placeholder = "(лог пуст — ещё не было киков/банов)",
+MultiLine = true,
+})
+task.spawn(function()
+while true do
+task.wait(5)
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+break
+end
+pcall(function()
+local log = ""
+if type(isfile) == "function" and isfile(KICKLOG_FILE) then
+log = readfile(KICKLOG_FILE) or ""
+end
+if #log > 4000 then
+log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
+end
+if UIRegistry.LogText and UIRegistry.LogText.Set then
+UIRegistry.LogText:Set(log)
+end
+end)
+end
+end)
+end)
+-- /СТРАНИЦА ЛОГИ =============================================================
+
 -- /FUST KICK/BAN LOGGER ======================================================
 pcall(function()
 journal(string.format(
@@ -2412,7 +2476,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.52 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.53 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)
