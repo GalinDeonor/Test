@@ -1,3 +1,29 @@
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+Dragging = true
+DragStart = Input.Position
+StartPosition = Gui.Position
+if InputChanged then
+return
+end
+InputChanged = Input.Changed:Connect(function()
+if Input.UserInputState == Enum.UserInputState.End then
+Dragging = false
+InputChanged:Disconnect()
+InputChanged = nil
+end
+end)
+end
+end)
+Library:Connect(UserInputService.InputChanged, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+if Dragging then
+Set(Input)
+end
+end
+end)
+return Dragging
+end
+Instances.MakeResizeable = function(self, Minimum, Maximum)
 if not self.Instance then
 return
 end
@@ -2533,3 +2559,18 @@ Name = "\0",
 CornerRadius = UDimNew(1, 0)
 })
 Items["Glow"] = Instances:Create("ImageLabel", {
+Parent = Items["Accent"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Accent"],
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 0.800000011920929,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0,
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+}):AddToTheme({ImageColor3 = 'Accent'})

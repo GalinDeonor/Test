@@ -1,3 +1,91 @@
+wlInput:ReleaseFocus()
+end)
+end)
+wlRemove.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = nil
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+Players.PlayerAdded:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+Players.PlayerRemoving:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+rebuildPlayerList()
+Aim = {
+Enabled = false,
+ShowFOV = false,
+FOV = 150, 
+Distance = 500, 
+Smooth = 4, 
+Prediction = 0.5, 
+Part = "Head", 
+Priority = "Прицел", 
+WallCheck = true,
+TeamCheck = false,
+Crosshair = false,
+TargetsPlayers = true, 
+TargetsNPC = false, 
+TargetsAnimals = false, 
+TargetsSleepers = false, 
+TargetsCopters = false, -- 0.50: коптеры — отдельная цель (без лимита дистанции)
+AutoPredict = false, 
+AutoPredictK = 1, 
+}
+Evil = {
+Enabled = false, 
+AutoPred = true, 
+Snipe = false, 
+K = 1, 
+}
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFire = {
+Enabled = false,
+Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
+OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
+WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
+PCKey = nil,        -- не используется (всегда автомат)
+}
+AF_LastShot = 0
+AF_LastTargetPart = nil
+-- 0.50 CLEANUP: дублирующая инициализация AA_*/AIM_PART* удалена
+AA_EnemyNear = false
+AA_NearestDist = nil
+AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
+AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+AimHotkeyObj = nil 
+AimHotkeyBusy = false 
+UIRegistry.AimEnabled = AimSection:Toggle({
+Name = "Аимбот",
+Flag = "AimEnabled",
+Info = "Аимбот-камера-лок: камера доводится до цели в радиусе FOV. На ПК есть хоткей (RightAlt по умолчанию, меняется рядом).",
+Default = false,
+Callback = function(state)
+Aim.Enabled = state
+if AimHotkeyObj then
+AimHotkeyObj.Toggled = state
+end
+journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+hasKeyboard = false
+pcall(function()
+hasKeyboard = (UserInputService.KeyboardEnabled == true)
+end)
+if hasKeyboard then
+AimHotkeyBusy = true
 AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
 Flag = "AimHotkey",
 Default = Enum.KeyCode.RightAlt,
@@ -365,7 +453,7 @@ Default = true,
 Callback = function(state) AutoFire.WallCheck = state end
 })
 AutoFireSection:Label("Движок выстрела VOMAGLA (0.52): mouse1click → VirtualInputManager → Tool:Activate (телефон). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
-RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Аимбот", Side = 2 })
+RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Экран", Side = 2 }) -- 0.54: переехала в подвкладку «Экран»
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
 Flag = "AntiRecoilEnabled",
@@ -2592,39 +2680,3 @@ end
 if Aim.TargetsPlayers ~= false then
 for _, plr in ipairs(Players:GetPlayers()) do
 if plr ~= LocalPlayer
-and Whitelist[plr.Name] == nil
-and not (Aim.TeamCheck and plr.Team ~= nil and plr.Team == LocalPlayer.Team) then
-local model = plr.Character
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local worldDist = (root.Position - localRoot.Position).Magnitude
-if worldDist <= Aim.Distance then
-if Evil.Enabled then
-local evPart, evPos = evilAimPoint(model, root, camPos, worldDist)
-if evPart and evPos then
-local toEv = evPos - camPos
-if toEv:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(evPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if Evil.Snipe or screenDist <= Aim.FOV then
-local score = (not Evil.Snipe and Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = evPart
-bestPoint = evPos
-bestType = "игрок (злой)"
-end
-end
-end
-end
-else
-local part = resolveAimPart(model, Aim.Part)
-if part then
-local vel = root.AssemblyLinearVelocity
-local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
-local aimPos = part.Position + vel * lead
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude

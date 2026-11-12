@@ -1,3 +1,39 @@
+and Whitelist[plr.Name] == nil
+and not (Aim.TeamCheck and plr.Team ~= nil and plr.Team == LocalPlayer.Team) then
+local model = plr.Character
+local hum = model and model:FindFirstChildOfClass("Humanoid")
+local root = model and model:FindFirstChild("HumanoidRootPart")
+if hum and root and hum.Health > 0 then
+local worldDist = (root.Position - localRoot.Position).Magnitude
+if worldDist <= Aim.Distance then
+if Evil.Enabled then
+local evPart, evPos = evilAimPoint(model, root, camPos, worldDist)
+if evPart and evPos then
+local toEv = evPos - camPos
+if toEv:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(evPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
+if Evil.Snipe or screenDist <= Aim.FOV then
+local score = (not Evil.Snipe and Aim.Priority == "Дистанция") and worldDist or screenDist
+if score < bestScore then
+bestScore = score
+bestPart = evPart
+bestPoint = evPos
+bestType = "игрок (злой)"
+end
+end
+end
+end
+else
+local part = resolveAimPart(model, Aim.Part)
+if part then
+local vel = root.AssemblyLinearVelocity
+local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
+local aimPos = part.Position + vel * lead
+local toPoint = aimPos - camPos
+if toPoint:Dot(look) > 0 then
+local sp = camera:WorldToViewportPoint(aimPos)
+local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
 if screenDist <= Aim.FOV then
 if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
 local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
@@ -2298,7 +2334,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.53 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.54 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2402,8 +2438,8 @@ end)
 -- /FUST KICK/BAN LOGGER ======================================================
 pcall(function()
 journal(string.format(
-"МЕНЮ: страницы — Аимбот:%s, ESP:%s, Боты:%s | ошибок сборки: %d",
-tostring(AimPage ~= nil), tostring(EspPage ~= nil), tostring(BotPage ~= nil), #UI_ERRORS
+"МЕНЮ: страницы — Аимбот:%s, ESP:%s, Визуалы:%s | ошибок сборки: %d",
+tostring(AimPage ~= nil), tostring(EspPage ~= nil), tostring(VisPage ~= nil), #UI_ERRORS
 ))
 end)
 pcall(function()
@@ -2476,7 +2512,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.53 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.54 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

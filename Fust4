@@ -1,27 +1,3 @@
-Chams = false, 
-},
-}
-LOOT_COLOR = Color3.fromRGB(255, 70, 255)
-LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
-CollectionService = game:GetService("CollectionService")
-NPC_COLOR = Color3.fromRGB(255, 145, 0) 
-NPC_CAT_COLORS = {
-Guard = Color3.fromRGB(255, 145, 0), 
-Peaceful = Color3.fromRGB(80, 255, 140), 
-Animal = Color3.fromRGB(255, 80, 95), 
-Sleeper = Color3.fromRGB(80, 190, 255), 
-}
-NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
-NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
-SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
-SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
-ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
-GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
-SLEEPER_PATTERNS = { "sleeper", "пящ" }
-WEAPON_PATTERNS = {
-"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
-"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
-"меч", "сабл", "катан",
 "rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
 }
 npcCategoryCache = {} 
@@ -1333,10 +1309,10 @@ end
 FurnSection:Label("Шкафы/ящики/локеры/стеллажи/комоды/кровати/двери — пул из 20 Highlight'ов, подсвечены ближайшие. Возвращено из 0.45 по приказу.")
 end)
 -- /ЧАМСЫ МЕБЕЛИ ==============================================================
-uiStep("Вкладка Боты и НПС", function()
-BotPage = Window:Page({ Name = "Боты и НПС", Icon = ICON_VISUALS })
-BotEspSection = BotPage:Section({ Name = "ESP ботов", Tab = "Боты", Side = 1 })
-BotHitSection = BotPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты", Side = 2 })
+uiStep("Боты и НПС — теперь внутри ESP", function()
+-- 0.54: страница «Боты и НПС» переехала ВНУТРЬ ESP (подвкладка «Боты и НПС»)
+BotEspSection = EspPage:Section({ Name = "ESP ботов", Tab = "Боты и НПС", Side = 1 })
+BotHitSection = EspPage:Section({ Name = "Хитбоксы НПС", Tab = "Боты и НПС", Side = 2 })
 end)
 UIRegistry.NPCEsp = BotEspSection:Toggle({
 Name = "ESP ботов и НПС",
@@ -1608,25 +1584,20 @@ end
 })
 FullBrightBackup = nil
 UIRegistry.ESPTeamCheck = VisFilterSection:Toggle({
-Name = "Тим чек ESP",
+Name = "Не показывать тимейтов",
 Flag = "ESPTeamCheck",
-Info = "Тимейты не рисуются в ESP. В игре без команд ни на что не влияет.",
+Info = "Не рисует игроков твоей команды в ESP. В FUST команд как таковых нет — чтобы убрать КОНКРЕТНОГО игрока из ESP и аима, добавь его тапом в Вайтлист (секция справа на этой странице).",
 Default = false,
 Callback = function(state)
 S.ESP.TeamCheck = state
 journal("TEAM CHECK (ESP) " .. (state and "ВКЛ" or "ВЫКЛ"))
 end
 })
--- 0.53: ТИМ ЧЕК АИМА переехал сюда (был на вкладке Аимбот)
-UIRegistry.AimTeamCheck = VisFilterSection:Toggle({
-Name = "Тим чек аима",
-Flag = "AimTeamCheck",
-Default = false,
-Callback = function(state)
-Aim.TeamCheck = state
-journal("ТИМ ЧЕК (АИМ) " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
+-- 0.54: ТИМ ЧЕК АИМА ВЫРЕЗАН — вайтлист и тим чек это ОДНО И ТО ЖЕ:
+-- и то и другое просто не даёт аимить по своим. Кто свой — выбирается
+-- тапом в вайтлисте (секция справа на этой странице). Aim.TeamCheck
+-- остаётся false по умолчанию, конфиги со старым флагом пропускаются
+-- безопасно (applyFlag смотрит в UIRegistry).
 UIRegistry.FullBright = WorldSection:Toggle({
 Name = "FullBright",
 Flag = "FullBright",
@@ -1818,7 +1789,9 @@ end
 -- (как в VOMAGLA). Сервер НЕ видит изменение Transparency чужих частей —
 -- свойство не реплицируется с клиента, анти-читу не на что детектить.
 XRay = { Enabled = false, Transparency = 0.5 }
-XRAY_KEYWORDS = { "TwigWall", "SoloTwigFrame", "TrigTwigRoof", "TwigFrame", "TwigWindow", "TwigRoof" }
+-- 0.54: ключ "Twig" ловит ЛЮБЫЕ twig-объекты (включая новые имена игры),
+-- остальные — для читаемости
+XRAY_KEYWORDS = { "Twig", "TwigWall", "SoloTwigFrame", "TrigTwigRoof", "TwigFrame", "TwigWindow", "TwigRoof" }
 local xrayCache = setmetatable({}, { __mode = "k" }) -- 0.51 (E-15): слабые ключи — убитые части не копятся в памяти
 local xrayConn = nil
 local function xrayIsTwig(name)
@@ -1863,19 +1836,63 @@ function xrayScanAll(onDone)
 if xrayScanRunning then return end
 xrayScanRunning = true
 task.spawn(function()
+-- 0.54: скан в pcall — даже если упал, флаг xrayScanRunning сбросится
+-- и следующие включения X-Ray не станут «тихо ничего не делать»
+local okScan, scanErr = pcall(function()
 local objs = Workspace:GetDescendants()
 local n = #objs
 local i = 0
 for _, o in ipairs(objs) do
 pcall(xrayReg, o)
+-- 0.54: прозрачность применяется ПРЯМО ПО ХОДУ скана — стены
+-- становятся прозрачными сразу, а не разом через 1-3 сек
+if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
+o.Transparency = XRay.Transparency
+end
 i = i + 1
 if i % 2000 == 0 then
 task.wait()
 end
 end
+journal("X-RAY: скан карты завершён (" .. tostring(n) .. " объектов)")
+end)
+if not okScan then
+journal("X-RAY: ошибка скана — " .. tostring(scanErr))
+end
 xrayScanRunning = false
-journal("X-RAY: регистрация объектов завершена (" .. tostring(n) .. ")")
 if onDone then pcall(onDone) end
+end)
+end
+-- 0.54: диагностика — если twig-стены не нашлись, показать примеры имён
+-- стен с карты (так поймём, как игра назвала их теперь). Чанками, без
+-- блокировки (урок E-15).
+function xrayLogWallSamples()
+task.spawn(function()
+local seen, samples = {}, {}
+local i = 0
+pcall(function()
+for _, o in ipairs(Workspace:GetDescendants()) do
+i = i + 1
+if i % 2000 == 0 then
+task.wait()
+end
+if #samples >= 8 then
+break
+end
+if o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation") then
+local nm = o.Name
+if (string.find(nm, "Wall", 1, true) or string.find(nm, "Roof", 1, true) or string.find(nm, "Frame", 1, true) or string.find(nm, "Wood", 1, true) or string.find(nm, "Panel", 1, true)) and not seen[nm] then
+seen[nm] = true
+table.insert(samples, nm)
+end
+end
+end
+end)
+if #samples > 0 then
+journal("X-RAY: примеры имён стен на карте: " .. table.concat(samples, ", "))
+else
+journal("X-RAY: имена Wall/Roof/Frame/Wood/Panel на карте не нашёл")
+end
 end)
 end
 xrayConn = Workspace.DescendantAdded:Connect(function(o)
@@ -1885,15 +1902,31 @@ o.Transparency = XRay.Transparency
 end
 end)
 -- UI: секция «Мир и освещение», вкладка «Визуалы»
-UIRegistry.XRayToggle = WorldSection:Toggle({
-Name = "X-Ray twig-стен",
-Flag = "XRayEnabled",
-Info = "Просвет twig-стен (деревянных строений). Скан при включении идёт чанками 1–3 сек и не фризит; новые стены ловятся автоматически.",
-Default = false,
-Callback = function(state)
-XRay.Enabled = state
-if state then
--- 0.51 (E-15): регистрируем twig-стены чанками, потом применяем прозрачность
+-- 0.54: синхронизация кнопки XRAY на экране с состоянием (надпись ВКЛ/ВЫКЛ)
+function xrayQuickSync()
+local btn = xrayQuickGui and xrayQuickGui:FindFirstChild("XRayBtn")
+if not btn then
+return
+end
+if XRay.Enabled then
+btn.Text = "XRAY ВКЛ"
+btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+btn.BackgroundColor3 = Color3.fromRGB(150, 20, 20)
+else
+btn.Text = "XRAY ВЫКЛ"
+btn.TextColor3 = Color3.fromRGB(255, 70, 70)
+btn.BackgroundColor3 = Color3.fromRGB(16, 10, 10)
+end
+end
+-- 0.54: тап по кнопке = ТОТ ЖЕ путь, что тумблер в меню; если меню ещё
+-- не собрано — переключаем напрямую (фолбэк)
+function xrayQuickToggle()
+if UIRegistry.XRayToggle and UIRegistry.XRayToggle.Set then
+UIRegistry.XRayToggle:Set(not XRay.Enabled)
+return
+end
+XRay.Enabled = not XRay.Enabled
+if XRay.Enabled then
 xrayScanAll(function()
 if XRay.Enabled then
 pcall(setXrayState, true, XRay.Transparency)
@@ -1902,13 +1935,49 @@ end)
 else
 pcall(setXrayState, false, XRay.Transparency)
 end
+journal("X-RAY " .. (XRay.Enabled and "ВКЛ" or "ВЫКЛ") .. " (кнопка на экране)")
+xrayQuickSync()
+end
+UIRegistry.XRayToggle = WorldSection:Toggle({
+Name = "X-Ray twig-стен",
+Flag = "XRayEnabled",
+Info = "Просвет twig-стен (деревянных строений). Скан при включении идёт чанками 1–3 сек и не фризит, прозрачность применяется по ходу скана; новые стены ловятся автоматически. Если включил и ничего не изменилось — открой Main → Журнал: X-Ray пишет, сколько стен нашёл (если 0 — примеры имён стен, скинь скрин).",
+Default = false,
+Callback = function(state)
+XRay.Enabled = state
+if state then
+-- 0.51 (E-15): скан чанками; 0.54: прозрачность применяется по ходу
+-- скана, после — диагностика: сколько стен реально нашлось
+xrayScanAll(function()
+local found, alive = 0, 0
+for p, d in pairs(xrayCache) do
+found = found + 1
+if p and p.Parent and p:IsDescendantOf(Workspace) then
+alive = alive + 1
+end
+end
+journal("X-RAY: twig-объектов в базе: " .. tostring(found) .. ", живых на карте: " .. tostring(alive))
+if found == 0 then
+journal("X-RAY: TWIG-СТЕНЫ НЕ НАЙДЕНЫ — пришли скрин журнала (Main → Журнал)")
+xrayLogWallSamples()
+end
+if XRay.Enabled then
+pcall(setXrayState, true, XRay.Transparency)
+end
+xrayQuickSync()
+end)
+else
+pcall(setXrayState, false, XRay.Transparency)
+journal("X-RAY: стены вернули исходную прозрачность")
+end
 journal("X-RAY " .. (state and "ВКЛ" or "ВЫКЛ"))
+xrayQuickSync()
 end
 })
 UIRegistry.XRayTrans = WorldSection:Slider({
 Name = "X-Ray: прозрачность стен",
 Flag = "XRayTransparency",
-Info = "Насколько прозрачными станут twig-стены: 0.1 — почти стекло, 0.95 — еле заметны.",
+Info = "Насколько прозрачными станут twig-стены: 0.1 — почти стекло, 0.95 — еле заметны. Работает на ходу: двигаешь ползунок — стены меняются сразу (и для кнопки XRAY на экране тоже).",
 Default = 0.5,
 Min = 0.1,
 Max = 0.95,
@@ -1979,6 +2048,7 @@ stroke.Color = Color3.fromRGB(255, 45, 45)
 stroke.Thickness = 1.4
 stroke.Transparency = 0.35
 stroke.Parent = btn
+xrayQuickSync() -- 0.54: надпись ВКЛ/ВЫКЛ по текущему состоянию
 local dragging = false
 local dragStart, startPos = nil, nil
 btn.InputBegan:Connect(function(input)
@@ -2000,9 +2070,7 @@ btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos
 end
 end)
 btn.MouseButton1Click:Connect(function()
-if UIRegistry.XRayToggle and UIRegistry.XRayToggle.Set then
-UIRegistry.XRayToggle:Set(not XRay.Enabled)
-end
+xrayQuickToggle()
 end)
 return g
 end)
@@ -2021,7 +2089,7 @@ end
 UIRegistry.XRayQuickBtn = WorldSection:Toggle({
 Name = "Кнопка XRAY на экране",
 Flag = "XRayQuickBtn",
-Info = "Плавающая кнопка XRAY на экране — бинд для телефона: тап включает/выключает X-Ray. Кнопку можно перетащить. Работает и на ПК.",
+Info = "Плавающая кнопка XRAY на экране в формате ВКЛ/ВЫКЛ: надпись и цвет показывают состояние X-Ray, тап переключает. Кнопку можно перетащить. Прозрачность стен — слайдером «X-Ray: прозрачность стен» выше.",
 Default = true,
 Callback = function(state)
 pcall(function() xrayQuickBuild(state) end)
@@ -2268,91 +2336,3 @@ rebuildPlayerList()
 end
 wlInput.Text = ""
 pcall(function()
-wlInput:ReleaseFocus()
-end)
-end)
-wlRemove.Activated:Connect(function()
-local name = resolveName(wlInput.Text)
-if name then
-Whitelist[name] = nil
-rebuildPlayerList()
-end
-wlInput.Text = ""
-pcall(function()
-wlInput:ReleaseFocus()
-end)
-end)
-Players.PlayerAdded:Connect(function()
-task.defer(rebuildPlayerList)
-end)
-Players.PlayerRemoving:Connect(function()
-task.defer(rebuildPlayerList)
-end)
-rebuildPlayerList()
-Aim = {
-Enabled = false,
-ShowFOV = false,
-FOV = 150, 
-Distance = 500, 
-Smooth = 4, 
-Prediction = 0.5, 
-Part = "Head", 
-Priority = "Прицел", 
-WallCheck = true,
-TeamCheck = false,
-Crosshair = false,
-TargetsPlayers = true, 
-TargetsNPC = false, 
-TargetsAnimals = false, 
-TargetsSleepers = false, 
-TargetsCopters = false, -- 0.50: коптеры — отдельная цель (без лимита дистанции)
-AutoPredict = false, 
-AutoPredictK = 1, 
-}
-Evil = {
-Enabled = false, 
-AutoPred = true, 
-Snipe = false, 
-K = 1, 
-}
-AutoAim = {
-Enabled = false, 
-Radius = 500, 
-}
--- 0.39v2: АВТО-СТРЕЛЬБА
-AutoFire = {
-Enabled = false,
-Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
-OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
-UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
-WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
-PCKey = nil,        -- не используется (всегда автомат)
-}
-AF_LastShot = 0
-AF_LastTargetPart = nil
--- 0.50 CLEANUP: дублирующая инициализация AA_*/AIM_PART* удалена
-AA_EnemyNear = false
-AA_NearestDist = nil
-AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
-AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
-AimHotkeyObj = nil 
-AimHotkeyBusy = false 
-UIRegistry.AimEnabled = AimSection:Toggle({
-Name = "Аимбот",
-Flag = "AimEnabled",
-Info = "Аимбот-камера-лок: камера доводится до цели в радиусе FOV. На ПК есть хоткей (RightAlt по умолчанию, меняется рядом).",
-Default = false,
-Callback = function(state)
-Aim.Enabled = state
-if AimHotkeyObj then
-AimHotkeyObj.Toggled = state
-end
-journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-hasKeyboard = false
-pcall(function()
-hasKeyboard = (UserInputService.KeyboardEnabled == true)
-end)
-if hasKeyboard then
-AimHotkeyBusy = true
