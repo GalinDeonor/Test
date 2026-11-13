@@ -1,3 +1,224 @@
+btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+end)
+btn.MouseButton1Click:Connect(function()
+xrayQuickToggle()
+end)
+return g
+end)
+if okG then
+xrayQuickGui = guiOrErr
+else
+warn("[FUST] Кнопка XRAY не создалась: " .. tostring(guiOrErr))
+end
+else
+if xrayQuickGui then
+pcall(function() xrayQuickGui:Destroy() end)
+xrayQuickGui = nil
+end
+end
+end
+UIRegistry.XRayQuickBtn = WorldSection:Toggle({
+Name = "Кнопка XRAY на экране",
+Flag = "XRayQuickBtn",
+Info = "Плавающая кнопка XRAY на экране в формате ВКЛ/ВЫКЛ: надпись и цвет показывают состояние X-Ray, тап переключает. Кнопку можно перетащить. Прозрачность стен — слайдером «X-Ray: прозрачность стен» выше.",
+Default = true,
+Callback = function(state)
+pcall(function() xrayQuickBuild(state) end)
+journal("КНОПКА XRAY " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+
+function normalizeName(raw)
+if type(raw) ~= "string" then
+return ""
+end
+local name = raw:gsub("^%s+", ""):gsub("%s+$", "")
+name = name:gsub("^@", "")
+return name
+end
+function resolveName(raw)
+local name = normalizeName(raw)
+if name == "" then
+return nil
+end
+local lower = string.lower(name)
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.Name) == lower then
+return plr.Name
+end
+end
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.DisplayName) == lower then
+return plr.Name
+end
+end
+return name
+end
+WL_BG = Color3.fromRGB(17, 18, 22)
+WL_ROW = Color3.fromRGB(28, 39, 45)
+WL_ACCENT = Color3.fromRGB(150, 20, 20)
+WL_BRIGHT = Color3.fromRGB(235, 45, 45)
+WL_TEXT = Color3.fromRGB(199, 199, 212)
+WL_GRAY = Color3.fromRGB(117, 117, 131)
+wlHost = MiscSection.Items["Content"].Instance
+wlPanel = Instance.new("Frame")
+wlPanel.Name = "FustWhitelistPanel"
+wlPanel.BackgroundColor3 = WL_BG
+wlPanel.BorderSizePixel = 0
+wlPanel.Size = UDim2.new(1, 0, 0, 0)
+wlPanel.AutomaticSize = Enum.AutomaticSize.Y
+wlPanel.LayoutOrder = 100
+wlPanel.Parent = wlHost
+function wlCorner(parent, radius)
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, radius or 6)
+c.Parent = parent
+return c
+end
+do
+wlCorner(wlPanel)
+local stroke = Instance.new("UIStroke")
+stroke.Color = WL_ACCENT
+stroke.Transparency = 0.55
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = wlPanel
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 8)
+pad.PaddingBottom = UDim.new(0, 8)
+pad.PaddingLeft = UDim.new(0, 8)
+pad.PaddingRight = UDim.new(0, 8)
+pad.Parent = wlPanel
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlPanel
+end
+function wlLabel(text, order, color, bold)
+local l = Instance.new("TextLabel")
+l.BackgroundTransparency = 1
+l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+l.TextSize = 13
+l.TextColor3 = color or WL_TEXT
+l.Text = text
+l.TextXAlignment = Enum.TextXAlignment.Left
+l.Size = UDim2.new(1, 0, 0, 16)
+l.LayoutOrder = order
+l.Parent = wlPanel
+return l
+end
+wlLabel("Вайтлист (не бьём по этим)", 1, WL_BRIGHT, true)
+wlLabel("Тап по нику в списке — вкл/выкл.", 2, WL_GRAY)
+wlScroll = Instance.new("ScrollingFrame")
+wlScroll.Name = "FustWhitelistScroll"
+wlScroll.Size = UDim2.new(1, 0, 0, 150)
+wlScroll.BackgroundColor3 = WL_BG
+wlScroll.BorderSizePixel = 0
+wlScroll.ScrollBarThickness = 4
+wlScroll.ScrollBarImageColor3 = WL_ACCENT
+wlScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+wlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+wlScroll.LayoutOrder = 3
+wlScroll.Parent = wlPanel
+do
+wlCorner(wlScroll)
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 5)
+pad.PaddingBottom = UDim.new(0, 5)
+pad.PaddingLeft = UDim.new(0, 5)
+pad.PaddingRight = UDim.new(0, 6)
+pad.Parent = wlScroll
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlScroll
+end
+wlRows = {}
+function clearPlayerRows()
+for _, r in ipairs(wlRows) do
+r:Destroy()
+end
+table.clear(wlRows)
+end
+function applyRowStyle(row, isOn)
+local base = row:GetAttribute("WLText") or ""
+if isOn then
+row.BackgroundColor3 = WL_ACCENT
+row.TextColor3 = Color3.fromRGB(255, 255, 255)
+row.Text = "✓ " .. base
+else
+row.BackgroundColor3 = WL_ROW
+row.TextColor3 = WL_GRAY
+row.Text = base
+end
+end
+function rebuildPlayerList()
+clearPlayerRows()
+local rows = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+table.insert(rows, plr)
+end
+end
+table.sort(rows, function(a, b)
+return a.Name < b.Name
+end)
+if #rows == 0 then
+local empty = Instance.new("TextLabel")
+empty.BackgroundTransparency = 1
+empty.Font = Enum.Font.Gotham
+empty.TextSize = 12
+empty.TextColor3 = WL_GRAY
+empty.Text = "На сервере пока нет других игроков"
+empty.Size = UDim2.new(1, 0, 0, 26)
+empty.LayoutOrder = 1
+empty.Parent = wlScroll
+table.insert(wlRows, empty)
+return
+end
+for order, plr in ipairs(rows) do
+local row = Instance.new("TextButton")
+row.Name = "WL_" .. plr.Name
+row.AutoButtonColor = false
+row.Font = Enum.Font.Gotham
+row.TextSize = 13
+row.TextXAlignment = Enum.TextXAlignment.Left
+row.BackgroundColor3 = WL_ROW
+row.BorderSizePixel = 0
+row.Size = UDim2.new(1, 0, 0, 30)
+row.LayoutOrder = order
+row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
+row.Parent = wlScroll
+table.insert(wlRows, row)
+wlCorner(row, 5)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = row
+applyRowStyle(row, Whitelist[plr.Name] == true)
+row.Activated:Connect(function()
+if Whitelist[plr.Name] then
+Whitelist[plr.Name] = nil
+applyRowStyle(row, false)
+else
+Whitelist[plr.Name] = true
+applyRowStyle(row, true)
+end
+end)
+end
+end
+wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
+wlInput = Instance.new("TextBox")
+wlInput.Name = "FustWhitelistInput"
+wlInput.Font = Enum.Font.Gotham
+wlInput.TextSize = 13
+wlInput.PlaceholderText = "Ник или DisplayName друга..."
+wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
+wlInput.Text = ""
+wlInput.TextColor3 = WL_TEXT
+wlInput.TextXAlignment = Enum.TextXAlignment.Left
+wlInput.ClearTextOnFocus = false
+wlInput.BackgroundColor3 = WL_BG
 wlInput.BorderSizePixel = 0
 wlInput.Size = UDim2.new(1, 0, 0, 32)
 wlInput.LayoutOrder = 5
@@ -2664,142 +2885,3 @@ pcall(function()
 local parts = {}
 for _, ch in ipairs(inst:GetChildren()) do
 if #parts >= 10 then
-table.insert(parts, "...")
-break
-end
-table.insert(parts, tostring(ch.Name) .. ":" .. ch.ClassName)
-end
-if #parts > 0 then
-kidsText = table.concat(parts, ", ")
-end
-end)
-local textsText = "-"
-pcall(function()
-local parts = {}
-for _, ch in ipairs(inst:GetDescendants()) do
-if #parts >= 4 then
-break
-end
-if ch:IsA("TextLabel") or ch:IsA("TextButton") then
-table.insert(parts, "[" .. tostring(ch.Text) .. "]")
-end
-end
-if #parts > 0 then
-textsText = table.concat(parts, " ")
-end
-end)
-local info = e.Info or {}
-print(string.format(
-"[FUST][ЛУТ] %s (%s, %s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
-okN and instName or "?",
-inst.ClassName,
-e.Cat or "bag",
-okPar and parentName or "?",
-tostring(info.Owner),
-tostring(info.Slots),
-attrsText,
-promptText,
-kidsText,
-textsText
-))
-end
-local bagsN, contN = 0, 0
-for _, e2 in pairs(trackedBackpacks) do
-if (e2.Cat or "bag") == "bag" then
-bagsN = bagsN + 1
-else
-contN = contN + 1
-end
-end
-print("[FUST][ЛУТ] всего отслежено: " .. tostring(count)
-.. " (мешков: " .. tostring(bagsN) .. ", контейнеров: " .. tostring(contN) .. ")")
-if count == 0 then
-local cam = Workspace.CurrentCamera
-local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-if myRoot then
-local shown = 0
-for _, inst in ipairs(Workspace:GetDescendants()) do
-if shown >= 30 then
-break
-end
-if (inst:IsA("Model") or inst:IsA("BasePart"))
-and not inst:FindFirstChildOfClass("Humanoid")
-and (not cam or not inst:IsDescendantOf(cam)) then
-local okD, d = pcall(function()
-return (inst:GetPivot().Position - myRoot.Position).Magnitude
-end)
-if okD and d and d < 150 then
-shown = shown + 1
-print(string.format(
-"[FUST][ЛУТ-РЯДОМ] %s (%s), %.0fm",
-tostring(inst.Name),
-inst.ClassName,
-d
-))
-end
-end
-end
-end
-end
-end)
-end
-task.wait(10)
-end
-end)
-velEMA = {} 
-velEMALastClean = 0
-function autoLead(dist)
-return math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
-end
-function getSmoothedVelocity(root, vel)
-if not Aim.AutoPredict then
-return vel
-end
-local old = velEMA[root]
-if not old then
-velEMA[root] = vel
-return vel
-end
-local smooth = old:Lerp(vel, 0.35)
-velEMA[root] = smooth
-return smooth
-end
--- 0.50: КОПТЕРЫ — отдельная цель аимбота. По приказу: БЕЗ проверки
--- дистанции (лимит Aim.Distance срезал летающие далеко/высоко коптеры,
--- из-за этого «аим не работал на коптеры»). FOV и проверка стен (если
--- включены) остаются как у остальных целей.
-trackedCopters = {}
-local copterChecked = {}
-local lastCopterScan = 0
-function resolveCopterPart(model)
-local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
-if seat then return seat end
-local pp = model.PrimaryPart
-if pp and pp.Parent then return pp end
-local best = nil
-for _, d in ipairs(model:GetDescendants()) do
-if d:IsA("BasePart") and (not best or d.Size.Magnitude > best.Size.Magnitude) then
-best = d
-end
-end
-return best
-end
-function refreshCopters()
-local myChar = LocalPlayer.Character
-for model in pairs(trackedCopters) do
-if not model.Parent then
-trackedCopters[model] = nil
-end
-end
-for model in pairs(copterChecked) do
-if not model.Parent then
-copterChecked[model] = nil
-end
-end
-local function tryCopter(obj)
-if not obj:IsA("Model") or trackedCopters[obj] or copterChecked[obj] then
-return
-end
-if isPlayerCharacter(obj) then
-return
-end

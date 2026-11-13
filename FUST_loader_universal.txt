@@ -1,0 +1,119 @@
+-- ================================================================
+-- FUST UNIVERSAL LOADER «Пьяный Петух» — XENO (ПК) и DELTA (телефон)
+-- ОДИН МАЛЕНЬКИЙ ФАЙЛ НАВСЕГДА. Сам читает manifest.json с GitHub
+-- и качает АКТУАЛЬНУЮ версию (сейчас 0.56, дальше — любую новую,
+-- что залита на репо). Лоадер МЕНЯТЬ БОЛЬШЕ НЕ НУЖНО.
+--
+-- КАК ПОЛЬЗОВАТЬСЯ (Xeno):
+--   1) Вставь этот текст в Xeno -> EXECUTE. Всё.
+--   2) Хочешь автозагрузку — сохрани этот текст файлом в папку
+--      autoexec Xeno (workspace/autoexec): чит будет сам включаться
+--      при каждом заходе в игру.
+-- КАК ПОЛЬЗОВАТЬСЯ (Delta): то же самое — стереть старый лоадер,
+--   вставить этот -> EXECUTE. Версионные лоадеры 050-056 больше не нужны.
+--
+-- Правило E-18: локальных копий НЕ хранит и НЕ создаёт — всегда качает
+-- свежее с репо. Никакого мусора в воркспейсе экзекутора.
+-- ================================================================
+
+local REPO = "https://raw.githubusercontent.com/GalinDeonor/Test/refs/heads/main/"
+
+local function httpGet(u)
+	local ok, r = pcall(game.HttpGet, game, u)
+	if ok and type(r) == "string" and #r > 0 then
+		return r
+	end
+	local rf = request or http_request
+	if rf then
+		local ok2, r2 = pcall(rf, {Url = u, Method = "GET"})
+		if ok2 and type(r2) == "table" then
+			r = r2.Body or r2.body
+		elseif ok2 and type(r2) == "string" then
+			r = r2
+		end
+	end
+	if type(r) == "string" and #r > 0 then
+		return r
+	end
+	return nil
+end
+
+local function bust(prefix)
+	local n = os.time()
+	pcall(function()
+		n = math.floor(tick() * 1000)
+	end)
+	return prefix .. tostring(n)
+end
+
+print("[ПП] Универсальный лоадер запущен, читаю manifest.json с GitHub...")
+
+local manRaw = httpGet(REPO .. "manifest.json" .. bust("?v="))
+if not manRaw then
+	warn("[ПП] manifest.json не скачался. Проверь интернет и заливку на репо.")
+	return
+end
+local okJson, man = pcall(function()
+	return game:GetService("HttpService"):JSONDecode(manRaw)
+end)
+if not okJson or type(man) ~= "table" or type(man.sizes) ~= "table" then
+	warn("[ПП] manifest.json битый, начало: " .. string.sub(tostring(manRaw), 1, 80))
+	warn("[ПП] На репо не тот файл? Перезалей manifest.json последней версии.")
+	return
+end
+print("[ПП] На репо: версия " .. tostring(man.ver) .. " (v=" .. tostring(man.v) .. "), всего " .. tostring(man.total) .. " байт")
+
+local src = nil
+
+if type(man.single) == "string" and #man.single > 0 then
+	print("[ПП] Качаю единый файл " .. man.single .. "...")
+	src = httpGet(REPO .. man.single .. bust("?v="))
+	if src and man.total and #src ~= man.total then
+		warn("[ПП] Единый файл не сошёлся (" .. tostring(#src) .. " из " .. tostring(man.total) .. " байт), качаю частями...")
+		src = nil
+	end
+end
+
+if not src then
+	src = ""
+	local names = man.parts
+	if type(names) ~= "table" or #names == 0 then
+		names = {"Fust1", "Fust2", "Fust3", "Fust4", "Fust5", "Fust6"}
+	end
+	for i = 1, #names do
+		local want = nil
+		if type(man.sizes) == "table" then
+			want = man.sizes[i]
+		end
+		local chunk = nil
+	for attempt = 1, 2 do
+			chunk = httpGet(REPO .. tostring(names[i]) .. bust("?v="))
+			if chunk and (not want or #chunk >= want) then
+				break
+			end
+			task.wait(0.3)
+		end
+		if not chunk or (want and #chunk < want) then
+			warn("[ПП] Часть " .. tostring(names[i]) .. " не скачалась или битая. Перезалей её на GitHub и запусти снова.")
+			return
+		end
+		print("[ПП] Часть " .. tostring(i) .. "/" .. tostring(#names) .. ": " .. tostring(#chunk) .. " байт")
+		src = src .. chunk
+	end
+end
+
+if man.total and #src < man.total then
+	warn("[ПП] Сумма " .. tostring(#src) .. " меньше заявленной " .. tostring(man.total) .. " — часть битая, скинь скрин консоли.")
+	return
+end
+
+local fn, err = (loadstring or load)(src, "=Fust")
+if not fn then
+	warn("[ПП] Компиляция: " .. tostring(err))
+	return
+end
+local okRun, rerr = pcall(fn)
+if not okRun then
+	warn("[ПП] Выполнение: " .. tostring(rerr))
+	warn("[ПП] Скинь СКРИН консоли — там будет строка [FUST] с местом падения.")
+end

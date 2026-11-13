@@ -1,3 +1,207 @@
+Info = "Плавающая кнопка CAM на экране: тап ОТКРЫВАЕТ меню фрикама (FLY — вкл/выкл полёта, скорость, < > — листать сохранённые точки, SAVE POS — добавить точку, TP CAM TO POS — лететь в выбранную, DEL POS — удалить, крестик — скрыть меню). Сама кнопка полёт НЕ включает. Кнопку можно перетащить в удобное место.",
+Default = true,
+Callback = function(state)
+fcSetPanelVisible(state)
+end
+})
+UIRegistry.FCSpeed = FreeCamSection:Slider({
+Name = "Скорость полёта",
+Flag = "FreeCamSpeed",
+Info = "Скорость полёта камеры (10–1000). Меняй ползунком, кнопками −/+ на панели CAM, а на ПК — клавишами [ и ].",
+Default = 100,
+Min = 10,
+Max = 1000,
+Decimals = 1,
+Callback = function(v)
+fcSetSpeed(v)
+end
+})
+UIRegistry.FCTouchSens = FreeCamSection:Slider({
+Name = "Чувствительность касания",
+Flag = "FreeCamTouchSens",
+Info = "Насколько резко камера поворачивается от пальца. Мало — вяло, много — дёргано. Рекомендую 0.3–0.5.",
+Default = 0.35,
+Min = 0.05,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+FC_TouchSens = v
+end
+})
+UIRegistry.FCMouseSens = FreeCamSection:Slider({
+Name = "Чувствительность мыши",
+Flag = "FreeCamMouseSens",
+Info = "Чувствительность обзора мышью на ПК. Рекомендую 0.15–0.25.",
+Default = 0.20,
+Min = 0.05,
+Max = 1,
+Decimals = 0.05,
+Callback = function(v)
+FC_MouseSens = v
+end
+})
+UIRegistry.FCRemember = FreeCamSection:Toggle({
+Name = "Запоминать позицию камеры",
+Flag = "FreeCamRemember",
+Info = "При включении фрикама камера возвращается в ВЫБРАННУЮ точку списка (листается стрелками < > на панели CAM), а при выключении фрикама выбранная точка ОБНОВЛЯЕТСЯ. Добавление точек — SAVE POS (каждое нажатие = новая точка), удаление — DEL POS. Телепорт в выбранную — TP CAM TO POS.",
+Default = false,
+Callback = function(state)
+FC_RememberPos = state
+end
+})
+UIRegistry.FCHookKeys = FreeCamSection:Toggle({
+Name = "Подмена IsKeyDown — РИСК",
+Flag = "FreeCamHookKeys",
+Info = "Подменяет IsKeyDown, чтобы WASD летали без перехвата игры. РИСК: хук-методы анти-чит может детектить. Включай только если клавиши полёта не работают.",
+Default = false,
+Callback = function(state)
+FreeCam.HookKeys = state
+if state then
+-- hookfunction установится при следующем включении фрикама
+journal("ФРИКАМ: подмена IsKeyDown РАЗРЕШЕНА (хук-метод — анти-чит может детектить!)")
+else
+journal("ФРИКАМ: подмена IsKeyDown запрещена (безопасный режим)")
+end
+end
+})
+FreeCamSection:Label("МУЛЬТИ-ТОЧКИ (0.59): SAVE POS добавляет НОВУЮ точку (до 20), < / > на панели — листать, TP CAM TO POS — лететь в выбранную, DEL POS — удалить (второй тап подтверждает). Точки хранятся в FUST_freecam_pos.json и НЕ пропадают после перезахода.")
+FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
+FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Панель CAM (тап по CAM): FLY вкл/выкл, скорость, < > листать точки, SAVE POS добавить, DEL POS удалить, TP CAM TO POS лететь, крестик — скрыть меню.")
+FreeCamSection:Label("Персонажа чит НЕ трогает ВООБЩЕ (0.56: ни якоря, ни скоростей — урок бана WALKSPEED 1000): стоит где стоял, отключается только управление. Аимбот и анти-тряска на время фрикама отключаются.")
+-- кейбинды (ПК/Xeno): вкл/выкл + скорость
+local fcHasKb = false
+pcall(function()
+fcHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
+end)
+if fcHasKb then
+FCHotkeyBusy = true
+UIRegistry.FCKey = UIRegistry.FCToggle:Keybind({
+Flag = "FreeCamToggleKey",
+Default = Enum.KeyCode.P,
+Mode = "Toggle",
+Callback = function(state)
+if FCHotkeyBusy then return end
+fcSetEnabled(state)
+end
+})
+FCHotkeyBusy = false
+UIRegistry.FCSpeedUpLabel = FreeCamKeySection:Label("Скорость + (клавиша)")
+UIRegistry.FCSpeedUpKey = UIRegistry.FCSpeedUpLabel:Keybind({
+Flag = "FreeCamSpeedUpKey",
+Default = Enum.KeyCode.RightBracket,
+Mode = "Always",
+Callback = function(state)
+if state then fcSpeedStep(1) end
+end
+})
+UIRegistry.FCSpeedDownLabel = FreeCamKeySection:Label("Скорость - (клавиша)")
+UIRegistry.FCSpeedDownKey = UIRegistry.FCSpeedDownLabel:Keybind({
+Flag = "FreeCamSpeedDownKey",
+Default = Enum.KeyCode.LeftBracket,
+Mode = "Always",
+Callback = function(state)
+if state then fcSpeedStep(-1) end
+end
+})
+FreeCamKeySection:Label("Смена клавиши: тапни по кнопке [..] и нажми новую. Backspace = убрать.")
+else
+FreeCamKeySection:Label("Клавиши доступны только на ПК (Xeno). На телефоне — кнопка CAM и панель.")
+end
+end)
+print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
+S = {
+ESP = {
+Enabled = false,
+Box = false,
+Chams = false,
+ChamsTransparency = 0.5,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+MaxDistance = 1500,
+DistanceScale = true, 
+TeamCheck = false, 
+VisCheck = false, 
+VisHitbox = false, 
+},
+ESPColors = {
+Box = Color3.fromRGB(0, 255, 255),
+},
+Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
+FullBright = false,
+NoDecoration = false,
+NoGrass = false,
+NoFog = false,
+Bullets = { Enabled = false, Style = "Луч", Color = Color3.fromRGB(255, 255, 255), TextureID = "rbxassetid://12781852245", Width = 1.5, Transparency = 0, LifeTime = 0.5, TeamCheck = true },
+NPC = {
+ESP = false,
+CatGuards = true, 
+CatPeaceful = false, 
+CatAnimals = false, 
+CatSleepers = false, 
+DebugLog = false, 
+Box = false,
+Name = false,
+Item = false,
+Distance = false,
+HealthBar = false,
+Chams = false,
+ChamsTransparency = 0.5,
+MaxDistance = 3000,
+HitboxEnabled = false,
+HitboxSize = 5,
+HitboxTransparency = 0.7,
+HitboxAnimals = false, 
+HitboxSleepers = false, 
+},
+HUD = {
+Enabled = true,
+Size = 11, 
+BgTransparency = 0.35, 
+TextTransparency = 0, 
+Corner = "Лево-низ", 
+ShowTPS = true, 
+ShowBg = true, 
+-- 0.39: новые поля
+ColorBg = Color3.fromRGB(12, 12, 16),
+ColorText = Color3.fromRGB(235, 235, 240),
+ColorStroke = Color3.fromRGB(255, 170, 40),
+ShowAdmin = true, 
+Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
+},
+Loot = {
+Enabled = false,
+Owner = true, 
+Slots = true, 
+Distance = true,
+Box = true,
+Chams = true, 
+MaxDistance = 1500,
+DebugLog = false, 
+},
+LootC = {
+Enabled = false,
+Name = true, 
+Distance = true,
+Box = true,
+MaxDistance = 800,
+Chams = false, 
+},
+}
+LOOT_COLOR = Color3.fromRGB(255, 70, 255)
+LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
+CollectionService = game:GetService("CollectionService")
+NPC_COLOR = Color3.fromRGB(255, 145, 0) 
+NPC_CAT_COLORS = {
+Guard = Color3.fromRGB(255, 145, 0), 
+Peaceful = Color3.fromRGB(80, 255, 140), 
+Animal = Color3.fromRGB(255, 80, 95), 
+Sleeper = Color3.fromRGB(80, 190, 255), 
+}
+NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
+NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
+SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
 SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
 ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
 GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
@@ -1799,12 +2003,22 @@ end
 XRay = { Enabled = false, Transparency = 0.5 }
 -- 0.54: ключ "Twig" ловит ЛЮБЫЕ twig-объекты (включая новые имена игры),
 -- остальные — для читаемости
-XRAY_KEYWORDS = { "Twig", "Wood", "Plank", "Board", "Wall", "Roof", "Floor", "Foundation", "Ramp", "Stairs", "Fence", "Frame", "Window", "Door", "Gate", "Panel", "Stone", "Metal" } -- 0.55: ключи расширены
+-- 0.58 (E-23): +строительные ключи и РУССКИЕ («Стен», «Двер», «Крыш»...).
+-- Матч БЕЗ УЧЁТА РЕГИСТРА: стены могли называться «wall»/«TWIG» строчными
+-- и не ловились (двери с «Door» в нужном регистре ловились — отсюда
+-- «прозрачные только двери»).
+XRAY_KEYWORDS = { "Twig", "Wood", "Plank", "Board", "Wall", "Roof", "Floor", "Foundation", "Ramp", "Stairs", "Fence", "Frame", "Window", "Door", "Gate", "Panel", "Stone", "Metal", "Block", "Ceil", "Pillar", "Beam", "Slab", "Glass", "Стен", "Двер", "Крыш", "Фундамент", "Забор", "Окн", "Перекрыт", "Лестниц", "Постройк", "Блок" }
+XRAY_KEYWORDS_LOWER = {}
+for _, xk in ipairs(XRAY_KEYWORDS) do
+XRAY_KEYWORDS_LOWER[#XRAY_KEYWORDS_LOWER + 1] = string.lower(xk)
+end
 local xrayCache = setmetatable({}, { __mode = "k" }) -- 0.51 (E-15): слабые ключи — убитые части не копятся в памяти
 local xrayConn = nil
 local function xrayIsTwig(name)
-for _, k in ipairs(XRAY_KEYWORDS) do
-if string.find(name, k, 1, true) then return true end
+if type(name) ~= "string" or name == "" then return false end
+local nl = string.lower(name)
+for _, k in ipairs(XRAY_KEYWORDS_LOWER) do
+if string.find(nl, k, 1, true) then return true end
 end
 return false
 end
@@ -1815,7 +2029,8 @@ end
 local function xrayNameHit(o)
 if xrayIsTwig(o.Name) then return true end
 local mp = o.Parent
-for _ = 1, 2 do
+-- 0.58 (E-23): 2 -> 4 уровня родителей — части стен могут лежать глубже
+for _ = 1, 4 do
 if not mp or mp == Workspace then break end
 if xrayIsTwig(mp.Name) then return true end
 mp = mp.Parent
@@ -2208,224 +2423,3 @@ end)
 UserInputService.InputChanged:Connect(function(input)
 if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 local delta = input.Position - dragStart
-btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-end)
-btn.MouseButton1Click:Connect(function()
-xrayQuickToggle()
-end)
-return g
-end)
-if okG then
-xrayQuickGui = guiOrErr
-else
-warn("[FUST] Кнопка XRAY не создалась: " .. tostring(guiOrErr))
-end
-else
-if xrayQuickGui then
-pcall(function() xrayQuickGui:Destroy() end)
-xrayQuickGui = nil
-end
-end
-end
-UIRegistry.XRayQuickBtn = WorldSection:Toggle({
-Name = "Кнопка XRAY на экране",
-Flag = "XRayQuickBtn",
-Info = "Плавающая кнопка XRAY на экране в формате ВКЛ/ВЫКЛ: надпись и цвет показывают состояние X-Ray, тап переключает. Кнопку можно перетащить. Прозрачность стен — слайдером «X-Ray: прозрачность стен» выше.",
-Default = true,
-Callback = function(state)
-pcall(function() xrayQuickBuild(state) end)
-journal("КНОПКА XRAY " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-
-function normalizeName(raw)
-if type(raw) ~= "string" then
-return ""
-end
-local name = raw:gsub("^%s+", ""):gsub("%s+$", "")
-name = name:gsub("^@", "")
-return name
-end
-function resolveName(raw)
-local name = normalizeName(raw)
-if name == "" then
-return nil
-end
-local lower = string.lower(name)
-for _, plr in ipairs(Players:GetPlayers()) do
-if string.lower(plr.Name) == lower then
-return plr.Name
-end
-end
-for _, plr in ipairs(Players:GetPlayers()) do
-if string.lower(plr.DisplayName) == lower then
-return plr.Name
-end
-end
-return name
-end
-WL_BG = Color3.fromRGB(17, 18, 22)
-WL_ROW = Color3.fromRGB(28, 39, 45)
-WL_ACCENT = Color3.fromRGB(150, 20, 20)
-WL_BRIGHT = Color3.fromRGB(235, 45, 45)
-WL_TEXT = Color3.fromRGB(199, 199, 212)
-WL_GRAY = Color3.fromRGB(117, 117, 131)
-wlHost = MiscSection.Items["Content"].Instance
-wlPanel = Instance.new("Frame")
-wlPanel.Name = "FustWhitelistPanel"
-wlPanel.BackgroundColor3 = WL_BG
-wlPanel.BorderSizePixel = 0
-wlPanel.Size = UDim2.new(1, 0, 0, 0)
-wlPanel.AutomaticSize = Enum.AutomaticSize.Y
-wlPanel.LayoutOrder = 100
-wlPanel.Parent = wlHost
-function wlCorner(parent, radius)
-local c = Instance.new("UICorner")
-c.CornerRadius = UDim.new(0, radius or 6)
-c.Parent = parent
-return c
-end
-do
-wlCorner(wlPanel)
-local stroke = Instance.new("UIStroke")
-stroke.Color = WL_ACCENT
-stroke.Transparency = 0.55
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stroke.Parent = wlPanel
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 8)
-pad.PaddingBottom = UDim.new(0, 8)
-pad.PaddingLeft = UDim.new(0, 8)
-pad.PaddingRight = UDim.new(0, 8)
-pad.Parent = wlPanel
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 6)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlPanel
-end
-function wlLabel(text, order, color, bold)
-local l = Instance.new("TextLabel")
-l.BackgroundTransparency = 1
-l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-l.TextSize = 13
-l.TextColor3 = color or WL_TEXT
-l.Text = text
-l.TextXAlignment = Enum.TextXAlignment.Left
-l.Size = UDim2.new(1, 0, 0, 16)
-l.LayoutOrder = order
-l.Parent = wlPanel
-return l
-end
-wlLabel("Вайтлист (не бьём по этим)", 1, WL_BRIGHT, true)
-wlLabel("Тап по нику в списке — вкл/выкл.", 2, WL_GRAY)
-wlScroll = Instance.new("ScrollingFrame")
-wlScroll.Name = "FustWhitelistScroll"
-wlScroll.Size = UDim2.new(1, 0, 0, 150)
-wlScroll.BackgroundColor3 = WL_BG
-wlScroll.BorderSizePixel = 0
-wlScroll.ScrollBarThickness = 4
-wlScroll.ScrollBarImageColor3 = WL_ACCENT
-wlScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-wlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-wlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-wlScroll.LayoutOrder = 3
-wlScroll.Parent = wlPanel
-do
-wlCorner(wlScroll)
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 5)
-pad.PaddingBottom = UDim.new(0, 5)
-pad.PaddingLeft = UDim.new(0, 5)
-pad.PaddingRight = UDim.new(0, 6)
-pad.Parent = wlScroll
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 4)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlScroll
-end
-wlRows = {}
-function clearPlayerRows()
-for _, r in ipairs(wlRows) do
-r:Destroy()
-end
-table.clear(wlRows)
-end
-function applyRowStyle(row, isOn)
-local base = row:GetAttribute("WLText") or ""
-if isOn then
-row.BackgroundColor3 = WL_ACCENT
-row.TextColor3 = Color3.fromRGB(255, 255, 255)
-row.Text = "✓ " .. base
-else
-row.BackgroundColor3 = WL_ROW
-row.TextColor3 = WL_GRAY
-row.Text = base
-end
-end
-function rebuildPlayerList()
-clearPlayerRows()
-local rows = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-table.insert(rows, plr)
-end
-end
-table.sort(rows, function(a, b)
-return a.Name < b.Name
-end)
-if #rows == 0 then
-local empty = Instance.new("TextLabel")
-empty.BackgroundTransparency = 1
-empty.Font = Enum.Font.Gotham
-empty.TextSize = 12
-empty.TextColor3 = WL_GRAY
-empty.Text = "На сервере пока нет других игроков"
-empty.Size = UDim2.new(1, 0, 0, 26)
-empty.LayoutOrder = 1
-empty.Parent = wlScroll
-table.insert(wlRows, empty)
-return
-end
-for order, plr in ipairs(rows) do
-local row = Instance.new("TextButton")
-row.Name = "WL_" .. plr.Name
-row.AutoButtonColor = false
-row.Font = Enum.Font.Gotham
-row.TextSize = 13
-row.TextXAlignment = Enum.TextXAlignment.Left
-row.BackgroundColor3 = WL_ROW
-row.BorderSizePixel = 0
-row.Size = UDim2.new(1, 0, 0, 30)
-row.LayoutOrder = order
-row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
-row.Parent = wlScroll
-table.insert(wlRows, row)
-wlCorner(row, 5)
-local pad = Instance.new("UIPadding")
-pad.PaddingLeft = UDim.new(0, 8)
-pad.Parent = row
-applyRowStyle(row, Whitelist[plr.Name] == true)
-row.Activated:Connect(function()
-if Whitelist[plr.Name] then
-Whitelist[plr.Name] = nil
-applyRowStyle(row, false)
-else
-Whitelist[plr.Name] = true
-applyRowStyle(row, true)
-end
-end)
-end
-end
-wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
-wlInput = Instance.new("TextBox")
-wlInput.Name = "FustWhitelistInput"
-wlInput.Font = Enum.Font.Gotham
-wlInput.TextSize = 13
-wlInput.PlaceholderText = "Ник или DisplayName друга..."
-wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
-wlInput.Text = ""
-wlInput.TextColor3 = WL_TEXT
-wlInput.TextXAlignment = Enum.TextXAlignment.Left
-wlInput.ClearTextOnFocus = false
-wlInput.BackgroundColor3 = WL_BG

@@ -1,5 +1,5 @@
 --[[
-    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.56 DELTA+XENO (красно-чёрная)
+    ПЬЯНЫЙ ПЕТУХ — FUST Survival 0.59 DELTA+XENO (красно-чёрная)
     Скрипт сделан на основе скрипта VOMAGLA (подход к трассерам
     пуль и ESP взят оттуда, спасибо автору VOMAGLA).
 
@@ -21,6 +21,53 @@
     • Всё остальное — как в стабильной 0.39: ESP игроков/НПС, мешки/
       лут (слоты/владелец/чамсы как было), аимбот+злой аим, анти-отдача,
       трассеры, хитбоксы, HUD, CS2-прицел, вайтлист, конфиги, кнопка-петух.
+
+    НОВОЕ В 0.58 — X-RAY ЛОВИТ СТЕНЫ (E-23):
+    • Жалоба: «иксрей делает только двери прозрачными, а стены нет».
+      Причина: матч был РЕГИСТРОЗАВИСИМЫЙ и по узкому набору ключей —
+      если игра зовёт стены «wall»/«TWIG» строчными или прячет части
+      глубже 2 моделей, стены не ловились (двери с «Door» ловились).
+    • 0.58: матч БЕЗ УЧЁТА РЕГИСТРА (имя и ключ в lower); +ключи
+      Block/Ceil/Pillar/Beam/Slab/Glass и русские Стен/Двер/Крыш/
+      Фундамент/Забор/Окн/Перекрыт/Лестниц/Постройк/Блок; поиск по
+      именам родителей углублён с 2 до 4 уровней.
+    • Если стены всё равно не ловятся: Логи -> Журнал чита пишет
+      «X-RAY: примеры имён стен/объектов» — скинь эту строку, добавлю
+      точные ключи. Прямо сейчас на любой версии работает режим
+      «X-Ray: ВСЁ вокруг (дикий)» — прозрачит все статичные части.
+    • Всё из 0.57 внутри (фрикам E-22, кнопка в Конфигах, стрельба,
+      FOV-круг).
+
+    НОВОЕ В 0.59 — МУЛЬТИ-ТОЧКИ ФРИКАМА: СОХРАНЯЙ СКОЛЬКО УГОДНО МЕСТ:
+    • Жалоба: во фрикаме хранилась только ОДНА точка — каждое нажатие
+      SAVE POS перезаписывало её. 0.59: SAVE POS ДОБАВЛЯЕТ НОВУЮ точку
+      в список (до 20) — можно сохранить все нужные места и летать
+      между ними.
+    • ПАНЕЛЬ CAM: новая строка «< POS 3 (2/5) >» — стрелки листают
+      сохранённые точки по кругу; TP CAM TO POS летит в ВЫБРАННУЮ
+      точку; DEL POS удаляет выбранную (первый тап — «SURE?», второй
+      удаляет — случайное удаление невозможно).
+    • ТОЧКИ НЕ ПРОПАДАЮТ после перезахода: список живёт в файле
+      FUST_freecam_pos.json в воркспейсе экзекутора (Delta и Xeno дают
+      writefile; файла нет — просто начнёшь список заново).
+    • «Запоминать позицию камеры» работает с выбранной точкой: при
+      выключении фрикама она обновляется, при включении камера
+      стартует из неё.
+    • Всё из 0.58 внутри (X-Ray ловит стены E-23, фрикам на Xeno E-22,
+      «ВЫКЛЮЧИТЬ СКРИПТ» в Конфигах, стрельба, FOV-круг).
+
+    НОВОЕ В 0.57 — ФРИКАМ НА XENO ПОЧИНЕН (E-22) + «ВЫКЛЮЧИТЬ СКРИПТ» В КОНФИГАХ:
+    • ФРИКАМ НА ПК/XENO НЕ ЛЕТАЛ И НЕ КРУТИЛСЯ: клавиши шли ТОЛЬКО через
+      ContextActionService (на Xeno они не доходили), вверх/вниз были
+      только на E/Q, обзор — только ПКМ+мышь. 0.57: РЕЗЕРВНЫЙ ОПРОС
+      IsKeyDown каждый кадр (полёт работает всегда; без хуков — только
+      чтение клавиш, безопасно), SPACE = вверх, LEFT CTRL = вниз (E/Q
+      остались), ОБЗОР НА СТРЕЛКАХ + ПКМ+мышь + свободный обзор при
+      захваченной мышью, CAS-бинд в pcall (упадёт — фрикам всё равно
+      включится), СТРОКА ПОДСКАЗОК клавиш в меню фрикама.
+    • Кнопка «ВЫКЛЮЧИТЬ СКРИПТ» перенесена со страницы Main в раздел
+      «Конфиги» (по приказу пользователя).
+    • Всё из 0.56 внутри (старая стрельба, безопасный фрикам, FOV-круг).
 
     НОВОЕ В 0.56 — СТАРАЯ СТРЕЛЬБА + ФРИКАМ БЕЗ КАСАНИЯ ПЕРСОНАЖА + FOV-КРУГ:
     • БАН «WALKSPEED 1000, IQ 0» (10 лет, был на 0.54): разобран. В 0.55
@@ -606,7 +653,7 @@
     19. Аимбот: камера-лок, Smooth, предикт, FOV-круг, стены/команда.
     20. GUI в CoreGui, лог запуска [FUST] 1/4...4/4.
 ]]
-print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.56 DELTA+XENO (красно-чёрная)...")
+print("[FUST] 1/4: запуск скрипта «Пьяный Петух» 0.59 DELTA+XENO (красно-чёрная)...")
 
 -- 0.39: БЕЗОПАСНАЯ ЗАГРУЗКА — экран петуха с анимацией пока скрипт проверяет детект-риски
 LoadScreenEnabled = true -- можно отключить в настройках после первого запуска
@@ -654,7 +701,7 @@ title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.TextSize = 22
 title.TextColor3 = Color3.fromRGB(255, 45, 45)
-title.Text = "ПЬЯНЫЙ ПЕТУХ 0.56"
+title.Text = "ПЬЯНЫЙ ПЕТУХ 0.59"
 title.Parent = bg
 -- прогресс-бар фон
 local barBg = Instance.new("Frame")
@@ -926,7 +973,7 @@ appendfile(JOURNAL_FILE, stamp .. msg .. "\n")
 end)
 end
 end
-journal("=== ЗАПУСК 0.56 DELTA+XENO (красно-чёрная) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
+journal("=== ЗАПУСК 0.59 DELTA+XENO (красно-чёрная) | place " .. tostring(game.PlaceId) .. " | экзекутор: " .. EXECUTOR_NAME .. " | игроков: " .. tostring(#Players:GetPlayers()) .. " ===")
 print("[FUST] 2/4: инициализирую встроенную библиотеку...")
 Library = (function()
 if getgenv().Library then
@@ -1197,67 +1244,3 @@ Instances.ChangeItemTheme = function(self, Properties)
 if not self.Instance then
 return
 end
-Library:ChangeItemTheme(self, Properties)
-end
-Instances.Connect = function(self, Event, Callback, Name)
-if not self.Instance then
-return
-end
-if not self.Instance[Event] then
-return
-end
-return Library:Connect(self.Instance[Event], Callback, Name)
-end
-Instances.Tween = function(self, Info, Goal)
-if not self.Instance then
-return
-end
-return Tween:Create(self, Info, Goal)
-end
-Instances.Disconnect = function(self, Name)
-if not self.Instance then
-return
-end
-return Library:Disconnect(Name)
-end
-Instances.Clean = function(self)
-if not self.Instance then
-return
-end
-self.Instance:Destroy()
-self = nil
-end
-Instances.MakeDraggable = function(self)
-if not self.Instance then
-return
-end
-local Gui = self.Instance
-local Dragging = false
-local DragStart
-local StartPosition
-local Set = function(Input)
-local DragDelta = Input.Position - DragStart
-local NewX = StartPosition.X.Offset + DragDelta.X
-local NewY = StartPosition.Y.Offset + DragDelta.Y
-local ScreenSize = Gui.Parent.AbsoluteSize
-local GuiSize = Gui.AbsoluteSize
-local MaxX = ScreenSize.X - GuiSize.X
-local MaxY = ScreenSize.Y - GuiSize.Y
-if MaxX >= 0 then
-NewX = MathClamp(NewX, 0, MaxX)
-end
-if MaxY >= 0 then
-NewY = MathClamp(NewY, 0, MaxY)
-end
-self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, NewX, 0, NewY)})
-end
-local InputChanged
-self:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-Dragging = true
-DragStart = Input.Position
-StartPosition = Gui.Position
-if InputChanged then
-return
-end
-InputChanged = Input.Changed:Connect(function()

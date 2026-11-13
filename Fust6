@@ -1,3 +1,142 @@
+table.insert(parts, "...")
+break
+end
+table.insert(parts, tostring(ch.Name) .. ":" .. ch.ClassName)
+end
+if #parts > 0 then
+kidsText = table.concat(parts, ", ")
+end
+end)
+local textsText = "-"
+pcall(function()
+local parts = {}
+for _, ch in ipairs(inst:GetDescendants()) do
+if #parts >= 4 then
+break
+end
+if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+table.insert(parts, "[" .. tostring(ch.Text) .. "]")
+end
+end
+if #parts > 0 then
+textsText = table.concat(parts, " ")
+end
+end)
+local info = e.Info or {}
+print(string.format(
+"[FUST][ЛУТ] %s (%s, %s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
+okN and instName or "?",
+inst.ClassName,
+e.Cat or "bag",
+okPar and parentName or "?",
+tostring(info.Owner),
+tostring(info.Slots),
+attrsText,
+promptText,
+kidsText,
+textsText
+))
+end
+local bagsN, contN = 0, 0
+for _, e2 in pairs(trackedBackpacks) do
+if (e2.Cat or "bag") == "bag" then
+bagsN = bagsN + 1
+else
+contN = contN + 1
+end
+end
+print("[FUST][ЛУТ] всего отслежено: " .. tostring(count)
+.. " (мешков: " .. tostring(bagsN) .. ", контейнеров: " .. tostring(contN) .. ")")
+if count == 0 then
+local cam = Workspace.CurrentCamera
+local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+if myRoot then
+local shown = 0
+for _, inst in ipairs(Workspace:GetDescendants()) do
+if shown >= 30 then
+break
+end
+if (inst:IsA("Model") or inst:IsA("BasePart"))
+and not inst:FindFirstChildOfClass("Humanoid")
+and (not cam or not inst:IsDescendantOf(cam)) then
+local okD, d = pcall(function()
+return (inst:GetPivot().Position - myRoot.Position).Magnitude
+end)
+if okD and d and d < 150 then
+shown = shown + 1
+print(string.format(
+"[FUST][ЛУТ-РЯДОМ] %s (%s), %.0fm",
+tostring(inst.Name),
+inst.ClassName,
+d
+))
+end
+end
+end
+end
+end
+end)
+end
+task.wait(10)
+end
+end)
+velEMA = {} 
+velEMALastClean = 0
+function autoLead(dist)
+return math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
+end
+function getSmoothedVelocity(root, vel)
+if not Aim.AutoPredict then
+return vel
+end
+local old = velEMA[root]
+if not old then
+velEMA[root] = vel
+return vel
+end
+local smooth = old:Lerp(vel, 0.35)
+velEMA[root] = smooth
+return smooth
+end
+-- 0.50: КОПТЕРЫ — отдельная цель аимбота. По приказу: БЕЗ проверки
+-- дистанции (лимит Aim.Distance срезал летающие далеко/высоко коптеры,
+-- из-за этого «аим не работал на коптеры»). FOV и проверка стен (если
+-- включены) остаются как у остальных целей.
+trackedCopters = {}
+local copterChecked = {}
+local lastCopterScan = 0
+function resolveCopterPart(model)
+local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
+if seat then return seat end
+local pp = model.PrimaryPart
+if pp and pp.Parent then return pp end
+local best = nil
+for _, d in ipairs(model:GetDescendants()) do
+if d:IsA("BasePart") and (not best or d.Size.Magnitude > best.Size.Magnitude) then
+best = d
+end
+end
+return best
+end
+function refreshCopters()
+local myChar = LocalPlayer.Character
+for model in pairs(trackedCopters) do
+if not model.Parent then
+trackedCopters[model] = nil
+end
+end
+for model in pairs(copterChecked) do
+if not model.Parent then
+copterChecked[model] = nil
+end
+end
+local function tryCopter(obj)
+if not obj:IsA("Model") or trackedCopters[obj] or copterChecked[obj] then
+return
+end
+if isPlayerCharacter(obj) then
+return
+end
 if myChar and obj:IsAncestorOf(myChar) then
 return
 end
@@ -1006,15 +1145,6 @@ end
 -- 0.55: старый одиночный конфиг (FUST_config.json, кнопки «Сохранить/
 -- Загрузить конфиг») убран. Вместо него — УЛУЧШЕННЫЕ КОНФИГИ со списком
 -- и подтверждением перезаписи: подвкладка «Конфиги» на этой же странице.
-ConfigSection:Label("КОНФИГИ 0.55: подвкладка «Конфиги» (та же страница Main) — список конфигов, загрузка, сохранение и удаление. Перезапись и удаление — только через подтверждение.")
-ConfigSection:Button({
-Name = "ВЫКЛЮЧИТЬ СКРИПТ",
-Callback = function()
-pcall(function()
-getgenv().FUST_Deactivate()
-end)
-end
-})
 espDrawings = {}
 hitboxOriginals = {} 
 ChamsCreateBlocked = false 
@@ -2387,7 +2517,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.56 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.59 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2625,7 +2755,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.56 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.59 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

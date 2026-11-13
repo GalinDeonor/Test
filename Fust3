@@ -1,40 +1,3 @@
-AutoButtonColor = false,
-Size = UDim2New(0, 0, 0, 26),
-BorderSizePixel = 0,
-TextSize = 14,
-LayoutOrder = 2,
-BackgroundColor3 = Library.Theme["Element"]
-}):AddToTheme({BackgroundColor3 = 'Element'})
-local DropdownFlex = Instance.new("UIFlexItem")
-DropdownFlex.FlexMode = Enum.UIFlexMode.Fill
-DropdownFlex.Parent = Items["RealDropdown"].Instance
-Instances:Create("UICorner", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(0, 8)
-})
-Instances:Create("UIStroke", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-Color = Library.Theme["Outline"],
-ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-}):AddToTheme({Color = 'Outline'})
-Items["Value"] = Instances:Create("TextLabel", {
-Parent = Items["RealDropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-TextTransparency = 0.15,
-Text = "--",
-Size = UDim2New(0, 0, 0, 15),
-AnchorPoint = Vector2New(0, 0.5),
-BorderSizePixel = 0,
-BackgroundTransparency = 1,
-Position = UDim2New(0, 8, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 13
-}):AddToTheme({TextColor3 = 'Text'})
 Items["Icon"] = Instances:Create("ImageLabel", {
 Parent = Items["RealDropdown"].Instance,
 Name = "\0",
@@ -922,6 +885,15 @@ Library:RefreshConfigsList(ConfigsDropdown)
 end)
 end
 })
+-- 0.57: «ВЫКЛЮЧИТЬ СКРИПТ» перенесена сюда со страницы Main (приказ).
+ConfigsSection:Button({
+Name = "ВЫКЛЮЧИТЬ СКРИПТ",
+Callback = function()
+pcall(function()
+getgenv().FUST_Deactivate()
+end)
+end
+})
 Library:RefreshConfigsList(ConfigsDropdown)
 end
 end
@@ -1410,7 +1382,6 @@ ICON_VISUALS = "rbxassetid://100033680381365"
 UIRegistry = {}
 Window:Group("Главное")
 MainPage = Window:Page({ Name = "Main", Icon = ICON_SETTINGS })
-ConfigSection = MainPage:Section({ Name = "Конфиги", Tab = "Функции", Side = 2 })
 pcall(function()
 Library:CreateSettingsPage(Window, nil, MainPage)
 end)
@@ -1427,7 +1398,7 @@ end)
 table.insert(UI_ERRORS, stepName .. ": " .. tostring(err))
 end
 end
--- 0.55: ICON_*/UIRegistry/MainPage/ConfigSection созданы ВЫШЕ (слияние
+-- 0.55: ICON_*/UIRegistry/MainPage созданы ВЫШЕ (слияние
 -- Main + Settings в одну страницу «Main»).
 FreeCam = { Enabled = false, Speed = 100, AutoFly = false, HookKeys = false, PanelVisible = true }
 freecamEnable = function() end
@@ -1478,10 +1449,15 @@ end)
 local moveTouchId, lookTouchId = nil, nil
 local joystickCenter, joystickVector = Vector2.zero, Vector2.zero
 local joystickMaxRadius = 50
-local keysDown = { W = false, A = false, S = false, D = false, E = false, Q = false, LeftShift = false }
+-- 0.57 (E-22): +SPACE/LEFT CTRL (вверх/вниз) и СТРЕЛКИ (обзор). Канал CAS
+-- мог не доставлять клавиши на Xeno — добавлен резервный опрос IsKeyDown.
+local keysDown = { W = false, A = false, S = false, D = false, E = false, Q = false, Space = false, LCtrl = false, Up = false, Down = false, Left = false, Right = false, LeftShift = false }
 local interceptedKeyCodes = {
 [Enum.KeyCode.W] = "W", [Enum.KeyCode.A] = "A", [Enum.KeyCode.S] = "S",
 [Enum.KeyCode.D] = "D", [Enum.KeyCode.E] = "E", [Enum.KeyCode.Q] = "Q",
+[Enum.KeyCode.Space] = "Space", [Enum.KeyCode.LeftControl] = "LCtrl",
+[Enum.KeyCode.Up] = "Up", [Enum.KeyCode.Down] = "Down",
+[Enum.KeyCode.Left] = "Left", [Enum.KeyCode.Right] = "Right",
 [Enum.KeyCode.LeftShift] = "LeftShift", [Enum.KeyCode.RightShift] = "LeftShift",
 }
 local fcHookInstalled = false
@@ -1622,7 +1598,7 @@ bindButtonBounce(toggleBtn)
 local hudFrame = Instance.new("Frame")
 hudFrame.Name = "GlassHUD"
 hudFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-hudFrame.Size = UDim2.new(0, 178, 0, 188) -- 0.55: меню фрикама выше (FLY / SAVE POS / TP CAM)
+hudFrame.Size = UDim2.new(0, 178, 0, 252) -- 0.59: выше — строка мульти-точек (< > листать) + кнопка DEL POS
 hudFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 hudFrame.Visible = false
 hudFrame.Active = true
@@ -1746,10 +1722,53 @@ flyBtn.AutoButtonColor = false
 flyBtn.Parent = hudInner
 applyLiquidGlass(flyBtn, 0.22, Color3.fromRGB(38, 14, 14))
 bindButtonBounce(flyBtn)
+-- 0.59: МУЛЬТИ-ТОЧКИ — строка листания сохранённых точек: < имя (2/5) >
+local slotBar = Instance.new("Frame")
+slotBar.Name = "SlotBar"
+slotBar.Size = UDim2.new(0.9, 0, 0, 28)
+slotBar.Position = UDim2.new(0.05, 0, 0, 104)
+slotBar.BackgroundTransparency = 1
+slotBar.Parent = hudInner
+local slotPrevBtn = Instance.new("TextButton")
+slotPrevBtn.Name = "SlotPrev"
+slotPrevBtn.Size = UDim2.new(0, 30, 0, 28)
+slotPrevBtn.Position = UDim2.new(0, 0, 0, 0)
+slotPrevBtn.Text = "<"
+slotPrevBtn.Font = Enum.Font.GothamBold
+slotPrevBtn.TextSize = 15
+slotPrevBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+slotPrevBtn.AutoButtonColor = false
+slotPrevBtn.Parent = slotBar
+applyLiquidGlass(slotPrevBtn, 0.22, Color3.fromRGB(50, 18, 18))
+bindButtonBounce(slotPrevBtn)
+local slotLbl = Instance.new("TextLabel")
+slotLbl.Name = "SlotLabel"
+slotLbl.Size = UDim2.new(1, -64, 1, 0)
+slotLbl.Position = UDim2.new(0, 34, 0, 0)
+slotLbl.BackgroundTransparency = 1
+slotLbl.Text = "ТОЧЕК: 0"
+slotLbl.Font = Enum.Font.GothamBold
+slotLbl.TextSize = 11
+slotLbl.TextColor3 = Color3.fromRGB(255, 235, 235)
+slotLbl.TextTruncate = Enum.TextTruncate.AtEnd
+slotLbl.Parent = slotBar
+local slotNextBtn = Instance.new("TextButton")
+slotNextBtn.Name = "SlotNext"
+slotNextBtn.Size = UDim2.new(0, 30, 0, 28)
+slotNextBtn.Position = UDim2.new(1, -30, 0, 0)
+slotNextBtn.Text = ">"
+slotNextBtn.Font = Enum.Font.GothamBold
+slotNextBtn.TextSize = 15
+slotNextBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+slotNextBtn.AutoButtonColor = false
+slotNextBtn.Parent = slotBar
+applyLiquidGlass(slotNextBtn, 0.22, Color3.fromRGB(50, 18, 18))
+bindButtonBounce(slotNextBtn)
 local saveBtn = Instance.new("TextButton")
 saveBtn.Name = "SavePosBtn"
-saveBtn.Size = UDim2.new(0.9, 0, 0, 28)
-saveBtn.Position = UDim2.new(0.05, 0, 0, 110)
+-- 0.59: SAVE POS и DEL POS делят строку пополам (было: SAVE POS на всю ширину)
+saveBtn.Size = UDim2.new(0.44, 0, 0, 28)
+saveBtn.Position = UDim2.new(0.05, 0, 0, 136)
 saveBtn.Text = "SAVE POS"
 saveBtn.Font = Enum.Font.GothamBold
 saveBtn.TextSize = 12
@@ -1758,10 +1777,22 @@ saveBtn.AutoButtonColor = false
 saveBtn.Parent = hudInner
 applyLiquidGlass(saveBtn, 0.22, Color3.fromRGB(38, 14, 14))
 bindButtonBounce(saveBtn)
+local delBtn = Instance.new("TextButton")
+delBtn.Name = "DelPosBtn"
+delBtn.Size = UDim2.new(0.44, 0, 0, 28)
+delBtn.Position = UDim2.new(0.51, 0, 0, 136)
+delBtn.Text = "DEL POS"
+delBtn.Font = Enum.Font.GothamBold
+delBtn.TextSize = 12
+delBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
+delBtn.AutoButtonColor = false
+delBtn.Parent = hudInner
+applyLiquidGlass(delBtn, 0.22, Color3.fromRGB(38, 14, 14))
+bindButtonBounce(delBtn)
 local tpCamBtn = Instance.new("TextButton")
 tpCamBtn.Name = "TpCamBtn"
 tpCamBtn.Size = UDim2.new(0.9, 0, 0, 28)
-tpCamBtn.Position = UDim2.new(0.05, 0, 0, 144)
+tpCamBtn.Position = UDim2.new(0.05, 0, 0, 168)
 tpCamBtn.Text = "TP CAM TO POS"
 tpCamBtn.Font = Enum.Font.GothamBold
 tpCamBtn.TextSize = 12
@@ -1770,6 +1801,156 @@ tpCamBtn.AutoButtonColor = false
 tpCamBtn.Parent = hudInner
 applyLiquidGlass(tpCamBtn, 0.20, Color3.fromRGB(45, 12, 12), FC_RED)
 bindButtonBounce(tpCamBtn)
+-- 0.57 (E-22): подсказка клавиш на ПК — прямо в меню фрикама
+local fcHint = Instance.new("TextLabel")
+fcHint.Name = "KeyHints"
+fcHint.Size = UDim2.new(0.9, 0, 0, 46)
+fcHint.Position = UDim2.new(0.05, 0, 0, 200)
+fcHint.BackgroundTransparency = 1
+fcHint.Font = Enum.Font.Gotham
+fcHint.TextSize = 9
+fcHint.TextColor3 = Color3.fromRGB(190, 170, 170)
+fcHint.TextWrapped = true
+fcHint.TextXAlignment = Enum.TextXAlignment.Left
+fcHint.TextYAlignment = Enum.TextYAlignment.Top
+fcHint.Text = "ПК: WASD — лететь · SPACE/CTRL — вверх/вниз · E/Q — вверх/вниз · СТРЕЛКИ — обзор · ПКМ+мышь — обзор · SHIFT — ускорение x2"
+fcHint.Parent = hudInner
+-- 0.59: МУЛЬТИ-ТОЧКИ ФРИКАМА. Сохранённых точек теперь СПИСОК (до 20),
+-- а не одна: SAVE POS добавляет новую, < / > листают, TP CAM TO POS летит
+-- в выбранную, DEL POS удаляет (два тапа — защита от случайного удаления).
+-- Список хранится в FUST_freecam_pos.json и переживает перезапуск.
+local FC_HS = game:GetService("HttpService")
+local FC_POS_FILE = "FUST_freecam_pos.json"
+local FC_MAX_SLOTS = 20
+local FC_Slots = {}
+local FC_SlotIdx = 0
+local FC_NextId = 1
+local function fcSlotMirror()
+if FC_SlotIdx >= 1 and FC_SlotIdx <= #FC_Slots then
+local s = FC_Slots[FC_SlotIdx]
+savedPos = Vector3.new(s.x, s.y, s.z)
+savedPitch = s.pitch
+savedYaw = s.yaw
+else
+savedPos = nil
+savedPitch = nil
+savedYaw = nil
+end
+end
+local function fcSlotLabel()
+local slotTxt = "ТОЧЕК: 0"
+if #FC_Slots > 0 and FC_SlotIdx >= 1 and FC_SlotIdx <= #FC_Slots then
+slotTxt = FC_Slots[FC_SlotIdx].name .. " (" .. FC_SlotIdx .. "/" .. #FC_Slots .. ")"
+elseif #FC_Slots > 0 then
+slotTxt = "ТОЧЕК: " .. #FC_Slots
+end
+pcall(function()
+slotLbl.Text = slotTxt
+end)
+end
+local function fcPersistPos()
+pcall(function()
+if type(writefile) ~= "function" then return end
+local data = { sel = FC_SlotIdx, next = FC_NextId, slots = {} }
+for i = 1, #FC_Slots do
+local s = FC_Slots[i]
+data.slots[i] = { name = s.name, x = s.x, y = s.y, z = s.z, pitch = s.pitch, yaw = s.yaw }
+end
+writefile(FC_POS_FILE, FC_HS:JSONEncode(data))
+end)
+end
+local function fcLoadPosFile()
+pcall(function()
+if type(isfile) ~= "function" or not isfile(FC_POS_FILE) then return end
+if type(readfile) ~= "function" then return end
+local raw = readfile(FC_POS_FILE)
+if type(raw) ~= "string" or #raw < 2 then return end
+local okj, data = pcall(function()
+return FC_HS:JSONDecode(raw)
+end)
+if not okj or type(data) ~= "table" or type(data.slots) ~= "table" then return end
+for i = 1, #data.slots do
+local s = data.slots[i]
+if type(s) == "table" and type(s.x) == "number" and type(s.y) == "number" and type(s.z) == "number" and #FC_Slots < FC_MAX_SLOTS then
+local nm = "POS " .. tostring(FC_NextId)
+if type(s.name) == "string" and s.name ~= "" then nm = s.name end
+FC_Slots[#FC_Slots + 1] = { name = nm, x = s.x, y = s.y, z = s.z, pitch = type(s.pitch) == "number" and s.pitch or 0, yaw = type(s.yaw) == "number" and s.yaw or 0 }
+FC_NextId = FC_NextId + 1
+end
+end
+if type(data.next) == "number" and data.next > FC_NextId then
+FC_NextId = math.floor(data.next)
+end
+if type(data.sel) == "number" then
+FC_SlotIdx = math.clamp(math.floor(data.sel), 0, #FC_Slots)
+end
+if #FC_Slots > 0 and (FC_SlotIdx < 1 or FC_SlotIdx > #FC_Slots) then
+FC_SlotIdx = 1
+end
+end)
+end
+fcLoadPosFile()
+fcSlotMirror()
+fcSlotLabel()
+if #FC_Slots > 0 then
+journal("ФРИКАМ: загружено сохранённых точек: " .. #FC_Slots .. " (" .. FC_POS_FILE .. ")")
+end
+slotPrevBtn.MouseButton1Click:Connect(function()
+if #FC_Slots == 0 then return end
+FC_SlotIdx = FC_SlotIdx - 1
+if FC_SlotIdx < 1 then FC_SlotIdx = #FC_Slots end
+fcSlotMirror()
+fcSlotLabel()
+fcPersistPos()
+end)
+slotNextBtn.MouseButton1Click:Connect(function()
+if #FC_Slots == 0 then return end
+FC_SlotIdx = FC_SlotIdx + 1
+if FC_SlotIdx > #FC_Slots then FC_SlotIdx = 1 end
+fcSlotMirror()
+fcSlotLabel()
+fcPersistPos()
+end)
+local delArmed = false
+delBtn.MouseButton1Click:Connect(function()
+if FC_SlotIdx < 1 or FC_SlotIdx > #FC_Slots then
+delBtn.Text = "NO POS!"
+task.delay(0.9, function()
+pcall(function()
+delBtn.Text = "DEL POS"
+end)
+end)
+journal("ФРИКАМ: удалять нечего — нет ни одной точки")
+return
+end
+if not delArmed then
+delArmed = true
+delBtn.Text = "SURE?"
+delBtn.TextColor3 = FC_RED
+task.delay(2, function()
+delArmed = false
+pcall(function()
+delBtn.Text = "DEL POS"
+delBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
+end)
+end)
+return
+end
+delArmed = false
+local nm = FC_Slots[FC_SlotIdx].name
+table.remove(FC_Slots, FC_SlotIdx)
+if #FC_Slots == 0 then
+FC_SlotIdx = 0
+elseif FC_SlotIdx > #FC_Slots then
+FC_SlotIdx = #FC_Slots
+end
+fcSlotMirror()
+fcSlotLabel()
+fcPersistPos()
+delBtn.Text = "DEL POS"
+delBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
+journal("ФРИКАМ: точка " .. nm .. " удалена (осталось: " .. #FC_Slots .. ")")
+end)
 -- 0.55: панель CAM = МЕНЮ ФРИКАМА. Открывается тапом по кнопке CAM
 -- (полёт НЕ трогает), скрытие — крестик в правом верхнем углу. Больше не
 -- зависит от fcActive: меню можно открыть и до включения полёта.
@@ -1793,22 +1974,42 @@ end
 end)
 end
 end
--- 0.55: SAVE POS — сохранить позицию камеры в точку (для TP CAM TO POS).
+-- 0.59: SAVE POS — добавить НОВУЮ точку в список (мульти-сохранение).
 -- Работает и до включения фрикама (сохраняет, где сейчас смотрит камера).
 saveBtn.MouseButton1Click:Connect(function()
 local camera = Workspace.CurrentCamera
+local np, npt, nyw
 if fcActive then
-savedPos = camPos
-savedPitch = camPitch
-savedYaw = camYaw
+np = camPos
+npt = camPitch
+nyw = camYaw
 elseif camera then
 local cf = camera.CFrame
-savedPos = cf.Position
+np = cf.Position
 local ox, oy, _ = cf:ToOrientation()
-savedPitch = math.deg(ox)
-savedYaw = math.deg(oy)
+npt = math.deg(ox)
+nyw = math.deg(oy)
 end
-if savedPos then
+if not np then return end
+if #FC_Slots >= FC_MAX_SLOTS then
+saveBtn.Text = "FULL!"
+saveBtn.TextColor3 = FC_RED
+task.delay(0.9, function()
+pcall(function()
+saveBtn.Text = "SAVE POS"
+saveBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
+end)
+end)
+journal("ФРИКАМ: точек уже максимум (" .. FC_MAX_SLOTS .. ") — удали лишние кнопкой DEL POS")
+return
+end
+local nm = "POS " .. tostring(FC_NextId)
+FC_NextId = FC_NextId + 1
+FC_Slots[#FC_Slots + 1] = { name = nm, x = np.X, y = np.Y, z = np.Z, pitch = npt, yaw = nyw }
+FC_SlotIdx = #FC_Slots
+fcSlotMirror()
+fcSlotLabel()
+fcPersistPos()
 saveBtn.Text = "SAVED!"
 saveBtn.TextColor3 = FC_RED
 task.delay(0.9, function()
@@ -1817,8 +2018,7 @@ saveBtn.Text = "SAVE POS"
 saveBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
 end)
 end)
-journal("ФРИКАМ: позиция сохранена (кнопка SAVE POS)")
-end
+journal("ФРИКАМ: точка " .. nm .. " сохранена (всего: " .. #FC_Slots .. "). < > — листать, TP — лететь")
 end)
 local function handleKeyAction(actionName, inputState, inputObject)
 if not fcActive then
@@ -1879,7 +2079,18 @@ camPitch = math.clamp(camPitch - (d.Y * FC_TouchSens), -89, 89)
 end
 end
 if input.UserInputType == Enum.UserInputType.MouseMovement then
-if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+-- 0.57 (E-22): обзор мышью — ПКМ, ИЛИ когда мышь уже захвачена игрой
+-- (MouseBehavior ~= Default). Оба чтения в pcall — на части экзекуторов
+-- этих методов может не быть; стрелки остаются запасным каналом.
+local rmbOk = false
+pcall(function()
+rmbOk = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+end)
+local mouseLocked = false
+pcall(function()
+mouseLocked = UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default
+end)
+if rmbOk or mouseLocked then
 local d = input.Delta
 camYaw = camYaw - (d.X * FC_MouseSens)
 camPitch = math.clamp(camPitch - (d.Y * FC_MouseSens), -89, 89)
@@ -1895,6 +2106,15 @@ elseif input == lookTouchId then
 lookTouchId = nil
 end
 end)
+-- 0.57 (E-22): резервный опрос клавиш — полёт работает даже если
+-- ContextActionService на экзекуторе не доставляет события (на Xeno из-за
+-- этого не было движения). Только ЧТЕНИЕ состояния клавиш — без хуков,
+-- анти-читу нечего детектить.
+local function fcKey(name, enumKey)
+if keysDown[name] then return true end
+local okk, down = pcall(UserInputService.IsKeyDown, UserInputService, enumKey)
+return okk and down or false
+end
 local function startFreecam()
 local camera = Workspace.CurrentCamera
 local char = LocalPlayer.Character
@@ -1913,6 +2133,9 @@ local touchGui = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerG
 if touchGui then
 touchGui.Enabled = false
 end
+-- 0.57 (E-22): бинд в pcall — если CAS на экзекуторе падает, фрикам всё
+-- равно включится (клавиши возьмёт резервный опрос fcKey).
+pcall(function()
 FC_CAS:BindActionAtPriority(
 "FUSTFreecamKeySink",
 handleKeyAction,
@@ -1925,6 +2148,11 @@ Enum.KeyCode.D,
 Enum.KeyCode.E,
 Enum.KeyCode.Q,
 Enum.KeyCode.Space,
+Enum.KeyCode.LeftControl,
+Enum.KeyCode.Up,
+Enum.KeyCode.Down,
+Enum.KeyCode.Left,
+Enum.KeyCode.Right,
 Enum.KeyCode.LeftShift,
 Enum.KeyCode.RightShift,
 Enum.PlayerActions.CharacterForward,
@@ -1933,6 +2161,7 @@ Enum.PlayerActions.CharacterLeft,
 Enum.PlayerActions.CharacterRight,
 Enum.PlayerActions.CharacterJump
 )
+end)
 if FreeCam.HookKeys then
 fcInstallHook()
 end
@@ -1966,21 +2195,26 @@ local right = rotCFrame.RightVector * joystickVector.X
 local forward = rotCFrame.LookVector * joystickVector.Y
 moveVector = moveVector + right + forward
 end
+-- 0.57 (E-22): СТРЕЛКИ = обзор камеры (работают всегда, через опрос).
+if fcKey("Left", Enum.KeyCode.Left) then camYaw = camYaw + 140 * dt end
+if fcKey("Right", Enum.KeyCode.Right) then camYaw = camYaw - 140 * dt end
+if fcKey("Up", Enum.KeyCode.Up) then camPitch = math.clamp(camPitch + 90 * dt, -89, 89) end
+if fcKey("Down", Enum.KeyCode.Down) then camPitch = math.clamp(camPitch - 90 * dt, -89, 89) end
 local kbForward = 0
 local kbRight = 0
 local kbUp = 0
-if keysDown.W then kbForward = kbForward + 1 end
-if keysDown.S then kbForward = kbForward - 1 end
-if keysDown.D then kbRight = kbRight + 1 end
-if keysDown.A then kbRight = kbRight - 1 end
-if keysDown.E then kbUp = kbUp + 1 end
-if keysDown.Q then kbUp = kbUp - 1 end
+if fcKey("W", Enum.KeyCode.W) then kbForward = kbForward + 1 end
+if fcKey("S", Enum.KeyCode.S) then kbForward = kbForward - 1 end
+if fcKey("D", Enum.KeyCode.D) then kbRight = kbRight + 1 end
+if fcKey("A", Enum.KeyCode.A) then kbRight = kbRight - 1 end
+if fcKey("E", Enum.KeyCode.E) or fcKey("Space", Enum.KeyCode.Space) then kbUp = kbUp + 1 end
+if fcKey("Q", Enum.KeyCode.Q) or fcKey("LCtrl", Enum.KeyCode.LeftControl) then kbUp = kbUp - 1 end
 if kbForward ~= 0 or kbRight ~= 0 or kbUp ~= 0 then
 local pcMove = (rotCFrame.LookVector * kbForward) + (rotCFrame.RightVector * kbRight) + (Vector3.new(0, 1, 0) * kbUp)
 moveVector = moveVector + pcMove
 end
 if moveVector.Magnitude > 0 then
-local currentMultiplier = keysDown.LeftShift and 2.0 or 1.0
+local currentMultiplier = (keysDown.LeftShift or fcKey("LeftShift", Enum.KeyCode.LeftShift) or fcKey("RightShift", Enum.KeyCode.RightShift)) and 2.0 or 1.0
 camPos = camPos + (moveVector.Unit * (flySpeed * currentMultiplier * dt))
 end
 camera.CFrame = CFrame.new(camPos) * rotCFrame
@@ -2015,6 +2249,16 @@ if FC_RememberPos then
 savedPos = camPos
 savedPitch = camPitch
 savedYaw = camYaw
+-- 0.59: авто-запоминание при выключении обновляет ВЫБРАННУЮ точку списка
+if FC_SlotIdx >= 1 and FC_SlotIdx <= #FC_Slots then
+local s = FC_Slots[FC_SlotIdx]
+s.x = camPos.X
+s.y = camPos.Y
+s.z = camPos.Z
+s.pitch = camPitch
+s.yaw = camYaw
+fcPersistPos()
+end
 end
 local camera = Workspace.CurrentCamera
 local char = LocalPlayer.Character
@@ -2073,11 +2317,12 @@ end)
 closeBtn.MouseButton1Click:Connect(function()
 fcMenuSet(false)
 end)
--- TP CAM TO POS: телепорт КАМЕРЫ в сохранённую точку. Если фрикам ещё не
--- включён — включаем и переносим камеру в точку (персонаж остаётся на месте).
+-- 0.59: TP CAM TO POS — телепорт КАМЕРЫ в ВЫБРАННУЮ точку списка (< >).
+-- Если фрикам ещё не включён — включаем и переносим камеру в точку
+-- (персонаж остаётся на месте).
 tpCamBtn.MouseButton1Click:Connect(function()
-if not savedPos or not savedPitch or not savedYaw then
-journal("ФРИКАМ: нет сохранённой точки — сначала нажми SAVE POS")
+if FC_SlotIdx < 1 or FC_SlotIdx > #FC_Slots then
+journal("ФРИКАМ: нет сохранённых точек — нажми SAVE POS (можно несколько)")
 tpCamBtn.Text = "NO POS!"
 task.delay(0.9, function()
 pcall(function()
@@ -2090,10 +2335,12 @@ if not fcActive then
 fcSetEnabledInner(true)
 end
 if fcActive then
-camPos = savedPos
-camPitch = savedPitch
-camYaw = savedYaw
-journal("ФРИКАМ: камера телепортирована в сохранённую точку (TP CAM)")
+local s = FC_Slots[FC_SlotIdx]
+camPos = Vector3.new(s.x, s.y, s.z)
+camPitch = s.pitch
+camYaw = s.yaw
+fcSlotMirror()
+journal("ФРИКАМ: камера в точке " .. s.name .. " (" .. FC_SlotIdx .. "/" .. #FC_Slots .. ")")
 end
 end)
 function fcSetEnabled(state)
@@ -2182,206 +2429,3 @@ end
 UIRegistry.FCPanel = FreeCamSection:Toggle({
 Name = "Кнопка CAM на экране",
 Flag = "FreeCamPanel",
-Info = "Плавающая кнопка CAM на экране: тап ОТКРЫВАЕТ меню фрикама (FLY — вкл/выкл полёта, скорость, SAVE POS, TP CAM TO POS, скрыть меню). Сама кнопка полёт НЕ включает. Кнопку можно перетащить в удобное место. Скрой, если мешает.",
-Default = true,
-Callback = function(state)
-fcSetPanelVisible(state)
-end
-})
-UIRegistry.FCSpeed = FreeCamSection:Slider({
-Name = "Скорость полёта",
-Flag = "FreeCamSpeed",
-Info = "Скорость полёта камеры (10–1000). Меняй ползунком, кнопками −/+ на панели CAM, а на ПК — клавишами [ и ].",
-Default = 100,
-Min = 10,
-Max = 1000,
-Decimals = 1,
-Callback = function(v)
-fcSetSpeed(v)
-end
-})
-UIRegistry.FCTouchSens = FreeCamSection:Slider({
-Name = "Чувствительность касания",
-Flag = "FreeCamTouchSens",
-Info = "Насколько резко камера поворачивается от пальца. Мало — вяло, много — дёргано. Рекомендую 0.3–0.5.",
-Default = 0.35,
-Min = 0.05,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-FC_TouchSens = v
-end
-})
-UIRegistry.FCMouseSens = FreeCamSection:Slider({
-Name = "Чувствительность мыши",
-Flag = "FreeCamMouseSens",
-Info = "Чувствительность обзора мышью на ПК. Рекомендую 0.15–0.25.",
-Default = 0.20,
-Min = 0.05,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-FC_MouseSens = v
-end
-})
-UIRegistry.FCRemember = FreeCamSection:Toggle({
-Name = "Запоминать позицию камеры",
-Flag = "FreeCamRemember",
-Info = "При включении фрикама камера возвращается в сохранённую точку. Точку сохраняет кнопка SAVE POS на панели CAM (плюс авто-запоминание при выключении фрикама). Телепорт камеры в точку — кнопка TP CAM TO POS.",
-Default = false,
-Callback = function(state)
-FC_RememberPos = state
-end
-})
-UIRegistry.FCHookKeys = FreeCamSection:Toggle({
-Name = "Подмена IsKeyDown — РИСК",
-Flag = "FreeCamHookKeys",
-Info = "Подменяет IsKeyDown, чтобы WASD летали без перехвата игры. РИСК: хук-методы анти-чит может детектить. Включай только если клавиши полёта не работают.",
-Default = false,
-Callback = function(state)
-FreeCam.HookKeys = state
-if state then
--- hookfunction установится при следующем включении фрикама
-journal("ФРИКАМ: подмена IsKeyDown РАЗРЕШЕНА (хук-метод — анти-чит может детектить!)")
-else
-journal("ФРИКАМ: подмена IsKeyDown запрещена (безопасный режим)")
-end
-end
-})
-FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
-FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Панель CAM (тап по CAM): FLY вкл/выкл, скорость, SAVE POS, TP CAM TO POS, крестик — скрыть меню.")
-FreeCamSection:Label("Персонажа чит НЕ трогает ВООБЩЕ (0.56: ни якоря, ни скоростей — урок бана WALKSPEED 1000): стоит где стоял, отключается только управление. Аимбот и анти-тряска на время фрикама отключаются.")
--- кейбинды (ПК/Xeno): вкл/выкл + скорость
-local fcHasKb = false
-pcall(function()
-fcHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
-end)
-if fcHasKb then
-FCHotkeyBusy = true
-UIRegistry.FCKey = UIRegistry.FCToggle:Keybind({
-Flag = "FreeCamToggleKey",
-Default = Enum.KeyCode.P,
-Mode = "Toggle",
-Callback = function(state)
-if FCHotkeyBusy then return end
-fcSetEnabled(state)
-end
-})
-FCHotkeyBusy = false
-UIRegistry.FCSpeedUpLabel = FreeCamKeySection:Label("Скорость + (клавиша)")
-UIRegistry.FCSpeedUpKey = UIRegistry.FCSpeedUpLabel:Keybind({
-Flag = "FreeCamSpeedUpKey",
-Default = Enum.KeyCode.RightBracket,
-Mode = "Always",
-Callback = function(state)
-if state then fcSpeedStep(1) end
-end
-})
-UIRegistry.FCSpeedDownLabel = FreeCamKeySection:Label("Скорость - (клавиша)")
-UIRegistry.FCSpeedDownKey = UIRegistry.FCSpeedDownLabel:Keybind({
-Flag = "FreeCamSpeedDownKey",
-Default = Enum.KeyCode.LeftBracket,
-Mode = "Always",
-Callback = function(state)
-if state then fcSpeedStep(-1) end
-end
-})
-FreeCamKeySection:Label("Смена клавиши: тапни по кнопке [..] и нажми новую. Backspace = убрать.")
-else
-FreeCamKeySection:Label("Клавиши доступны только на ПК (Xeno). На телефоне — кнопка CAM и панель.")
-end
-end)
-print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
-S = {
-ESP = {
-Enabled = false,
-Box = false,
-Chams = false,
-ChamsTransparency = 0.5,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-MaxDistance = 1500,
-DistanceScale = true, 
-TeamCheck = false, 
-VisCheck = false, 
-VisHitbox = false, 
-},
-ESPColors = {
-Box = Color3.fromRGB(0, 255, 255),
-},
-Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
-FullBright = false,
-NoDecoration = false,
-NoGrass = false,
-NoFog = false,
-Bullets = { Enabled = false, Style = "Луч", Color = Color3.fromRGB(255, 255, 255), TextureID = "rbxassetid://12781852245", Width = 1.5, Transparency = 0, LifeTime = 0.5, TeamCheck = true },
-NPC = {
-ESP = false,
-CatGuards = true, 
-CatPeaceful = false, 
-CatAnimals = false, 
-CatSleepers = false, 
-DebugLog = false, 
-Box = false,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-Chams = false,
-ChamsTransparency = 0.5,
-MaxDistance = 3000,
-HitboxEnabled = false,
-HitboxSize = 5,
-HitboxTransparency = 0.7,
-HitboxAnimals = false, 
-HitboxSleepers = false, 
-},
-HUD = {
-Enabled = true,
-Size = 11, 
-BgTransparency = 0.35, 
-TextTransparency = 0, 
-Corner = "Лево-низ", 
-ShowTPS = true, 
-ShowBg = true, 
--- 0.39: новые поля
-ColorBg = Color3.fromRGB(12, 12, 16),
-ColorText = Color3.fromRGB(235, 235, 240),
-ColorStroke = Color3.fromRGB(255, 170, 40),
-ShowAdmin = true, 
-Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
-},
-Loot = {
-Enabled = false,
-Owner = true, 
-Slots = true, 
-Distance = true,
-Box = true,
-Chams = true, 
-MaxDistance = 1500,
-DebugLog = false, 
-},
-LootC = {
-Enabled = false,
-Name = true, 
-Distance = true,
-Box = true,
-MaxDistance = 800,
-Chams = false, 
-},
-}
-LOOT_COLOR = Color3.fromRGB(255, 70, 255)
-LOOTC_COLOR = Color3.fromRGB(255, 210, 0)
-CollectionService = game:GetService("CollectionService")
-NPC_COLOR = Color3.fromRGB(255, 145, 0) 
-NPC_CAT_COLORS = {
-Guard = Color3.fromRGB(255, 145, 0), 
-Peaceful = Color3.fromRGB(80, 255, 140), 
-Animal = Color3.fromRGB(255, 80, 95), 
-Sleeper = Color3.fromRGB(80, 190, 255), 
-}
-NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
-NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
-SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }

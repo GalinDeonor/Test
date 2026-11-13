@@ -1,0 +1,31 @@
+ПРОЧТИ_ЗАЛИВКА_059.txt — GITHUB + ЗАПУСК
+================================================================
+(этот файл на репо НЕ заливай)
+
+ШАГ 1 — ЗАЛИВКА (одним коммитом)
+github.com/GalinDeonor/Test -> Add file -> Upload files ->
+перетащи ВСЕ файлы из этой папки КРОМЕ «ПРОЧТИ_ЗАЛИВКА_059.txt»:
+  Fust1..Fust6, manifest.json, BUGS.md            (заменят старые)
+  FUST_loader_delta_059.txt, FUST_xeno_059.lua    (новые)
+  FUST_loader_universal.txt                       (не изменился)
+  INSTRUKCIJA_059.txt
+Соглашайся на «Replace existing files». Один коммит.
+ЛОАДЕР FUST_loader_universal.txt НЕ МЕНЯЕТСЯ — сам скачает 0.59.
+
+ШАГ 2 — ПРОВЕРКА РЕПО
+https://raw.githubusercontent.com/GalinDeonor/Test/main/manifest.json
+  -> "ver": "0.59" и "v": 59 (если показывает старое — это кэш браузера,
+проверь в инкогнито).
+
+ШАГ 3 — ЗАПУСК
+XENO: лоадер FUST_loader_universal.txt -> EXECUTE (сам скачает 0.59).
+DELTA: текст FUST_loader_delta_059.txt -> EXECUTE.
+
+ЧТО ПРОВЕРИТЬ В 0.59
+1. МУЛЬТИ-ТОЧКИ ФРИКАМА: SAVE POS дважды в разных местах -> на панели
+   «POS 2 (2/2)»; < > листают; TP CAM TO POS летит в выбранную.
+2. DEL POS: первый тап «SURE?», второй — удаление.
+3. Перезайди в игру: точки остались (журнал: «загружено сохранённых
+   точек: N»).
+4. Как в 0.58: X-Ray ловит стены, фрикам WASD/SPACE/CTRL/СТРЕЛКИ,
+   стрельба, FOV-круг, «ВЫКЛЮЧИТЬ СКРИПТ» в Конфигах.

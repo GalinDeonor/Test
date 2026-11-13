@@ -1,3 +1,67 @@
+Library:ChangeItemTheme(self, Properties)
+end
+Instances.Connect = function(self, Event, Callback, Name)
+if not self.Instance then
+return
+end
+if not self.Instance[Event] then
+return
+end
+return Library:Connect(self.Instance[Event], Callback, Name)
+end
+Instances.Tween = function(self, Info, Goal)
+if not self.Instance then
+return
+end
+return Tween:Create(self, Info, Goal)
+end
+Instances.Disconnect = function(self, Name)
+if not self.Instance then
+return
+end
+return Library:Disconnect(Name)
+end
+Instances.Clean = function(self)
+if not self.Instance then
+return
+end
+self.Instance:Destroy()
+self = nil
+end
+Instances.MakeDraggable = function(self)
+if not self.Instance then
+return
+end
+local Gui = self.Instance
+local Dragging = false
+local DragStart
+local StartPosition
+local Set = function(Input)
+local DragDelta = Input.Position - DragStart
+local NewX = StartPosition.X.Offset + DragDelta.X
+local NewY = StartPosition.Y.Offset + DragDelta.Y
+local ScreenSize = Gui.Parent.AbsoluteSize
+local GuiSize = Gui.AbsoluteSize
+local MaxX = ScreenSize.X - GuiSize.X
+local MaxY = ScreenSize.Y - GuiSize.Y
+if MaxX >= 0 then
+NewX = MathClamp(NewX, 0, MaxX)
+end
+if MaxY >= 0 then
+NewY = MathClamp(NewY, 0, MaxY)
+end
+self:Tween(TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, NewX, 0, NewY)})
+end
+local InputChanged
+self:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+Dragging = true
+DragStart = Input.Position
+StartPosition = Gui.Position
+if InputChanged then
+return
+end
+InputChanged = Input.Changed:Connect(function()
 if Input.UserInputState == Enum.UserInputState.End then
 Dragging = false
 InputChanged:Disconnect()
@@ -2724,3 +2788,40 @@ FontFace = Library.Font,
 TextColor3 = FromRGB(0, 0, 0),
 BorderColor3 = FromRGB(0, 0, 0),
 Text = "",
+AutoButtonColor = false,
+Size = UDim2New(0, 0, 0, 26),
+BorderSizePixel = 0,
+TextSize = 14,
+LayoutOrder = 2,
+BackgroundColor3 = Library.Theme["Element"]
+}):AddToTheme({BackgroundColor3 = 'Element'})
+local DropdownFlex = Instance.new("UIFlexItem")
+DropdownFlex.FlexMode = Enum.UIFlexMode.Fill
+DropdownFlex.Parent = Items["RealDropdown"].Instance
+Instances:Create("UICorner", {
+Parent = Items["RealDropdown"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(0, 8)
+})
+Instances:Create("UIStroke", {
+Parent = Items["RealDropdown"].Instance,
+Name = "\0",
+Color = Library.Theme["Outline"],
+ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+}):AddToTheme({Color = 'Outline'})
+Items["Value"] = Instances:Create("TextLabel", {
+Parent = Items["RealDropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+TextTransparency = 0.15,
+Text = "--",
+Size = UDim2New(0, 0, 0, 15),
+AnchorPoint = Vector2New(0, 0.5),
+BorderSizePixel = 0,
+BackgroundTransparency = 1,
+Position = UDim2New(0, 8, 0.5, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 13
+}):AddToTheme({TextColor3 = 'Text'})
