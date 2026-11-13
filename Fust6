@@ -1,3 +1,73 @@
+if myChar and obj:IsAncestorOf(myChar) then
+return
+end
+local name = string.lower(obj.Name)
+local byName = string.find(name, "copter", 1, true)
+or string.find(name, "heli", 1, true)
+or string.find(name, "вертол", 1, true)
+local isCopter = false
+if byName then
+isCopter = true
+else
+local seat = obj:FindFirstChildWhichIsA("VehicleSeat", true)
+if seat then
+isCopter = true
+end
+end
+if isCopter then
+local part = resolveCopterPart(obj)
+if part then
+trackedCopters[obj] = part
+end
+else
+copterChecked[obj] = true
+end
+end
+for _, obj in ipairs(Workspace:GetChildren()) do
+if obj:IsA("Model") then
+tryCopter(obj)
+elseif obj:IsA("Folder") then
+for _, obj2 in ipairs(obj:GetChildren()) do
+if obj2:IsA("Model") then
+tryCopter(obj2)
+end
+end
+end
+end
+end
+task.spawn(function()
+while getgenv().FUST_SESSION == FUST_SESSION do
+if Aim.TargetsCopters and os.clock() - lastCopterScan > 2 then
+lastCopterScan = os.clock()
+pcall(refreshCopters)
+end
+task.wait(1)
+end
+end)
+
+function getAimTarget(camera)
+local char = LocalPlayer.Character
+local localRoot = char and char:FindFirstChild("HumanoidRootPart")
+if not localRoot then
+return nil
+end
+local camPos = camera.CFrame.Position
+local look = camera.CFrame.LookVector
+local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+local bestPart, bestPoint, bestType
+local bestScore = math.huge
+local now = os.clock()
+if now - velEMALastClean > 30 then
+velEMALastClean = now
+for root in pairs(velEMA) do
+if not root.Parent then
+velEMA[root] = nil
+end
+end
+end
+if Aim.TargetsPlayers ~= false then
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer
 and Whitelist[plr.Name] == nil
 and not (Aim.TeamCheck and plr.Team ~= nil and plr.Team == LocalPlayer.Team) then
 local model = plr.Character
@@ -141,20 +211,11 @@ return
 end
 local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 updateCrosshairV(dt, center)
-if not Aim.Enabled then
+-- 0.56: аим выключен ИЛИ фрикам — сброс цели, FOV-круг прячем
+if not Aim.Enabled or FreeCam.Enabled then
 AIM_TargetPart = nil
 AIM_TargetScreenPos = nil
-if fovCircle then
-fovCircle.Visible = false
-end
-return
-end
-if FreeCam.Enabled then
-AIM_TargetPart = nil
-AIM_TargetScreenPos = nil
-if fovCircle then
-fovCircle.Visible = false
-end
+fovGuiSetVisible(false)
 return
 end
 local part, aimPos = getAimTarget(camera)
@@ -168,12 +229,8 @@ end)
 else
 AIM_TargetScreenPos = nil
 end
-if fovCircle then
-fovCircle.Position = center
-fovCircle.Radius = Aim.FOV
-fovCircle.Color = part and AIM_FOV_ON or AIM_FOV_OFF
-fovCircle.Visible = Aim.ShowFOV
-end
+-- 0.56: GUI FOV-круг (вращающийся; красно-чёрный / зелёный по видимости)
+fovGuiUpdate(center, part and true or false)
 if part and aimPos then
 AR_AimBusyUntil = os.clock() + 0.15
 local newCF = CFrame.new(camera.CFrame.Position, aimPos)
@@ -219,38 +276,52 @@ if now - AF_LastShot >= AutoFire.Delay then
 AF_LastShot = now
 AF_LastTargetPart = part
 pcall(function()
--- 0.52 FIX (E-17): движок выстрела = VOMAGLA (тот скрипт на телефоне
--- у юзера не крашился НИ РАЗУ). Порядок: 1) mouse1click, 2) VirtualInputManager:
--- press + release ЧЕРЕЗ task.defer — клик живёт минимум до конца кадра,
--- Roblox успевает обработать нажатие (подряд press+release мог глотаться),
--- 3) Tool:Activate() — финальный фолбэк для телефона. Ветвление по
--- KeyboardEnabled/TouchEnabled УДАЛЕНО: экзекуторы врут во флагах,
--- VOMAGLA не ветвится вообще и работает на Delta. task.defer НЕ yield —
--- aim loop не ломается (запрещён только task.wait, урок 0.39v4).
+-- ПК: симулируем левый клик мышью через mouse1click (если есть)
+-- или VirtualInputManager. НЕ перехватываем управление телефоном.
+-- 0.49 FIX: выбор ветки по РЕАЛЬНОМУ вводу — экзекуторы на телефоне врут
+-- во флагах (KeyboardEnabled бывает true на Delta). Телефон = TouchEnabled.
+-- 0.56 (E-20): движок ВЕРНУТ по приказу пользователя — VOMAGLA (0.52-0.55)
+-- не стрелял, а этот работает на Xeno с линии 0.39.
+local hasKeyboard = UserInputService.KeyboardEnabled and not UserInputService.TouchEnabled
+if hasKeyboard then
+-- Xeno: mouse1click / mouse1press / mouse1release
+local m1c = getgenv().mouse1click
 local afFired = false
-if type(mouse1click) == "function" then
-mouse1click()
+if type(m1c) == "function" then
+m1c()
 afFired = true
-end
-if not afFired then
+else
+-- фолбэк: VirtualInputManager (Roblox)
 local okV, vim = pcall(function()
 return game:GetService("VirtualInputManager")
 end)
 if okV and vim then
+-- 0.39v4 FIX: task.wait здесь ЗАПРЕЩЁН (yield в RenderStepped ломает
+-- весь aim loop). Шлём press+release без задержки — Roblox сам
+-- обработает порядок.
 vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-task.defer(function()
 vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-end)
 afFired = true
 end
 end
 if not afFired then
--- телефон без эмуляции мыши: жмём Tool:Activate() напрямую
+-- 0.49 FIX: mouse1click/VIM недоступны — стреляем Tool:Activate()
 local afChar = LocalPlayer.Character
 local afTool = afChar and afChar:FindFirstChildOfClass("Tool")
 if afTool then
 pcall(function()
 afTool:Activate()
+end)
+end
+end
+else
+-- Телефон: НЕ перехватываем управление. Авто-стрельба только если
+-- в игре есть Tool с Activate() — вызываем его напрямую.
+local char = LocalPlayer.Character
+local tool = char and char:FindFirstChildOfClass("Tool")
+if tool then
+pcall(function()
+tool:Activate()
 end)
 end
 end
@@ -265,11 +336,10 @@ aimConnection:Disconnect()
 aimConnection = nil
 end
 pcall(function()
-if fovCircle then
-fovCircle:Remove()
+if fovGuiDestroy then
+fovGuiDestroy()
 end
 end)
-fovCircle = nil 
 for i = 1, 4 do
 pcall(function()
 if chLines[i] then
@@ -563,6 +633,10 @@ HitboxSleepers = S.NPC.HitboxSleepers,
 Aim = {
 Enabled = Aim.Enabled,
 ShowFOV = Aim.ShowFOV,
+FovColorNoTarget = colorToTable(Aim.FovColorNoTarget),
+FovColorTarget = colorToTable(Aim.FovColorTarget),
+FovThickness = Aim.FovThickness,
+FovSpin = Aim.FovSpin,
 FOV = Aim.FOV,
 Distance = Aim.Distance,
 Smooth = Aim.Smooth,
@@ -857,6 +931,26 @@ if type(cfg.Aim) == "table" then
 local a = cfg.Aim
 applyFlag("AimEnabled", a.Enabled)
 applyFlag("AimShowFOV", a.ShowFOV)
+local fovNoColor = tableToColor(a.FovColorNoTarget)
+if fovNoColor then
+Aim.FovColorNoTarget = fovNoColor
+pcall(function()
+if UIRegistry.AimFovColorNo and UIRegistry.AimFovColorNo.Set then
+UIRegistry.AimFovColorNo:Set(fovNoColor)
+end
+end)
+end
+local fovYesColor = tableToColor(a.FovColorTarget)
+if fovYesColor then
+Aim.FovColorTarget = fovYesColor
+pcall(function()
+if UIRegistry.AimFovColorYes and UIRegistry.AimFovColorYes.Set then
+UIRegistry.AimFovColorYes:Set(fovYesColor)
+end
+end)
+end
+applyFlag("AimFovThickness", a.FovThickness)
+applyFlag("AimFovSpin", a.FovSpin)
 applyFlag("AimFOV", a.FOV)
 applyFlag("AimDistance", a.Distance)
 applyFlag("AimSmooth", a.Smooth)
@@ -909,51 +1003,10 @@ end
 end)
 return okFile, err
 end
-cfgStatus = Instance.new("TextLabel")
-cfgStatus.Name = "FustConfigStatus"
-cfgStatus.Font = Enum.Font.Gotham
-cfgStatus.TextSize = 12
-cfgStatus.Text = ""
-cfgStatus.TextColor3 = Color3.fromRGB(0, 255, 120)
-cfgStatus.BackgroundTransparency = 1
-cfgStatus.Size = UDim2.new(1, 0, 0, 16)
-cfgStatus.LayoutOrder = 92
-cfgStatus.Parent = ConfigSection.Items["Content"].Instance
-function flashStatus(text, isError)
-cfgStatus.Text = text
-cfgStatus.TextColor3 = isError and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(0, 255, 120)
-task.delay(2.5, function()
-if cfgStatus.Text == text then
-cfgStatus.Text = ""
-end
-end)
-end
-ConfigSection:Button({
-Name = "Сохранить конфиг",
-Callback = function()
-local okFile, err = saveConfig()
-if okFile then
-flashStatus("Конфиг сохранён ✓")
-print("[FUST] Конфиг сохранён: " .. CONFIG_FILE)
-else
-flashStatus("Ошибка сохранения!", true)
-warn("[FUST] Конфиг не сохранён: " .. tostring(err))
-end
-end
-})
-ConfigSection:Button({
-Name = "Загрузить конфиг",
-Callback = function()
-local okFile, err = loadConfig()
-if okFile then
-flashStatus("Конфиг загружен ✓")
-print("[FUST] Конфиг загружен: " .. CONFIG_FILE)
-else
-flashStatus("Конфиг не найден", true)
-warn("[FUST] Конфиг не загружен: " .. tostring(err))
-end
-end
-})
+-- 0.55: старый одиночный конфиг (FUST_config.json, кнопки «Сохранить/
+-- Загрузить конфиг») убран. Вместо него — УЛУЧШЕННЫЕ КОНФИГИ со списком
+-- и подтверждением перезаписи: подвкладка «Конфиги» на этой же странице.
+ConfigSection:Label("КОНФИГИ 0.55: подвкладка «Конфиги» (та же страница Main) — список конфигов, загрузка, сохранение и удаление. Перезапись и удаление — только через подтверждение.")
 ConfigSection:Button({
 Name = "ВЫКЛЮЧИТЬ СКРИПТ",
 Callback = function()
@@ -2334,7 +2387,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.54 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.56 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2412,6 +2465,10 @@ Default = logText0,
 Placeholder = "(лог пуст — ещё не было киков/банов)",
 MultiLine = true,
 })
+-- 0.55: авто-обновление раз в 5 сек, но (1) НЕ трогаем поле, пока юзер
+-- его читает/редактирует (текстбокс в фокусе), (2) не переписываем тем же
+-- текстом (раньше поле дёргалось каждые 5 сек и слетало к началу).
+local lastLogText, lastJournalText = nil, nil
 task.spawn(function()
 while true do
 task.wait(5)
@@ -2419,6 +2476,11 @@ if getgenv().FUST_SESSION ~= FUST_SESSION then
 break
 end
 pcall(function()
+local focused = nil
+pcall(function()
+focused = UserInputService:GetFocusedTextBox()
+end)
+if focused ~= nil then return end
 local log = ""
 if type(isfile) == "function" and isfile(KICKLOG_FILE) then
 log = readfile(KICKLOG_FILE) or ""
@@ -2426,12 +2488,63 @@ end
 if #log > 4000 then
 log = "...(предыдущие записи скрыты)...\n" .. log:sub(#log - 3900)
 end
-if UIRegistry.LogText and UIRegistry.LogText.Set then
+if log ~= lastLogText and UIRegistry.LogText and UIRegistry.LogText.Set then
+lastLogText = log
 UIRegistry.LogText:Set(log)
 end
+local jrn = ""
+if type(isfile) == "function" and isfile(JOURNAL_FILE) then
+jrn = readfile(JOURNAL_FILE) or ""
+end
+if #jrn > 4000 then
+jrn = "...(предыдущие записи скрыты)...\n" .. jrn:sub(#jrn - 3900)
+end
+if jrn ~= lastJournalText and UIRegistry.JournalText and UIRegistry.JournalText.Set then
+lastJournalText = jrn
+UIRegistry.JournalText:Set(jrn)
+end
 end)
 end
 end)
+end)
+-- 0.55: ЖУРНАЛ ЧИТА — видимый вьювер FUST_journal.txt. Раньше журнал был
+-- только файлом на диске (на телефоне не открыть) — диагностика X-Ray и
+-- прочего была невидимкой. Теперь вкладка «Журнал» на странице Логи.
+uiStep("Журнал чита", function()
+JournalSection = LogPage:Section({ Name = "Журнал чита", Tab = "Журнал", Side = 2 })
+JournalSection:Label("Сюда чит пишет всё: запуск, включения функций, ошибки, диагностику X-Ray (сколько построек нашёл). Если что-то не работает — открой эту вкладку и скинь скрин в чат.")
+UIRegistry.JournalRefresh = JournalSection:Button({
+Name = "Обновить журнал",
+Callback = function()
+pcall(function()
+local jrn = ""
+if type(isfile) == "function" and isfile(JOURNAL_FILE) then
+jrn = readfile(JOURNAL_FILE) or ""
+end
+if #jrn > 4000 then
+jrn = "...(предыдущие записи скрыты)...\n" .. jrn:sub(#jrn - 3900)
+end
+if UIRegistry.JournalText and UIRegistry.JournalText.Set then
+UIRegistry.JournalText:Set(jrn)
+end
+end)
+end
+})
+local jrn0 = ""
+pcall(function()
+if type(isfile) == "function" and isfile(JOURNAL_FILE) then
+jrn0 = readfile(JOURNAL_FILE) or ""
+end
+if #jrn0 > 4000 then
+jrn0 = "...(предыдущие записи скрыты)...\n" .. jrn0:sub(#jrn0 - 3900)
+end
+end)
+UIRegistry.JournalText = JournalSection:Textbox({
+Name = "Содержимое журнала",
+Default = jrn0,
+Placeholder = "(журнал пуст)",
+MultiLine = true,
+})
 end)
 -- /СТРАНИЦА ЛОГИ =============================================================
 
@@ -2512,7 +2625,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.54 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.56 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

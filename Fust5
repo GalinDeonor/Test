@@ -1,3 +1,52 @@
+wlInput.BorderSizePixel = 0
+wlInput.Size = UDim2.new(1, 0, 0, 32)
+wlInput.LayoutOrder = 5
+wlInput.Active = true
+wlInput.Selectable = true
+wlInput.Parent = wlPanel
+do
+wlCorner(wlInput)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = wlInput
+end
+wlButtonRow = Instance.new("Frame")
+wlButtonRow.Name = "FustWhitelistButtons"
+wlButtonRow.BackgroundTransparency = 1
+wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
+wlButtonRow.LayoutOrder = 6
+wlButtonRow.Parent = wlPanel
+do
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlButtonRow
+end
+function wlMakeButton(text, order, bg, fg)
+local b = Instance.new("TextButton")
+b.Font = Enum.Font.GothamBold
+b.TextSize = 13
+b.Text = text
+b.TextColor3 = fg
+b.BackgroundColor3 = bg
+b.BorderSizePixel = 0
+b.Size = UDim2.new(0.5, -3, 1, 0)
+b.LayoutOrder = order
+b.Parent = wlButtonRow
+wlCorner(b, 5)
+return b
+end
+wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
+wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
+wlAdd.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = true
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
 wlInput:ReleaseFocus()
 end)
 end)
@@ -22,6 +71,10 @@ rebuildPlayerList()
 Aim = {
 Enabled = false,
 ShowFOV = false,
+FovColorNoTarget = Color3.fromRGB(255, 0, 0),
+FovColorTarget = Color3.fromRGB(0, 255, 100),
+FovThickness = 5,
+FovSpin = 1,
 FOV = 150, 
 Distance = 500, 
 Smooth = 4, 
@@ -103,11 +156,46 @@ end
 UIRegistry.AimShowFOV = ScreenSection:Toggle({
 Name = "FOV круг",
 Flag = "AimShowFOV",
-Info = "Круг захвата аимбота: красный — цели нет, зелёный — цель захвачена. Сам аимбот работает и с выключенным кругом.",
+Info = "FOV-круг «крутой» (0.56, GUI): вращающееся градиентное кольцо по границе захвата аимбота. Красно-чёрное — целей нет, СПЛОШНОЕ ЗЕЛЁНОЕ — цель видна/захвачена. Размер круга = FOV ниже. Цвета/толщина/вращение настраиваются тут же.",
 Default = false,
 Callback = function(state)
 Aim.ShowFOV = state
 end
+})
+-- 0.56: цвета FOV-круга (оба состояния) — колорпикеры на тоггле
+UIRegistry.AimFovColorNo = UIRegistry.AimShowFOV:Colorpicker({
+Flag = "AimFovColorNoTarget",
+Default = Color3.fromRGB(255, 0, 0),
+Callback = function(color)
+Aim.FovColorNoTarget = color
+end
+})
+UIRegistry.AimFovColorYes = UIRegistry.AimShowFOV:Colorpicker({
+Flag = "AimFovColorTarget",
+Default = Color3.fromRGB(0, 255, 100),
+Callback = function(color)
+Aim.FovColorTarget = color
+end
+})
+UIRegistry.AimFovThickness = ScreenSection:Slider({
+Name = "FOV круг: толщина линии",
+Flag = "AimFovThickness",
+Info = "Толщина кольца (1-12). По умолчанию 5 — как в скрипте-образце.",
+Default = 5,
+Min = 1,
+Max = 12,
+Decimals = 1,
+Callback = function(v) Aim.FovThickness = v end
+})
+UIRegistry.AimFovSpin = ScreenSection:Slider({
+Name = "FOV круг: скорость вращения",
+Flag = "AimFovSpin",
+Info = "Скорость вращения градиента кольца (0-8). 0 = стоит на месте. По умолчанию 1.",
+Default = 1,
+Min = 0,
+Max = 8,
+Decimals = 0.1,
+Callback = function(v) Aim.FovSpin = v end
 })
 UIRegistry.AimWallCheck = AimSection:Toggle({
 Name = "Проверка стен",
@@ -414,7 +502,7 @@ AutoFireSection = AimPage:Section({ Name = "Авто-стрельба", Tab = "�
 UIRegistry.AutoFireEnabled = AutoFireSection:Toggle({
 Name = "Авто-стрельба",
 Flag = "AutoFireEnabled",
-Info = "Авто-стрельба: жмёт выстрел сама, когда цель в захвате. Движок выстрела — VOMAGLA (0.52): mouse1click → VirtualInputManager → Tool:Activate.",
+Info = "Авто-стрельба: жмёт выстрел сама, когда цель в захвате. Движок выстрела — СТАРЫЙ (линия 0.39-0.51, тот, что работал на Xeno): ПК — mouse1click/VirtualInputManager, телефон — Tool:Activate().",
 Default = false,
 Callback = function(state)
 AutoFire.Enabled = state
@@ -452,7 +540,7 @@ Info = "Не стрелять через стены — не тратит пат
 Default = true,
 Callback = function(state) AutoFire.WallCheck = state end
 })
-AutoFireSection:Label("Движок выстрела VOMAGLA (0.52): mouse1click → VirtualInputManager → Tool:Activate (телефон). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
+AutoFireSection:Label("Движок выстрела — старый (0.39-0.51), проверен на Xeno: ПК — mouse1click/VirtualInputManager, телефон — Tool:Activate(). Задержка 0 = каждый кадр. WallCheck — не тратит патроны на цели за стеной.")
 RecoilSection = AimPage:Section({ Name = "Анти-отдача и тряска", Tab = "Экран", Side = 2 }) -- 0.54: переехала в подвкладку «Экран»
 UIRegistry.AntiRecoilEnabled = RecoilSection:Toggle({
 Name = "Анти-отдача",
@@ -937,18 +1025,123 @@ end
 Drawing = { new = function() return makeDummyDrawing() end, Fonts = { Plex = 0 } }
 warn("[FUST] Drawing недоступен в этом экзекуторе — ESP/прицел работают вхолостую")
 end
-AIM_FOV_OFF = Color3.fromRGB(150, 0, 20)
-AIM_FOV_ON = Color3.fromRGB(0, 255, 100)
-fovCircle = SafeDrawing("Circle")
-if fovCircle then
-fovCircle.Thickness = 1.5
-fovCircle.NumSides = 64
-fovCircle.Filled = false
-fovCircle.Radius = Aim.FOV
-fovCircle.Color = AIM_FOV_OFF
-fovCircle.Visible = false
+-- 0.56: FOV-КРУГ «КРУТОЙ» — GUI-версия по скрипту юзера (Frame + UICorner +
+-- UIStroke + UIGradient, кольцо ВРАЩАЕТСЯ). Реакция на видимость: целей нет —
+-- красно-чёрное кольцо (основной + затемнённый цвет), цель захвачена аимботом —
+-- СПЛОШНОЙ зелёный. Работает даже в экзекуторах БЕЗ Drawing API. Создание
+-- ленивое — ScreenGui появляется при первом показе, на старте ноль расхода.
+fovGuiScreen = nil
+fovGuiFrame = nil
+fovGuiStroke = nil
+fovGuiGradient = nil
+fovGuiLastMain = nil
+fovGuiLastTarget = nil
+fovGuiEnsure = function()
+if fovGuiScreen and fovGuiScreen.Parent then return true end
+local okP, fParent = pcall(function()
+return (gethui and gethui()) or game:GetService("CoreGui")
+end)
+if not okP or not fParent then
+fParent = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui")
+end
+pcall(function()
+local old = fParent:FindFirstChild("FUSTFovCircle")
+if old then old:Destroy() end
+end)
+local sg = Instance.new("ScreenGui")
+sg.Name = "FUSTFovCircle"
+sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = true
+sg.DisplayOrder = 5
+pcall(function()
+sg.Parent = fParent
+end)
+if not sg.Parent then
+sg.Parent = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+end
+local fr = Instance.new("Frame")
+fr.Name = "Circle"
+fr.AnchorPoint = Vector2.new(0.5, 0.5)
+fr.Position = UDim2.fromOffset(0, 0)
+fr.Size = UDim2.fromOffset(Aim.FOV * 2, Aim.FOV * 2)
+fr.BackgroundTransparency = 1
+fr.Visible = false
+fr.Parent = sg
+local cr = Instance.new("UICorner")
+cr.CornerRadius = UDim.new(1, 0)
+cr.Parent = fr
+local st = Instance.new("UIStroke")
+st.Thickness = Aim.FovThickness
+st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+st.Color = Aim.FovColorNoTarget
+st.Parent = fr
+local gr = Instance.new("UIGradient")
+gr.Rotation = 0
+gr.Parent = st
+fovGuiScreen = sg
+fovGuiFrame = fr
+fovGuiStroke = st
+fovGuiGradient = gr
+fovGuiLastMain = nil
+fovGuiLastTarget = nil
+return sg.Parent ~= nil
+end
+fovGuiApplyColors = function(main, hasTarget)
+if not fovGuiGradient then return end
+fovGuiStroke.Color = main
+if hasTarget then
+-- цель захвачена — СПЛОШНОЙ цвет (по умолчанию зелёный)
+fovGuiGradient.Color = ColorSequence.new(main)
 else
-warn("[FUST] Drawing.new(\"Circle\") не создался — FOV-круг отключён, аимбот продолжает работать")
+-- целей нет — кольцо из основного + затемнённого (красно-чёрное)
+local dark = Color3.new(main.R * 0.15, main.G * 0.15, main.B * 0.15)
+fovGuiGradient.Color = ColorSequence.new{
+ColorSequenceKeypoint.new(0.0, dark),
+ColorSequenceKeypoint.new(0.5, main),
+ColorSequenceKeypoint.new(1.0, dark),
+}
+end
+end
+fovGuiSetVisible = function(v)
+if v then
+if not fovGuiEnsure() then return end
+fovGuiFrame.Visible = true
+else
+if fovGuiFrame then
+fovGuiFrame.Visible = false
+end
+end
+end
+fovGuiUpdate = function(center, hasTarget)
+if not Aim.ShowFOV then
+fovGuiSetVisible(false)
+return
+end
+if not fovGuiEnsure() then return end
+fovGuiFrame.Position = UDim2.fromOffset(center.X, center.Y)
+fovGuiFrame.Size = UDim2.fromOffset(Aim.FOV * 2, Aim.FOV * 2)
+fovGuiStroke.Thickness = Aim.FovThickness
+local main = hasTarget and Aim.FovColorTarget or Aim.FovColorNoTarget
+if fovGuiLastTarget ~= hasTarget or fovGuiLastMain ~= main then
+fovGuiApplyColors(main, hasTarget)
+fovGuiLastTarget = hasTarget
+fovGuiLastMain = main
+end
+fovGuiGradient.Rotation = (fovGuiGradient.Rotation + Aim.FovSpin) % 360
+fovGuiFrame.Visible = true
+end
+fovGuiDestroy = function()
+if fovGuiScreen then
+pcall(function()
+fovGuiScreen:Destroy()
+end)
+end
+fovGuiScreen = nil
+fovGuiFrame = nil
+fovGuiStroke = nil
+fovGuiGradient = nil
+fovGuiLastMain = nil
+fovGuiLastTarget = nil
 end
 -- 0.53: ДВИЖОК ПРИЦЕЛА ИЗ VOMAGLA (1-в-1): крест из 4 Drawing-линий,
 -- вращение, пульс зазора, радуга, точка-квадрат, следование за целью
@@ -2610,73 +2803,3 @@ end
 if isPlayerCharacter(obj) then
 return
 end
-if myChar and obj:IsAncestorOf(myChar) then
-return
-end
-local name = string.lower(obj.Name)
-local byName = string.find(name, "copter", 1, true)
-or string.find(name, "heli", 1, true)
-or string.find(name, "вертол", 1, true)
-local isCopter = false
-if byName then
-isCopter = true
-else
-local seat = obj:FindFirstChildWhichIsA("VehicleSeat", true)
-if seat then
-isCopter = true
-end
-end
-if isCopter then
-local part = resolveCopterPart(obj)
-if part then
-trackedCopters[obj] = part
-end
-else
-copterChecked[obj] = true
-end
-end
-for _, obj in ipairs(Workspace:GetChildren()) do
-if obj:IsA("Model") then
-tryCopter(obj)
-elseif obj:IsA("Folder") then
-for _, obj2 in ipairs(obj:GetChildren()) do
-if obj2:IsA("Model") then
-tryCopter(obj2)
-end
-end
-end
-end
-end
-task.spawn(function()
-while getgenv().FUST_SESSION == FUST_SESSION do
-if Aim.TargetsCopters and os.clock() - lastCopterScan > 2 then
-lastCopterScan = os.clock()
-pcall(refreshCopters)
-end
-task.wait(1)
-end
-end)
-
-function getAimTarget(camera)
-local char = LocalPlayer.Character
-local localRoot = char and char:FindFirstChild("HumanoidRootPart")
-if not localRoot then
-return nil
-end
-local camPos = camera.CFrame.Position
-local look = camera.CFrame.LookVector
-local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-local bestPart, bestPoint, bestType
-local bestScore = math.huge
-local now = os.clock()
-if now - velEMALastClean > 30 then
-velEMALastClean = now
-for root in pairs(velEMA) do
-if not root.Parent then
-velEMA[root] = nil
-end
-end
-end
-if Aim.TargetsPlayers ~= false then
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer

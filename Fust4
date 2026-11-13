@@ -1,3 +1,11 @@
+SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
+ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
+GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
+SLEEPER_PATTERNS = { "sleeper", "пящ" }
+WEAPON_PATTERNS = {
+"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
+"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
+"меч", "сабл", "катан",
 "rifle", "pistol", "shotgun", "smg", "mp5", "m4a", "akm", "ak-47", "ak74",
 }
 npcCategoryCache = {} 
@@ -1791,7 +1799,7 @@ end
 XRay = { Enabled = false, Transparency = 0.5 }
 -- 0.54: ключ "Twig" ловит ЛЮБЫЕ twig-объекты (включая новые имена игры),
 -- остальные — для читаемости
-XRAY_KEYWORDS = { "Twig", "TwigWall", "SoloTwigFrame", "TrigTwigRoof", "TwigFrame", "TwigWindow", "TwigRoof" }
+XRAY_KEYWORDS = { "Twig", "Wood", "Plank", "Board", "Wall", "Roof", "Floor", "Foundation", "Ramp", "Stairs", "Fence", "Frame", "Window", "Door", "Gate", "Panel", "Stone", "Metal" } -- 0.55: ключи расширены
 local xrayCache = setmetatable({}, { __mode = "k" }) -- 0.51 (E-15): слабые ключи — убитые части не копятся в памяти
 local xrayConn = nil
 local function xrayIsTwig(name)
@@ -1800,9 +1808,23 @@ if string.find(name, k, 1, true) then return true end
 end
 return false
 end
+-- 0.55: ГЛАВНЫЙ ФИКС «X-Ray не работает»: раньше матчили ТОЛЬКО имя парта.
+-- В FUST постройки — модели, у дочерних парта имена общие (Part/Union),
+-- twig в имени НЕТ. Теперь проверяем имя парта И имена моделей-родителей
+-- (2 уровня вверх).
+local function xrayNameHit(o)
+if xrayIsTwig(o.Name) then return true end
+local mp = o.Parent
+for _ = 1, 2 do
+if not mp or mp == Workspace then break end
+if xrayIsTwig(mp.Name) then return true end
+mp = mp.Parent
+end
+return false
+end
 local function xrayReg(o)
 if xrayCache[o] then return end
-if (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
+if (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayNameHit(o) then
 xrayCache[o] = { OT = o.Transparency }
 end
 end
@@ -1824,6 +1846,9 @@ pcall(function()
 if xrayConn then xrayConn:Disconnect() xrayConn = nil end
 end)
 pcall(setXrayState, false, 0.5)
+-- 0.55: дикий режим тоже возвращаем (setWildXrayState — глобальная,
+-- к моменту вызова уже определена ниже)
+pcall(setWildXrayState, false, 0.5)
 end
 -- 0.51 FIX (E-15): стартовый скан ВСЕГО Workspace БЕЗ единого yield
 -- блокировал планировщик Roblox: рендер стоял за чёрным сплэшем, Android
@@ -1846,7 +1871,7 @@ for _, o in ipairs(objs) do
 pcall(xrayReg, o)
 -- 0.54: прозрачность применяется ПРЯМО ПО ХОДУ скана — стены
 -- становятся прозрачными сразу, а не разом через 1-3 сек
-if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
+if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayNameHit(o) then
 o.Transparency = XRay.Transparency
 end
 i = i + 1
@@ -1888,19 +1913,136 @@ end
 end
 end
 end)
+if #samples == 0 then
+-- 0.55: если по ключам Wall/Roof/... пусто — берём имена ЛЮБЫХ
+-- заякоренных крупных парта: так увидим реальные имена построек
+pcall(function()
+local seen2 = {}
+local i2 = 0
+for _, o in ipairs(Workspace:GetDescendants()) do
+i2 = i2 + 1
+if i2 % 2000 == 0 then
+task.wait()
+end
+if #samples >= 8 then
+break
+end
+if (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and o.Anchored and o.Size.Magnitude > 4 and not seen2[o.Name] then
+seen2[o.Name] = true
+table.insert(samples, o.Name)
+end
+end
+end)
+end
 if #samples > 0 then
-journal("X-RAY: примеры имён стен на карте: " .. table.concat(samples, ", "))
+journal("X-RAY: примеры имён стен/объектов на карте: " .. table.concat(samples, ", "))
 else
-journal("X-RAY: имена Wall/Roof/Frame/Wood/Panel на карте не нашёл")
+journal("X-RAY: заякоренных парта на карте не нашёл — X-Ray ловить нечего")
 end
 end)
 end
 xrayConn = Workspace.DescendantAdded:Connect(function(o)
 pcall(xrayReg, o)
-if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayIsTwig(o.Name) then
+if XRay.Enabled and (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) and xrayNameHit(o) then
 o.Transparency = XRay.Transparency
 end
 end)
+-- 0.55: X-RAY «ДИКИЙ» — прозрачными становятся ВСЕ СТАТИЧНЫЕ объекты
+-- (постройки, деревья, камни, мебель). Гарантированный просвет, даже если
+-- игра опять переименовала постройки. Живое (игроки/боты — Humanoid в
+-- родителях) не трогаем, Terrain — не BasePart, не трогается. Скан
+-- чанками с task.wait() (урок E-15), лимит 15000 объектов.
+XRayWild = { Enabled = false, Transparency = 0.5 }
+local xrayWildCache = setmetatable({}, { __mode = "k" })
+local xrayWildRunning = false
+local function xrayWildTarget(o)
+if not (o:IsA("BasePart") or o:IsA("MeshPart") or o:IsA("UnionOperation")) then return false end
+if not o.Anchored then return false end
+if o.Transparency >= 0.9 then return false end
+local wp = o.Parent
+for _ = 1, 4 do
+if not wp or wp == Workspace then break end
+if wp:FindFirstChildOfClass("Humanoid") then return false end
+wp = wp.Parent
+end
+return true
+end
+function setWildXrayState(on, t)
+for p, d in pairs(xrayWildCache) do
+if p and p.Parent and p:IsDescendantOf(Workspace) then
+p.Transparency = on and t or d.OT
+else
+xrayWildCache[p] = nil
+end
+end
+end
+function xrayWildScanAll(onDone)
+if xrayWildRunning then return end
+xrayWildRunning = true
+task.spawn(function()
+local okW, errW = pcall(function()
+local matched, scanned = 0, 0
+local objs = Workspace:GetDescendants()
+for _, o in ipairs(objs) do
+scanned = scanned + 1
+if scanned % 2000 == 0 then
+task.wait()
+end
+pcall(function()
+if matched < 15000 and xrayWildTarget(o) then
+matched = matched + 1
+if not xrayWildCache[o] then
+xrayWildCache[o] = { OT = o.Transparency }
+end
+if XRayWild.Enabled then
+o.Transparency = XRayWild.Transparency
+end
+end
+end)
+end
+journal("X-RAY (дикий): статичных объектов прозрачно: " .. tostring(matched) .. " (просканировано " .. tostring(scanned) .. ")")
+end)
+if not okW then
+journal("X-RAY (дикий): ошибка скана — " .. tostring(errW))
+end
+xrayWildRunning = false
+if onDone then pcall(onDone) end
+end)
+end
+UIRegistry.XRayWildToggle = WorldSection:Toggle({
+Name = "X-Ray: ВСЁ вокруг (дикий)",
+Flag = "XRayWildEnabled",
+Info = "Дикий режим: делает прозрачными ВСЕ статичные объекты (постройки, деревья, камни, мебель) — просвет гарантирован, даже если игра переименовала стены. Игроки и боты НЕ прозрачнеют. Тяжелее для FPS, чем обычный X-Ray: включай, если обычный не сработал или нужно всё видеть.",
+Default = false,
+Callback = function(state)
+XRayWild.Enabled = state
+if state then
+xrayWildScanAll(function()
+if XRayWild.Enabled then
+pcall(setWildXrayState, true, XRayWild.Transparency)
+end
+end)
+else
+pcall(setWildXrayState, false, XRayWild.Transparency)
+end
+journal("X-RAY (дикий) " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.XRayWildTrans = WorldSection:Slider({
+Name = "X-Ray (дикий): прозрачность",
+Flag = "XRayWildTransparency",
+Info = "Прозрачность статичных объектов в диком режиме: 0.1 — почти стекло, 0.95 — еле видно. Меняется на ходу.",
+Default = 0.5,
+Min = 0.05,
+Max = 0.95,
+Decimals = 0.05,
+Callback = function(v)
+XRayWild.Transparency = v
+if XRayWild.Enabled then
+pcall(setWildXrayState, true, v)
+end
+end
+})
 -- UI: секция «Мир и освещение», вкладка «Визуалы»
 -- 0.54: синхронизация кнопки XRAY на экране с состоянием (надпись ВКЛ/ВЫКЛ)
 function xrayQuickSync()
@@ -1939,9 +2081,9 @@ journal("X-RAY " .. (XRay.Enabled and "ВКЛ" or "ВЫКЛ") .. " (кнопка
 xrayQuickSync()
 end
 UIRegistry.XRayToggle = WorldSection:Toggle({
-Name = "X-Ray twig-стен",
+Name = "X-Ray: постройки",
 Flag = "XRayEnabled",
-Info = "Просвет twig-стен (деревянных строений). Скан при включении идёт чанками 1–3 сек и не фризит, прозрачность применяется по ходу скана; новые стены ловятся автоматически. Если включил и ничего не изменилось — открой Main → Журнал: X-Ray пишет, сколько стен нашёл (если 0 — примеры имён стен, скинь скрин).",
+Info = "Просвет построек (twig/wood/камень/двери и т.п.). 0.55: ловит по имени парта И по имени модели, ключи расширены. Скан при включении идёт чанками 1–3 сек и не фризит, прозрачность применяется по ходу скана; новые стены ловятся автоматически. Если эффекта 0 — включи «X-Ray: ВСЁ вокруг (дикий)» ниже и открой Логи → Журнал чита: там написано, сколько построек нашлось (скинь скрин).",
 Default = false,
 Callback = function(state)
 XRay.Enabled = state
@@ -1956,9 +2098,9 @@ if p and p.Parent and p:IsDescendantOf(Workspace) then
 alive = alive + 1
 end
 end
-journal("X-RAY: twig-объектов в базе: " .. tostring(found) .. ", живых на карте: " .. tostring(alive))
+journal("X-RAY: объектов построек в базе: " .. tostring(found) .. ", живых на карте: " .. tostring(alive))
 if found == 0 then
-journal("X-RAY: TWIG-СТЕНЫ НЕ НАЙДЕНЫ — пришли скрин журнала (Main → Журнал)")
+journal("X-RAY: ПОСТРОЙКИ НЕ НАЙДЕНЫ — пришли скрин (Логи → Журнал чита) или включи «X-Ray: ВСЁ вокруг (дикий)»")
 xrayLogWallSamples()
 end
 if XRay.Enabled then
@@ -2287,52 +2429,3 @@ wlInput.TextColor3 = WL_TEXT
 wlInput.TextXAlignment = Enum.TextXAlignment.Left
 wlInput.ClearTextOnFocus = false
 wlInput.BackgroundColor3 = WL_BG
-wlInput.BorderSizePixel = 0
-wlInput.Size = UDim2.new(1, 0, 0, 32)
-wlInput.LayoutOrder = 5
-wlInput.Active = true
-wlInput.Selectable = true
-wlInput.Parent = wlPanel
-do
-wlCorner(wlInput)
-local pad = Instance.new("UIPadding")
-pad.PaddingLeft = UDim.new(0, 8)
-pad.Parent = wlInput
-end
-wlButtonRow = Instance.new("Frame")
-wlButtonRow.Name = "FustWhitelistButtons"
-wlButtonRow.BackgroundTransparency = 1
-wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
-wlButtonRow.LayoutOrder = 6
-wlButtonRow.Parent = wlPanel
-do
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Horizontal
-layout.Padding = UDim.new(0, 6)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = wlButtonRow
-end
-function wlMakeButton(text, order, bg, fg)
-local b = Instance.new("TextButton")
-b.Font = Enum.Font.GothamBold
-b.TextSize = 13
-b.Text = text
-b.TextColor3 = fg
-b.BackgroundColor3 = bg
-b.BorderSizePixel = 0
-b.Size = UDim2.new(0.5, -3, 1, 0)
-b.LayoutOrder = order
-b.Parent = wlButtonRow
-wlCorner(b, 5)
-return b
-end
-wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
-wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
-wlAdd.Activated:Connect(function()
-local name = resolveName(wlInput.Text)
-if name then
-Whitelist[name] = true
-rebuildPlayerList()
-end
-wlInput.Text = ""
-pcall(function()

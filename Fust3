@@ -1,161 +1,3 @@
-Items["Dragger"] = Instances:Create("Frame", {
-Parent = Items["Accent"].Instance,
-Name = "\0",
-AnchorPoint = Vector2New(0, 0.5),
-Position = UDim2New(1, -4, 0.5, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(0, 13, 0, 13),
-BorderSizePixel = 0
-})
-Instances:Create("UICorner", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-CornerRadius = UDimNew(1, 0)
-})
-Items["Glow2"] = Instances:Create("ImageLabel", {
-Parent = Items["Dragger"].Instance,
-Name = "\0",
-ImageColor3 = Library.Theme["Accent"],
-ScaleType = Enum.ScaleType.Slice,
-ImageTransparency = 0.800000011920929,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 25, 1, 25),
-AnchorPoint = Vector2New(0.5, 0.5),
-Image = "http://www.roblox.com/asset/?id=18245826428",
-BackgroundTransparency = 1,
-Position = UDim2New(0.5, 0, 0.5, 0),
-ZIndex = 2,
-BorderSizePixel = 0,
-SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
-}):AddToTheme({ImageColor3 = 'Accent'})
-end
-if Data.Info then
-local InfoBtn = Library:CreateInfoUI(Data.Info, {
-Parent = Items["Header"].Instance,
-Name = "\0",
-AnchorPoint = Vector2New(1, 0.5),
-Position = UDim2New(1, -52, 0.5, 0),
-Size = UDim2New(0, 16, 0, 16)
-}, Slider.Section.Items["Content"].Instance, nil)
-if InfoBtn then
-Slider.InfoBtn = InfoBtn
-pcall(function()
-Items["Text"].Instance.Size = UDim2New(1, -74, 0, 15)
-end)
-end
-end
-table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
-function Slider:Get()
-return Slider.Value
-end
-function Slider:SetVisibility(Bool)
-Items["Slider"].Instance.Visible = Bool
-end
-function Slider:Set(Value)
-Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
-Library.Flags[Slider.Flag] = Slider.Value
-Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
-Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
-if Slider.Callback then
-Library:SafeCall(Slider.Callback, Slider.Value)
-end
-end
-local InputChanged
-Items["RealSlider"]:Connect("InputBegan", function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-if InputChanged then
-pcall(function()
-InputChanged:Disconnect()
-end)
-InputChanged = nil
-end
-Slider.Sliding = true
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
-Slider:Set(Value)
-InputChanged = Input.Changed:Connect(function()
-if Input.UserInputState == Enum.UserInputState.End
-or Input.UserInputState == Enum.UserInputState.Cancel then
-Slider.Sliding = false
-if InputChanged then
-InputChanged:Disconnect()
-InputChanged = nil
-end
-end
-end)
-end
-end)
-Library:Connect(UserInputService.InputChanged, function(Input)
-if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-if Slider.Sliding then
-local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
-Slider:Set(Value)
-end
-end
-end)
-if Slider.Default then
-Slider:Set(Slider.Default)
-end
-Library.SetFlags[Slider.Flag] = function(Value)
-Slider:Set(Value)
-end
-return Slider
-end
-Library.Sections.Dropdown = function(self, Data)
-Data = Data or { }
-local Dropdown = {
-Window = self.Window,
-Page = self.Page,
-Section = self,
-Name = Data.Name or Data.name or "Dropdown",
-Flag = Data.Flag or Data.flag or Library:NextFlag(),
-Items = Data.Items or Data.items or { "One", "Two", "Three" },
-Default = Data.Default or Data.default or nil,
-Callback = Data.Callback or Data.callback or function() end,
-Multi = Data.Multi or Data.multi or false,
-Value = { },
-Options = { },
-IsOpen = false
-}
-local Items = { } do
-Items["Dropdown"] = Instances:Create("Frame", {
-Parent = Dropdown.Section.Items["Content"].Instance,
-Name = "\0",
-BackgroundTransparency = 1,
-BorderColor3 = FromRGB(0, 0, 0),
-Size = UDim2New(1, 0, 0, 26),
-BorderSizePixel = 0
-})
-Instances:Create("UIListLayout", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FillDirection = Enum.FillDirection.Horizontal,
-VerticalAlignment = Enum.VerticalAlignment.Center,
-Padding = UDimNew(0, 8),
-SortOrder = Enum.SortOrder.LayoutOrder
-})
-Items["Text"] = Instances:Create("TextLabel", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = Library.Theme["Text"],
-BorderColor3 = FromRGB(0, 0, 0),
-Text = Dropdown.Name,
-Size = UDim2New(0, 0, 0, 15),
-BackgroundTransparency = 1,
-BorderSizePixel = 0,
-LayoutOrder = 1,
-AutomaticSize = Enum.AutomaticSize.X,
-TextSize = 14
-}):AddToTheme({TextColor3 = 'Text'})
-Items["RealDropdown"] = Instances:Create("TextButton", {
-Parent = Items["Dropdown"].Instance,
-Name = "\0",
-FontFace = Library.Font,
-TextColor3 = FromRGB(0, 0, 0),
-BorderColor3 = FromRGB(0, 0, 0),
-Text = "",
 AutoButtonColor = false,
 Size = UDim2New(0, 0, 0, 26),
 BorderSizePixel = 0,
@@ -654,6 +496,7 @@ Callback = Data.Callback or Data.callback or function() end,
 Placeholder = Data.Placeholder or Data.placeholder or "Placeholder",
 Numeric = Data.Numeric or Data.numeric or false,
 Finished = Data.Finished or Data.finished or false,
+MultiLine = Data.MultiLine or Data.multiline or false,
 Value = ""
 }
 local Items = { } do
@@ -732,6 +575,29 @@ BorderSizePixel = 0,
 AutomaticSize = Enum.AutomaticSize.X
 }):AddToTheme({TextColor3 = 'Text'})
 end
+-- 0.55: режим MultiLine — высокое поле с переносом строк (Логи/Журнал).
+-- Без него текст вылезал из поля вбок под вкладки и вниз («логи не
+-- читабельны»): у Input был AutomaticSize X и не было TextWrapped.
+if Textbox.MultiLine then
+Items["Textbox"].Instance.Size = UDim2New(1, 0, 0, 160)
+Items["Textbox"].Instance.ClipsDescendants = true
+Items["Text"].Instance.AnchorPoint = Vector2New(0, 0)
+Items["Text"].Instance.Position = UDim2New(0, 0, 0, 0)
+Items["Text"].Instance.Size = UDim2New(1, 0, 0, 15)
+Items["Background"].Instance.AnchorPoint = Vector2New(0, 0)
+Items["Background"].Instance.Position = UDim2New(0, 0, 0, 18)
+Items["Background"].Instance.AutomaticSize = Enum.AutomaticSize.None
+Items["Background"].Instance.Size = UDim2New(1, 0, 0, 138)
+Items["Input"].Instance.AnchorPoint = Vector2New(0, 0)
+Items["Input"].Instance.Position = UDim2New(0, 0, 0, 3)
+Items["Input"].Instance.AutomaticSize = Enum.AutomaticSize.None
+Items["Input"].Instance.Size = UDim2New(1, -4, 1, -8)
+Items["Input"].Instance.TextWrapped = true
+Items["Input"].Instance.MultiLine = true
+Items["Input"].Instance.ClearTextOnFocus = false
+Items["Input"].Instance.TextYAlignment = Enum.TextYAlignment.Top
+Items["Input"].Instance.TextSize = 13
+end
 function Textbox:Get()
 return Textbox.Value
 end
@@ -771,8 +637,115 @@ end
 return Textbox
 end
 end
-Library.CreateSettingsPage = function(self, Window, Watermark)
-local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
+-- 0.55: подтверждение опасных действий (перезапись/удаление конфига).
+-- Простая модалка: Frame + 2 кнопки, БЕЗ CanvasGroup (урок E-16) и без
+-- библиотечных зависимостей — работает и на Delta, и на Xeno.
+local FUST_confirmGui = nil
+function Library:FustConfirm(titleText, bodyText, yesText, onYes)
+pcall(function()
+if FUST_confirmGui then
+FUST_confirmGui:Destroy()
+FUST_confirmGui = nil
+end
+local confirmParent = (gethui and gethui()) or game:GetService("CoreGui")
+local g = Instance.new("ScreenGui")
+g.Name = "FUST_Confirm"
+g.ResetOnSpawn = false
+g.DisplayOrder = 999998
+local okPar = pcall(function()
+g.Parent = confirmParent
+end)
+if not okPar or not g.Parent then
+g.Parent = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui", 3)
+end
+if not g.Parent then return end
+FUST_confirmGui = g
+local card = Instance.new("Frame")
+card.Size = UDim2.new(0, 330, 0, 182)
+card.AnchorPoint = Vector2.new(0.5, 0.5)
+card.Position = UDim2.new(0.5, 0, 0.5, 0)
+card.BackgroundColor3 = Color3.fromRGB(24, 12, 12)
+card.BorderSizePixel = 0
+card.Active = true
+card.Parent = g
+local ccorner = Instance.new("UICorner")
+ccorner.CornerRadius = UDim.new(0, 10)
+ccorner.Parent = card
+local cstroke = Instance.new("UIStroke")
+cstroke.Thickness = 1.4
+cstroke.Color = Color3.fromRGB(255, 45, 45)
+cstroke.Transparency = 0.3
+cstroke.Parent = card
+local tt = Instance.new("TextLabel")
+tt.Size = UDim2.new(1, -20, 0, 26)
+tt.Position = UDim2.new(0, 10, 0, 8)
+tt.BackgroundTransparency = 1
+tt.Font = Enum.Font.GothamBold
+tt.TextSize = 15
+tt.TextColor3 = Color3.fromRGB(255, 90, 90)
+tt.Text = titleText or "Подтверждение"
+tt.TextXAlignment = Enum.TextXAlignment.Left
+tt.Parent = card
+local bb = Instance.new("TextLabel")
+bb.Size = UDim2.new(1, -20, 1, -110)
+bb.Position = UDim2.new(0, 10, 0, 36)
+bb.BackgroundTransparency = 1
+bb.Font = Enum.Font.Gotham
+bb.TextSize = 13
+bb.TextColor3 = Color3.fromRGB(235, 225, 225)
+bb.TextWrapped = true
+bb.TextYAlignment = Enum.TextYAlignment.Top
+bb.TextXAlignment = Enum.TextXAlignment.Left
+bb.Text = bodyText or ""
+bb.Parent = card
+local yes = Instance.new("TextButton")
+yes.Size = UDim2.new(0.5, -14, 0, 34)
+yes.Position = UDim2.new(0, 10, 1, -44)
+yes.BackgroundColor3 = Color3.fromRGB(150, 25, 25)
+yes.Font = Enum.Font.GothamBold
+yes.TextSize = 13
+yes.TextColor3 = Color3.fromRGB(255, 255, 255)
+yes.Text = yesText or "ДА"
+yes.AutoButtonColor = false
+yes.Parent = card
+local ycorner = Instance.new("UICorner")
+ycorner.CornerRadius = UDim.new(0, 8)
+ycorner.Parent = yes
+local no = Instance.new("TextButton")
+no.Size = UDim2.new(0.5, -14, 0, 34)
+no.Position = UDim2.new(0.5, 4, 1, -44)
+no.BackgroundColor3 = Color3.fromRGB(50, 30, 30)
+no.Font = Enum.Font.GothamBold
+no.TextSize = 13
+no.TextColor3 = Color3.fromRGB(230, 220, 220)
+no.Text = "ОТМЕНА"
+no.AutoButtonColor = false
+no.Parent = card
+local ncorner = Instance.new("UICorner")
+ncorner.CornerRadius = UDim.new(0, 8)
+ncorner.Parent = no
+local function fustConfirmClose()
+if FUST_confirmGui then
+FUST_confirmGui:Destroy()
+FUST_confirmGui = nil
+end
+end
+yes.MouseButton1Click:Connect(function()
+fustConfirmClose()
+if onYes then
+pcall(onYes)
+end
+end)
+no.MouseButton1Click:Connect(function()
+fustConfirmClose()
+end)
+end)
+end
+Library.CreateSettingsPage = function(self, Window, Watermark, TargetPage)
+-- 0.55: TargetPage = СУЩЕСТВУЮЩАЯ страница. Настройки сливаются с Main:
+-- отдельная страница «Settings» больше не создаётся, все её секции
+-- (Кнопка меню / Оформление / Конфиги) ложатся в переданную страницу.
+local SettingsPage = TargetPage or Window:Page({Name = "Settings", Icon = "rbxassetid://80758916183665"})
 do
 -- 0.39: секция управления кнопкой/хоткеем меню
 local MenuSection = SettingsPage:Section({Name = "Кнопка меню", Tab = "Меню", Icon = "rbxassetid://73803440257131"})
@@ -848,13 +821,16 @@ end
 })
 end
 end
-local ConfigsSection = SettingsPage:Section({Name = "Configs", Tab = "Конфиги", Icon = "rbxassetid://74885853379841"}) do
+local ConfigsSection = SettingsPage:Section({Name = "Конфиги", Tab = "Конфиги", Icon = "rbxassetid://74885853379841"}) do
+-- 0.55: УЛУЧШЕННЫЕ КОНФИГИ. Конфиг = файл в Petuh/Configs, хранит ВСЕ
+-- настройки меню (тумблеры, ползунки, клавиши, цвета — через Flags).
+-- Список в дропдауне; перед перезаписью и удалением — подтверждение.
 local ConfigName
 local ConfigSelected
 local ConfigsDropdown = ConfigsSection:Dropdown({
-Name = "Configs",
+Name = "Список конфигов",
 Flag = "Configs",
-Info = "Какой конфиг загружать/сохранять. Save — записать текущие настройки, Load — применить выбранный. Файлы лежат в Petuh/Configs.",
+Info = "Все сохранённые конфиги (папка Petuh/Configs). Выбери имя в списке и жми «Загрузить выбранный». Сохранение в существующий и удаление — только через подтверждение.",
 Items = { },
 Multi = false,
 MaxSize = 120,
@@ -863,53 +839,87 @@ ConfigSelected = Value
 end
 })
 ConfigsSection:Textbox({
-Name = "Config name",
-Placeholder = "Config name",
+Name = "Имя нового конфига",
+Placeholder = "например: base-delta",
 Flag = "ConfigName",
 Callback = function(Value)
 ConfigName = Value
 end
 })
+local function cfgSafeName(n)
+n = tostring(n or "")
+n = n:gsub('[/\\%:%*%?"<>|%c]', "_")
+n = n:gsub("^%s+", ""):gsub("%s+$", "")
+return n
+end
 ConfigsSection:Button({
-Name = "Create",
+Name = "Создать новый",
 Callback = function()
-if ConfigName and ConfigName ~= "" then
-if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
-writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
+pcall(function()
+local nm = cfgSafeName(ConfigName)
+if nm == "" then return end
+local path = Library.Folders.Configs .. "/" .. nm .. ".json"
+if isfile(path) then
+Library:FustConfirm("Конфиг уже существует", "Конфиг «" .. nm .. "» уже есть. Перезаписать его ТЕКУЩИМИ настройками? То, что было в нём сохранено, пропадёт.", "ПЕРЕЗАПИСАТЬ", function()
+writefile(path, Library:GetConfig())
+Library:RefreshConfigsList(ConfigsDropdown)
+end)
+else
+writefile(path, Library:GetConfig())
+Library:RefreshConfigsList(ConfigsDropdown)
+end
+end)
+end
+})
+ConfigsSection:Button({
+Name = "Загрузить выбранный",
+Callback = function()
+pcall(function()
+if ConfigSelected and ConfigSelected ~= "" then
+local path = Library.Folders.Configs .. "/" .. ConfigSelected .. ".json"
+if isfile(path) then
+Library:LoadConfig(readfile(path))
+else
 Library:RefreshConfigsList(ConfigsDropdown)
 end
 end
+end)
 end
 })
 ConfigsSection:Button({
-Name = "Load",
+Name = "Сохранить в выбранный",
 Callback = function()
+pcall(function()
 if ConfigSelected and ConfigSelected ~= "" then
-Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json"))
-end
-end
-})
-ConfigsSection:Button({
-Name = "Save",
-Callback = function()
-if ConfigSelected and ConfigSelected ~= "" then
-writefile(Library.Folders.Configs .. "/" .. ConfigSelected..".json", Library:GetConfig())
-end
-end
-})
-ConfigsSection:Button({
-Name = "Delete",
-Callback = function()
-if ConfigSelected and ConfigSelected ~= "" then
-delfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json")
+local path = Library.Folders.Configs .. "/" .. ConfigSelected .. ".json"
+Library:FustConfirm("Перезапись конфига", "Записать ТЕКУЩИЕ настройки в конфиг «" .. ConfigSelected .. "»? То, что было сохранено в нём раньше, пропадёт.", "ПЕРЕЗАПИСАТЬ", function()
+writefile(path, Library:GetConfig())
 Library:RefreshConfigsList(ConfigsDropdown)
+end)
 end
+end)
 end
 })
 ConfigsSection:Button({
-Name = "Refresh",
+Name = "Удалить выбранный",
 Callback = function()
+pcall(function()
+if ConfigSelected and ConfigSelected ~= "" then
+local path = Library.Folders.Configs .. "/" .. ConfigSelected .. ".json"
+Library:FustConfirm("Удаление конфига", "Удалить конфиг «" .. ConfigSelected .. "» навсегда? Восстановить его будет нельзя.", "УДАЛИТЬ", function()
+delfile(path)
 Library:RefreshConfigsList(ConfigsDropdown)
+end)
+end
+end)
+end
+})
+ConfigsSection:Button({
+Name = "Обновить список",
+Callback = function()
+pcall(function()
+Library:RefreshConfigsList(ConfigsDropdown)
+end)
 end
 })
 Library:RefreshConfigsList(ConfigsDropdown)
@@ -1391,8 +1401,18 @@ journal("КНОПКА-ПЕТУХ " .. (state and "СКРЫТА (только х�
 end
 -- экспортируем btn для UI toggle
 getgenv().FUST_PetuhBtn = btn
+-- 0.55: НАСТРОЙКИ И МЕЙН ОБЪЕДИНЕНЫ В ОДНУ СТРАНИЦУ. Сначала создаём
+-- страницу Main, затем секции старой Settings (Кнопка меню / Оформление /
+-- Конфиги) создаются ПРЯМО НА НЕЙ — отдельная страница Settings исчезла.
+ICON_SETTINGS = "rbxassetid://80758916183665"
+ICON_COMBAT = "rbxassetid://87563802520297"
+ICON_VISUALS = "rbxassetid://100033680381365"
+UIRegistry = {}
+Window:Group("Главное")
+MainPage = Window:Page({ Name = "Main", Icon = ICON_SETTINGS })
+ConfigSection = MainPage:Section({ Name = "Конфиги", Tab = "Функции", Side = 2 })
 pcall(function()
-Library:CreateSettingsPage(Window, nil)
+Library:CreateSettingsPage(Window, nil, MainPage)
 end)
 UI_ERRORS = {}
 function uiStep(stepName, fn)
@@ -1407,14 +1427,8 @@ end)
 table.insert(UI_ERRORS, stepName .. ": " .. tostring(err))
 end
 end
-ICON_SETTINGS = "rbxassetid://80758916183665"
-ICON_COMBAT = "rbxassetid://87563802520297"
-ICON_VISUALS = "rbxassetid://100033680381365"
-UIRegistry = {}
-Window:Group("Главное")
-MainPage = Window:Page({ Name = "Main", Icon = ICON_SETTINGS })
--- 0.54: Вайтлист переехал на страницу «Визуалы» (создаётся в блоке ESP/Визуалы выше)
-ConfigSection = MainPage:Section({ Name = "Конфиги", Tab = "Функции", Side = 2 })
+-- 0.55: ICON_*/UIRegistry/MainPage/ConfigSection созданы ВЫШЕ (слияние
+-- Main + Settings в одну страницу «Main»).
 FreeCam = { Enabled = false, Speed = 100, AutoFly = false, HookKeys = false, PanelVisible = true }
 freecamEnable = function() end
 freecamDisable = function() end
@@ -1447,10 +1461,10 @@ local camYaw, camPitch = 0, 0
 local camPos = Vector3.zero
 local SINK_PRIORITY = 2000000
 local savedPos, savedPitch, savedYaw = nil, nil, nil
-local frozenCFrame = nil
-local originalAnchored = false
-local fallingAfterTeleport = false
-local teleportFallStartTime = 0
+-- 0.56 (E-19, БАН «WALKSPEED 1000»): заморозка персонажа удалена ПОЛНОСТЬЮ.
+-- Фрикам больше НЕ пишет ни одного свойства персонажа: ни Anchored, ни
+-- CFrame, ни скоростей. Управление просто отключается — персонаж стоит как
+-- обычный игрок. Телепорт персонажа удалён ещё в 0.55. Летает только камера.
 local controls = nil
 pcall(function()
 local ps = LocalPlayer:WaitForChild("PlayerScripts", 2)
@@ -1608,7 +1622,7 @@ bindButtonBounce(toggleBtn)
 local hudFrame = Instance.new("Frame")
 hudFrame.Name = "GlassHUD"
 hudFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-hudFrame.Size = UDim2.new(0, 170, 0, 140)
+hudFrame.Size = UDim2.new(0, 178, 0, 188) -- 0.55: меню фрикама выше (FLY / SAVE POS / TP CAM)
 hudFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 hudFrame.Visible = false
 hudFrame.Active = true
@@ -1629,7 +1643,7 @@ hudScale.Parent = hudFrame
 local speedBar = Instance.new("Frame")
 speedBar.Name = "SpeedBar"
 speedBar.Size = UDim2.new(0.9, 0, 0, 32)
-speedBar.Position = UDim2.new(0.05, 0, 0.08, 0)
+speedBar.Position = UDim2.new(0.05, 0, 0, 66) -- 0.55: фиксированная позиция в новом меню
 speedBar.BackgroundTransparency = 1
 speedBar.Parent = hudInner
 local speedMinus = Instance.new("TextButton")
@@ -1691,33 +1705,77 @@ button.MouseLeave:Connect(release)
 end
 bindHoldStep(speedMinus, -speedStep)
 bindHoldStep(speedPlus, speedStep)
-local memBtn = Instance.new("TextButton")
-memBtn.Name = "MemoryBtn"
-memBtn.Size = UDim2.new(0.9, 0, 0, 30)
-memBtn.Position = UDim2.new(0.05, 0, 0.40, 0)
-memBtn.Text = "REMEMBER POS: OFF"
-memBtn.Font = Enum.Font.GothamBold
-memBtn.TextSize = 11
-memBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
-memBtn.AutoButtonColor = false
-memBtn.Parent = hudInner
-local memStroke = applyLiquidGlass(memBtn, 0.22, Color3.fromRGB(38, 14, 14))
-bindButtonBounce(memBtn)
-local tpBtn = Instance.new("TextButton")
-tpBtn.Name = "TeleportBtn"
-tpBtn.Size = UDim2.new(0.9, 0, 0, 30)
-tpBtn.Position = UDim2.new(0.05, 0, 0.69, 0)
-tpBtn.Text = "TELEPORT TO CAM"
-tpBtn.Font = Enum.Font.GothamBold
-tpBtn.TextSize = 11
-tpBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
-tpBtn.AutoButtonColor = false
-tpBtn.Parent = hudInner
-applyLiquidGlass(tpBtn, 0.20, Color3.fromRGB(45, 12, 12), FC_RED)
-bindButtonBounce(tpBtn)
-local function animateHud(open)
--- 0.51 (E-16): анимация прозрачности группы была только у CanvasGroup —
--- на Frame такого свойства нет. Появление/скрытие панели: UIScale-поп + Visible.
+-- 0.55: ПАНЕЛЬ CAM = МЕНЮ ФРИКАМА. Состав (по приказу):
+--   крестик «X» в ПРАВОМ ВЕРХНЕМ углу — скрыть меню;
+--   FLY — вкл/выкл полёта (полёт больше НЕ на тапе по кнопке CAM!);
+--   скорость −/+ (как была); SAVE POS — сохранить позицию;
+--   TP CAM TO POS — телепорт КАМЕРЫ в сохранённую точку.
+-- Кнопку «TELEPORT TO CAM» (телепорт ПЕРСОНАЖА к камере) УДАЛИЛИ.
+local titleLbl = Instance.new("TextLabel")
+titleLbl.Name = "Title"
+titleLbl.Size = UDim2.new(1, -70, 0, 22)
+titleLbl.Position = UDim2.new(0, 8, 0, 4)
+titleLbl.BackgroundTransparency = 1
+titleLbl.Font = Enum.Font.GothamBold
+titleLbl.TextSize = 13
+titleLbl.TextColor3 = Color3.fromRGB(255, 120, 120)
+titleLbl.Text = "ФРИКАМ"
+titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+titleLbl.Parent = hudInner
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseBtn"
+closeBtn.Size = UDim2.new(0, 24, 0, 24)
+closeBtn.Position = UDim2.new(1, -30, 0, 4)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+closeBtn.AutoButtonColor = false
+closeBtn.Parent = hudInner
+applyLiquidGlass(closeBtn, 0.20, Color3.fromRGB(45, 12, 12), FC_RED)
+bindButtonBounce(closeBtn)
+local flyBtn = Instance.new("TextButton")
+flyBtn.Name = "FlyBtn"
+flyBtn.Size = UDim2.new(0.9, 0, 0, 28)
+flyBtn.Position = UDim2.new(0.05, 0, 0, 32)
+flyBtn.Text = "FLY: OFF"
+flyBtn.Font = Enum.Font.GothamBold
+flyBtn.TextSize = 13
+flyBtn.TextColor3 = Color3.fromRGB(245, 235, 235)
+flyBtn.AutoButtonColor = false
+flyBtn.Parent = hudInner
+applyLiquidGlass(flyBtn, 0.22, Color3.fromRGB(38, 14, 14))
+bindButtonBounce(flyBtn)
+local saveBtn = Instance.new("TextButton")
+saveBtn.Name = "SavePosBtn"
+saveBtn.Size = UDim2.new(0.9, 0, 0, 28)
+saveBtn.Position = UDim2.new(0.05, 0, 0, 110)
+saveBtn.Text = "SAVE POS"
+saveBtn.Font = Enum.Font.GothamBold
+saveBtn.TextSize = 12
+saveBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
+saveBtn.AutoButtonColor = false
+saveBtn.Parent = hudInner
+applyLiquidGlass(saveBtn, 0.22, Color3.fromRGB(38, 14, 14))
+bindButtonBounce(saveBtn)
+local tpCamBtn = Instance.new("TextButton")
+tpCamBtn.Name = "TpCamBtn"
+tpCamBtn.Size = UDim2.new(0.9, 0, 0, 28)
+tpCamBtn.Position = UDim2.new(0.05, 0, 0, 144)
+tpCamBtn.Text = "TP CAM TO POS"
+tpCamBtn.Font = Enum.Font.GothamBold
+tpCamBtn.TextSize = 12
+tpCamBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+tpCamBtn.AutoButtonColor = false
+tpCamBtn.Parent = hudInner
+applyLiquidGlass(tpCamBtn, 0.20, Color3.fromRGB(45, 12, 12), FC_RED)
+bindButtonBounce(tpCamBtn)
+-- 0.55: панель CAM = МЕНЮ ФРИКАМА. Открывается тапом по кнопке CAM
+-- (полёт НЕ трогает), скрытие — крестик в правом верхнем углу. Больше не
+-- зависит от fcActive: меню можно открыть и до включения полёта.
+local fcMenuOpen = false
+local function fcMenuSet(open)
+fcMenuOpen = open
 if open then
 hudFrame.Visible = true
 hudScale.Scale = 0.8
@@ -1729,43 +1787,37 @@ runSafeTween("hud_pop", hudScale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enu
 Scale = 0.85,
 })
 task.delay(0.14, function()
-if not fcActive then
+if not fcMenuOpen then
 hudFrame.Visible = false
 end
 end)
 end
 end
-memBtn.MouseButton1Click:Connect(function()
-FC_RememberPos = not FC_RememberPos
-if FC_RememberPos then
-memBtn.Text = "REMEMBER POS: ON"
-runSafeTween("mem_col", memBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = FC_RED })
-runSafeTween("mem_strk", memStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = FC_RED })
-else
-memBtn.Text = "REMEMBER POS: OFF"
-runSafeTween("mem_col", memBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = Color3.fromRGB(220, 210, 210) })
-runSafeTween("mem_strk", memStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = Color3.fromRGB(255, 255, 255) })
-savedPos = nil
-savedPitch = nil
-savedYaw = nil
-end
-end)
-tpBtn.MouseButton1Click:Connect(function()
+-- 0.55: SAVE POS — сохранить позицию камеры в точку (для TP CAM TO POS).
+-- Работает и до включения фрикама (сохраняет, где сейчас смотрит камера).
+saveBtn.MouseButton1Click:Connect(function()
 local camera = Workspace.CurrentCamera
-local char = LocalPlayer.Character
-local hum = char and char:FindFirstChildOfClass("Humanoid")
-local root = char and char:FindFirstChild("HumanoidRootPart")
-if root and hum and camera then
-local targetCFrame = CFrame.new(camera.CFrame.Position) * CFrame.Angles(0, math.rad(camYaw), 0)
-fallingAfterTeleport = true
-teleportFallStartTime = tick()
-root.Anchored = false
-root.CFrame = targetCFrame
-root.AssemblyLinearVelocity = Vector3.zero
-root.AssemblyAngularVelocity = Vector3.zero
+if fcActive then
+savedPos = camPos
+savedPitch = camPitch
+savedYaw = camYaw
+elseif camera then
+local cf = camera.CFrame
+savedPos = cf.Position
+local ox, oy, _ = cf:ToOrientation()
+savedPitch = math.deg(ox)
+savedYaw = math.deg(oy)
+end
+if savedPos then
+saveBtn.Text = "SAVED!"
+saveBtn.TextColor3 = FC_RED
+task.delay(0.9, function()
 pcall(function()
-hum:ChangeState(Enum.HumanoidStateType.Freefall)
+saveBtn.Text = "SAVE POS"
+saveBtn.TextColor3 = Color3.fromRGB(220, 210, 210)
 end)
+end)
+journal("ФРИКАМ: позиция сохранена (кнопка SAVE POS)")
 end
 end)
 local function handleKeyAction(actionName, inputState, inputObject)
@@ -1853,12 +1905,7 @@ hum:UnequipTools()
 pcall(function()
 FC_SGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 end)
-fallingAfterTeleport = false
-originalAnchored = root.Anchored
-frozenCFrame = root.CFrame
-root.Anchored = true
-root.AssemblyLinearVelocity = Vector3.zero
-root.AssemblyAngularVelocity = Vector3.zero
+-- 0.56: НИКАКИХ записей в персонажа (урок бана «WALKSPEED 1000», E-19)
 if controls then
 controls:Disable()
 end
@@ -1910,35 +1957,8 @@ return
 end
 local camera = Workspace.CurrentCamera
 if not camera then return end
-local char = LocalPlayer.Character
-local root = char and char:FindFirstChild("HumanoidRootPart")
-if char and root then
-if fallingAfterTeleport then
-local elapsed = tick() - teleportFallStartTime
-local vel = root.AssemblyLinearVelocity
-local groundParams = RaycastParams.new()
-groundParams.FilterType = Enum.RaycastFilterType.Exclude
-groundParams.FilterDescendantsInstances = { char }
-groundParams.IgnoreWater = true
-local castDist = (root.Size.Y / 2) + 0.35
-local groundHit = Workspace:Raycast(root.Position, Vector3.new(0, -castDist, 0), groundParams)
-local touchingGround = groundHit ~= nil
-local settledVelocity = math.abs(vel.Y) < 1.5
-local timedOut = elapsed > 8
-if elapsed > 0.15 and ((touchingGround and settledVelocity) or timedOut) then
-fallingAfterTeleport = false
-root.Anchored = true
-root.AssemblyLinearVelocity = Vector3.zero
-root.AssemblyAngularVelocity = Vector3.zero
-frozenCFrame = root.CFrame
-end
-else
-root.CFrame = frozenCFrame
-root.Anchored = true
-root.AssemblyLinearVelocity = Vector3.zero
-root.AssemblyAngularVelocity = Vector3.zero
-end
-end
+-- 0.56: персонаж НЕ трогается каждый кадр (было: якорь + перезапись CFrame
+-- + обнуление скоростей — именно такое состояние и ловит анти-чит, E-19)
 local rotCFrame = CFrame.Angles(0, math.rad(camYaw), 0) * CFrame.Angles(math.rad(camPitch), 0, 0)
 local moveVector = Vector3.zero
 if joystickVector.Magnitude > 0.05 then
@@ -1999,18 +2019,10 @@ end
 local camera = Workspace.CurrentCamera
 local char = LocalPlayer.Character
 local hum = char and char:FindFirstChildOfClass("Humanoid")
-local root = char and char:FindFirstChild("HumanoidRootPart")
 if camera and hum then
 camera.CameraSubject = hum
 end
-if root then
-root.Anchored = originalAnchored
-if not fallingAfterTeleport then
-root.AssemblyLinearVelocity = Vector3.zero
-root.AssemblyAngularVelocity = Vector3.zero
-end
-end
-fallingAfterTeleport = false
+-- 0.56: Anchored/скорости НЕ восстанавливаем — мы их не трогали (E-19)
 if camera then
 camera.CameraType = Enum.CameraType.Custom
 end
@@ -2024,9 +2036,10 @@ if renderConnection then
 fcActive = true
 FreeCam.Enabled = true
 toggleBtn.Text = "CAM: ON"
+flyBtn.Text = "FLY: ON" -- 0.55: синхронизация кнопки FLY в меню
 runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = FC_RED })
 runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = FC_RED })
-animateHud(true)
+fcMenuSet(true)
 journal("ФРИКАМ ВКЛ (скорость " .. tostring(flySpeed) .. ")")
 else
 -- нет персонажа/камеры — не включаемся, тоггл вернётся в ВЫКЛ
@@ -2037,9 +2050,10 @@ fcActive = false
 FreeCam.Enabled = false
 stopFreecam()
 toggleBtn.Text = "CAM: OFF"
+flyBtn.Text = "FLY: OFF" -- 0.55: синхронизация кнопки FLY в меню
 runSafeTween("btn_col", toggleBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { TextColor3 = Color3.fromRGB(245, 235, 235) })
 runSafeTween("btn_strk", toggleStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Color = Color3.fromRGB(255, 255, 255) })
-animateHud(false)
+fcMenuSet(false)
 journal("ФРИКАМ ВЫКЛ")
 end
 pcall(function()
@@ -2048,8 +2062,39 @@ UIRegistry.FCToggle:Set(fcActive)
 end
 end)
 end
+-- 0.55: тап по CAM открывает/скрывает МЕНЮ фрикама (полёт НЕ переключает —
+-- полёт теперь кнопкой FLY внутри меню)
 toggleBtn.MouseButton1Click:Connect(function()
+fcMenuSet(not fcMenuOpen)
+end)
+flyBtn.MouseButton1Click:Connect(function()
 fcSetEnabledInner(not fcActive)
+end)
+closeBtn.MouseButton1Click:Connect(function()
+fcMenuSet(false)
+end)
+-- TP CAM TO POS: телепорт КАМЕРЫ в сохранённую точку. Если фрикам ещё не
+-- включён — включаем и переносим камеру в точку (персонаж остаётся на месте).
+tpCamBtn.MouseButton1Click:Connect(function()
+if not savedPos or not savedPitch or not savedYaw then
+journal("ФРИКАМ: нет сохранённой точки — сначала нажми SAVE POS")
+tpCamBtn.Text = "NO POS!"
+task.delay(0.9, function()
+pcall(function()
+tpCamBtn.Text = "TP CAM TO POS"
+end)
+end)
+return
+end
+if not fcActive then
+fcSetEnabledInner(true)
+end
+if fcActive then
+camPos = savedPos
+camPitch = savedPitch
+camYaw = savedYaw
+journal("ФРИКАМ: камера телепортирована в сохранённую точку (TP CAM)")
+end
 end)
 function fcSetEnabled(state)
 fcSetEnabledInner(state and true or false)
@@ -2137,7 +2182,7 @@ end
 UIRegistry.FCPanel = FreeCamSection:Toggle({
 Name = "Кнопка CAM на экране",
 Flag = "FreeCamPanel",
-Info = "Плавающая кнопка CAM на экране — это и есть бинд фрикама для телефона: тап включает/выключает полёт. Кнопку можно перетащить в удобное место. Скрой, если мешает.",
+Info = "Плавающая кнопка CAM на экране: тап ОТКРЫВАЕТ меню фрикама (FLY — вкл/выкл полёта, скорость, SAVE POS, TP CAM TO POS, скрыть меню). Сама кнопка полёт НЕ включает. Кнопку можно перетащить в удобное место. Скрой, если мешает.",
 Default = true,
 Callback = function(state)
 fcSetPanelVisible(state)
@@ -2182,7 +2227,7 @@ end
 UIRegistry.FCRemember = FreeCamSection:Toggle({
 Name = "Запоминать позицию камеры",
 Flag = "FreeCamRemember",
-Info = "При включении фрикама камера возвращается в запомненную точку. Точка запоминается кнопкой REMEMBER POS на панели CAM.",
+Info = "При включении фрикама камера возвращается в сохранённую точку. Точку сохраняет кнопка SAVE POS на панели CAM (плюс авто-запоминание при выключении фрикама). Телепорт камеры в точку — кнопка TP CAM TO POS.",
 Default = false,
 Callback = function(state)
 FC_RememberPos = state
@@ -2204,8 +2249,8 @@ end
 end
 })
 FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
-FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Телепорт — кнопка на панели CAM.")
-FreeCamSection:Label("Персонаж стоит на месте (якорь). Аимбот и анти-тряска на время фрикама отключаются.")
+FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Панель CAM (тап по CAM): FLY вкл/выкл, скорость, SAVE POS, TP CAM TO POS, крестик — скрыть меню.")
+FreeCamSection:Label("Персонажа чит НЕ трогает ВООБЩЕ (0.56: ни якоря, ни скоростей — урок бана WALKSPEED 1000): стоит где стоял, отключается только управление. Аимбот и анти-тряска на время фрикама отключаются.")
 -- кейбинды (ПК/Xeno): вкл/выкл + скорость
 local fcHasKb = false
 pcall(function()
@@ -2340,11 +2385,3 @@ Sleeper = Color3.fromRGB(80, 190, 255),
 NPC_ANIMAL_TAGS = { "FustAnimal", "FustDino", "Animal" }
 NPC_NPC_TAGS = { "FustNpc", "Npc", "NPC" }
 SLEEPER_TAGS = { "FustSleeper", "Sleeper", "Sleeping", "FustSleeping", "OfflineBody", "PlayerBody", "FustBody" }
-SLEEPER_ATTRS = { "Sleeping", "IsSleeping", "Sleep", "Sleeper", "IsSleeper", "Offline", "IsOffline" }
-ANIMAL_PATTERNS = { "едвед", "олк", "лен", "абан", "bear", "wolf", "deer", "boar", "hog" }
-GUARD_PATTERNS = { "хранник", "храна", "вард", "guard", "андит", "ародер", "ейдер" }
-SLEEPER_PATTERNS = { "sleeper", "пящ" }
-WEAPON_PATTERNS = {
-"втомат", "интовк", "интор", "истолет", "робовик", "ужь", "арабин",
-"найперск", "улемет", "улемёт", "ранат", "ружи", "к-47",
-"меч", "сабл", "катан",

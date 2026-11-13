@@ -1,11 +1,3 @@
-if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-Dragging = true
-DragStart = Input.Position
-StartPosition = Gui.Position
-if InputChanged then
-return
-end
-InputChanged = Input.Changed:Connect(function()
 if Input.UserInputState == Enum.UserInputState.End then
 Dragging = false
 InputChanged:Disconnect()
@@ -2574,3 +2566,161 @@ ZIndex = 2,
 BorderSizePixel = 0,
 SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
 }):AddToTheme({ImageColor3 = 'Accent'})
+Items["Dragger"] = Instances:Create("Frame", {
+Parent = Items["Accent"].Instance,
+Name = "\0",
+AnchorPoint = Vector2New(0, 0.5),
+Position = UDim2New(1, -4, 0.5, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(0, 13, 0, 13),
+BorderSizePixel = 0
+})
+Instances:Create("UICorner", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+CornerRadius = UDimNew(1, 0)
+})
+Items["Glow2"] = Instances:Create("ImageLabel", {
+Parent = Items["Dragger"].Instance,
+Name = "\0",
+ImageColor3 = Library.Theme["Accent"],
+ScaleType = Enum.ScaleType.Slice,
+ImageTransparency = 0.800000011920929,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 25, 1, 25),
+AnchorPoint = Vector2New(0.5, 0.5),
+Image = "http://www.roblox.com/asset/?id=18245826428",
+BackgroundTransparency = 1,
+Position = UDim2New(0.5, 0, 0.5, 0),
+ZIndex = 2,
+BorderSizePixel = 0,
+SliceCenter = RectNew(Vector2New(21, 21), Vector2New(79, 79))
+}):AddToTheme({ImageColor3 = 'Accent'})
+end
+if Data.Info then
+local InfoBtn = Library:CreateInfoUI(Data.Info, {
+Parent = Items["Header"].Instance,
+Name = "\0",
+AnchorPoint = Vector2New(1, 0.5),
+Position = UDim2New(1, -52, 0.5, 0),
+Size = UDim2New(0, 16, 0, 16)
+}, Slider.Section.Items["Content"].Instance, nil)
+if InfoBtn then
+Slider.InfoBtn = InfoBtn
+pcall(function()
+Items["Text"].Instance.Size = UDim2New(1, -74, 0, 15)
+end)
+end
+end
+table.insert(Library.SearchRows, {Frame = Items["Slider"].Instance, Text = StringLower(Slider.Name), Page = Slider.Page})
+function Slider:Get()
+return Slider.Value
+end
+function Slider:SetVisibility(Bool)
+Items["Slider"].Instance.Visible = Bool
+end
+function Slider:Set(Value)
+Slider.Value = Library:Round(MathClamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
+Library.Flags[Slider.Flag] = Slider.Value
+Items["Accent"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
+Items["Value"].Instance.Text = StringFormat("%s%s", Slider.Value, Slider.Suffix)
+if Slider.Callback then
+Library:SafeCall(Slider.Callback, Slider.Value)
+end
+end
+local InputChanged
+Items["RealSlider"]:Connect("InputBegan", function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+if InputChanged then
+pcall(function()
+InputChanged:Disconnect()
+end)
+InputChanged = nil
+end
+Slider.Sliding = true
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+Slider:Set(Value)
+InputChanged = Input.Changed:Connect(function()
+if Input.UserInputState == Enum.UserInputState.End
+or Input.UserInputState == Enum.UserInputState.Cancel then
+Slider.Sliding = false
+if InputChanged then
+InputChanged:Disconnect()
+InputChanged = nil
+end
+end
+end)
+end
+end)
+Library:Connect(UserInputService.InputChanged, function(Input)
+if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+if Slider.Sliding then
+local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+Slider:Set(Value)
+end
+end
+end)
+if Slider.Default then
+Slider:Set(Slider.Default)
+end
+Library.SetFlags[Slider.Flag] = function(Value)
+Slider:Set(Value)
+end
+return Slider
+end
+Library.Sections.Dropdown = function(self, Data)
+Data = Data or { }
+local Dropdown = {
+Window = self.Window,
+Page = self.Page,
+Section = self,
+Name = Data.Name or Data.name or "Dropdown",
+Flag = Data.Flag or Data.flag or Library:NextFlag(),
+Items = Data.Items or Data.items or { "One", "Two", "Three" },
+Default = Data.Default or Data.default or nil,
+Callback = Data.Callback or Data.callback or function() end,
+Multi = Data.Multi or Data.multi or false,
+Value = { },
+Options = { },
+IsOpen = false
+}
+local Items = { } do
+Items["Dropdown"] = Instances:Create("Frame", {
+Parent = Dropdown.Section.Items["Content"].Instance,
+Name = "\0",
+BackgroundTransparency = 1,
+BorderColor3 = FromRGB(0, 0, 0),
+Size = UDim2New(1, 0, 0, 26),
+BorderSizePixel = 0
+})
+Instances:Create("UIListLayout", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FillDirection = Enum.FillDirection.Horizontal,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Padding = UDimNew(0, 8),
+SortOrder = Enum.SortOrder.LayoutOrder
+})
+Items["Text"] = Instances:Create("TextLabel", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = Library.Theme["Text"],
+BorderColor3 = FromRGB(0, 0, 0),
+Text = Dropdown.Name,
+Size = UDim2New(0, 0, 0, 15),
+BackgroundTransparency = 1,
+BorderSizePixel = 0,
+LayoutOrder = 1,
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 14
+}):AddToTheme({TextColor3 = 'Text'})
+Items["RealDropdown"] = Instances:Create("TextButton", {
+Parent = Items["Dropdown"].Instance,
+Name = "\0",
+FontFace = Library.Font,
+TextColor3 = FromRGB(0, 0, 0),
+BorderColor3 = FromRGB(0, 0, 0),
+Text = "",
