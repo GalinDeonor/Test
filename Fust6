@@ -1,1948 +1,4 @@
-ит Highlight из
--- Workspace (pcall не падает, но Parent становится nil), раньше чамсы
--- молча не рисовались. Теперь детектим и включаем квадраты-заливки.
-if not h.Parent then
-lootChamPoolBlocked = true
-LootChamsBlocked = true
-LootChamsBlockedAt = os.clock()
-break
-end
-end
-for i = used + 1, #lootChamPool do
-pcall(function()
-lootChamPool[i].Enabled = false
-lootChamPool[i].Adornee = nil
-end)
-end
-lootChamPoolWanted = true
-end
-function updateBackpackEsp(camera, myRoot)
-for inst in pairs(trackedBackpacks) do
-if not inst.Parent or not inst:IsDescendantOf(Workspace) then
-bpRemoveDrawings(inst)
-bpOpenCacheInst[inst] = nil
-trackedBackpacks[inst] = nil
-end
-end
-if (not S.Loot.Enabled and not S.LootC.Enabled) or not myRoot then
-bpHideAll()
-return
-end
-local now = os.clock()
-for inst, e in pairs(trackedBackpacks) do
-local cat = e.Cat or "bag"
-local catOn = (cat == "bag" and S.Loot.Enabled) or (cat == "cont" and S.LootC.Enabled)
-if not catOn then
-bpHideDrawings(inst)
-else
-local cf, sz = bpGetBBox(inst)
-local dist = cf and (cf.Position - myRoot.Position).Magnitude
-local maxD = (cat == "bag") and S.Loot.MaxDistance or S.LootC.MaxDistance
-local col = (cat == "bag") and LOOT_COLOR or LOOTC_COLOR
-if cf and dist and dist <= maxD * 1.06 + 10 then
-local topLeft, boxSize = bpProject(camera, cf, sz)
-if topLeft then
-local MINW, MINH = 8, 11
-if boxSize.X < MINW or boxSize.Y < MINH then
-local cx, cy = topLeft.X + boxSize.X * 0.5, topLeft.Y + boxSize.Y * 0.5
-local w = math.max(boxSize.X, MINW)
-local h = math.max(boxSize.Y, MINH)
-topLeft = Vector2.new(cx - w * 0.5, cy - h * 0.5)
-boxSize = Vector2.new(w, h)
-end
-local pad = 2
-local bx = topLeft.X - pad
-local by = topLeft.Y - pad
-local bw = boxSize.X + pad * 2
-local bh = boxSize.Y + pad * 2
-local centerX = bx + bw * 0.5
-local ed = bpEnsureDrawings(inst)
--- 0.53 ФИКС ЛАГА: слоты/владелец читаются ТОЛЬКО у мешков в радиусе
--- отрисовки. Раньше bpReadInfo гонялся по КАЖДОМУ отслеженному мешку
--- (атрибуты + дети + промпт + тексты) — на сотнях мешков лагало даже на ПК.
-if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 6) then
-local deep = not e.DeepAt or now - e.DeepAt > 60
-if deep then
-e.DeepAt = now
-end
-e.Info = bpReadInfo(inst, deep)
-e.InfoAt = now
-end
-local info = e.Info or {}
-local wantChams = (cat == "bag" and S.Loot.Enabled and S.Loot.Chams)
-or (cat == "cont" and S.LootC.Enabled and S.LootC.Chams)
-if e.High then
-pcall(function()
-e.High:Destroy()
-end)
-e.High = nil
-end
-if wantChams then
-if LootChamsBlocked and os.clock() - (LootChamsBlockedAt or 0) > 30 then
-LootChamsBlocked = false
-end
-if LootChamsBlocked then
-ed.Fill.Color = col
-ed.Fill.Transparency = 0.55
-ed.Fill.Position = Vector2.new(bx, by)
-ed.Fill.Size = Vector2.new(bw, bh)
-ed.Fill.Visible = true
-else
-ed.Fill.Visible = false
-end
-else
-ed.Fill.Visible = false
-end
-if (cat == "bag" and S.Loot.Box) or (cat == "cont" and S.LootC.Box) then
-ed.Box.Position = Vector2.new(bx, by)
-ed.Box.Size = Vector2.new(bw, bh)
-ed.Box.Color = col
-ed.Box.Visible = true
-else
-ed.Box.Visible = false
-end
-local textY = by + bh + 3
-if cat == "bag" and S.Loot.Slots then
-ed.Slots.Text = info.Slots or "открой мешок 1 раз"
-ed.Slots.Position = Vector2.new(centerX, textY)
-ed.Slots.Color = col
-ed.Slots.Visible = true
-textY = textY + 17
-elseif cat == "cont" and S.LootC.Name then
-local nm = "контейнер"
-pcall(function()
-nm = tostring(inst.Name)
-if #nm > 22 then
-nm = string.sub(nm, 1, 22) .. "…"
-end
-end)
-ed.Slots.Text = nm
-ed.Slots.Position = Vector2.new(centerX, textY)
-ed.Slots.Color = col
-ed.Slots.Visible = true
-textY = textY + 17
-else
-ed.Slots.Visible = false
-end
-if (cat == "bag" and S.Loot.Distance) or (cat == "cont" and S.LootC.Distance) then
-ed.Distance.Text = math.floor(dist + 0.5) .. "m"
-ed.Distance.Position = Vector2.new(centerX, textY)
-ed.Distance.Color = col
-ed.Distance.Visible = true
-else
-ed.Distance.Visible = false
-end
-if cat == "bag" and S.Loot.Owner and info.Owner then
-ed.Owner.Text = tostring(info.Owner)
-ed.Owner.Position = Vector2.new(centerX, by - 18)
-ed.Owner.Color = col
-ed.Owner.Visible = true
-else
-ed.Owner.Visible = false
-end
-else
-bpHideDrawings(inst)
-end
-else
-bpHideDrawings(inst)
-if dist and dist > maxD * 1.25 + 50 then
-bpRemoveDrawings(inst)
-end
-end
-end
-end
-end
-task.spawn(function()
-local walkTick = 0
-while getgenv().FUST_SESSION == FUST_SESSION do
-if S.Loot.Enabled or S.LootC.Enabled then
-pcall(function()
-local myChar = LocalPlayer.Character
-local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-local cullBag = S.Loot.MaxDistance * 1.5 + 120
-local cullCont = S.LootC.MaxDistance * 1.5 + 120
-for inst, e in pairs(trackedBackpacks) do
-local dead = not inst.Parent or not inst:IsDescendantOf(Workspace)
-if not dead and myRoot and e.BBoxCF then
-local dd = (e.BBoxCF.Position - myRoot.Position).Magnitude
-local lim = (e.Cat or "bag") == "bag" and cullBag or cullCont
-if dd > lim then
-dead = true
-end
-end
-if dead then
-bpRemoveDrawings(inst)
-bpOpenCacheInst[inst] = nil
-trackedBackpacks[inst] = nil
-end
-end
--- 0.53 ФИКС ЛАГА ЛУТА: постоянный обход Workspace каждые 3с УДАЛЁН —
--- он сканировал всю карту (тысячи объектов) даже на ПК. Первичный скан —
--- один раз при включении тумблера (чанками, E-15-безопасно), новые
--- мешки/контейнеры ловят DescendantAdded и теги CollectionService.
-for _, tag in ipairs(BP_TAGS) do
-local okT, tagged = pcall(CollectionService.GetTagged, CollectionService, tag)
-if okT and type(tagged) == "table" then
-for _, inst in ipairs(tagged) do
-bpTryTrack(inst)
-end
-end
-end
-for _, tag in ipairs(CT_TAGS) do
-local okT2, tagged2 = pcall(CollectionService.GetTagged, CollectionService, tag)
-if okT2 and type(tagged2) == "table" then
-for _, inst in ipairs(tagged2) do
-bpTryTrack(inst)
-end
-end
-end
-bpScanOpenBagUI()
-end)
-end
-task.wait(1)
-end
-end)
-pcall(function()
-Library:Connect(Workspace.DescendantAdded, function(inst)
-if not S.Loot.Enabled and not S.LootC.Enabled then
-return
-end
-if inst:IsA("ProximityPrompt") then
-task.defer(function()
-local okH, holder = pcall(function()
-return inst:FindFirstAncestorOfClass("Model")
-or (inst.Parent and inst.Parent:IsA("BasePart") and inst.Parent)
-or nil
-end)
-if not okH then
-return
-end
-if holder then
-if trackedBackpacks[holder] then
-trackedBackpacks[holder].InfoAt = nil
-elseif bpIsEligibleInstance(holder) then
-local catH = bpClassify(holder)
-if catH then
-trackedBackpacks[holder] = { Cat = catH }
-end
-end
-end
-end)
-elseif inst:IsA("Model") or inst:IsA("BasePart") then
-task.defer(bpTryTrack, inst)
-end
-end)
-end)
-task.spawn(function()
-while getgenv().FUST_SESSION == FUST_SESSION do
-if S.Loot.DebugLog and S.Loot.Enabled then
-pcall(function()
-local count = 0
-for inst, e in pairs(trackedBackpacks) do
-count = count + 1
-local okN, instName = pcall(function()
-return tostring(inst.Name)
-end)
-local okPar, parentName = pcall(function()
-return inst.Parent and tostring(inst.Parent.Name) or "нет"
-end)
-local attrsText = "-"
-pcall(function()
-local parts = {}
-for key, val in pairs(inst:GetAttributes()) do
-table.insert(parts, tostring(key) .. "=" .. tostring(val))
-end
-if #parts > 0 then
-attrsText = table.concat(parts, ", ")
-end
-end)
-local promptText = "-"
-pcall(function()
-local pr = inst:FindFirstChildOfClass("ProximityPrompt")
-if pr then
-promptText = "[" .. tostring(pr.ObjectText) .. "] [" .. tostring(pr.ActionText) .. "]"
-end
-end)
-local kidsText = "-"
-pcall(function()
-local parts = {}
-for _, ch in ipairs(inst:GetChildren()) do
-if #parts >= 10 then
-table.insert(parts, "...")
-break
-end
-table.insert(parts, tostring(ch.Name) .. ":" .. ch.ClassName)
-end
-if #parts > 0 then
-kidsText = table.concat(parts, ", ")
-end
-end)
-local textsText = "-"
-pcall(function()
-local parts = {}
-for _, ch in ipairs(inst:GetDescendants()) do
-if #parts >= 4 then
-break
-end
-if ch:IsA("TextLabel") or ch:IsA("TextButton") then
-table.insert(parts, "[" .. tostring(ch.Text) .. "]")
-end
-end
-if #parts > 0 then
-textsText = table.concat(parts, " ")
-end
-end)
-local info = e.Info or {}
-print(string.format(
-"[FUST][ЛУТ] %s (%s, %s) | папка: %s | владелец: %s | слоты: %s | атрибуты: %s | промпт: %s | дети: %s | тексты: %s",
-okN and instName or "?",
-inst.ClassName,
-e.Cat or "bag",
-okPar and parentName or "?",
-tostring(info.Owner),
-tostring(info.Slots),
-attrsText,
-promptText,
-kidsText,
-textsText
-))
-end
-local bagsN, contN = 0, 0
-for _, e2 in pairs(trackedBackpacks) do
-if (e2.Cat or "bag") == "bag" then
-bagsN = bagsN + 1
-else
-contN = contN + 1
-end
-end
-print("[FUST][ЛУТ] всего отслежено: " .. tostring(count)
-.. " (мешков: " .. tostring(bagsN) .. ", контейнеров: " .. tostring(contN) .. ")")
-if count == 0 then
-local cam = Workspace.CurrentCamera
-local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-if myRoot then
-local shown = 0
-for _, inst in ipairs(Workspace:GetDescendants()) do
-if shown >= 30 then
-break
-end
-if (inst:IsA("Model") or inst:IsA("BasePart"))
-and not inst:FindFirstChildOfClass("Humanoid")
-and (not cam or not inst:IsDescendantOf(cam)) then
-local okD, d = pcall(function()
-return (inst:GetPivot().Position - myRoot.Position).Magnitude
-end)
-if okD and d and d < 150 then
-shown = shown + 1
-print(string.format(
-"[FUST][ЛУТ-РЯДОМ] %s (%s), %.0fm",
-tostring(inst.Name),
-inst.ClassName,
-d
-))
-end
-end
-end
-end
-end
-end)
-end
-task.wait(10)
-end
-end)
-velEMA = {} 
-velEMALastClean = 0
-function autoLead(dist)
-return math.clamp(dist / 900, 0.1, 1.5) * math.clamp(Aim.AutoPredictK or 1, 0.1, 5)
-end
-function getSmoothedVelocity(root, vel)
-if not Aim.AutoPredict then
-return vel
-end
-local old = velEMA[root]
-if not old then
-velEMA[root] = vel
-return vel
-end
-local smooth = old:Lerp(vel, 0.35)
-velEMA[root] = smooth
-return smooth
-end
--- 0.50: КОПТЕРЫ — отдельная цель аимбота. По приказу: БЕЗ проверки
--- дистанции (лимит Aim.Distance срезал летающие далеко/высоко коптеры,
--- из-за этого «аим не работал на коптеры»). FOV и проверка стен (если
--- включены) остаются как у остальных целей.
-trackedCopters = {}
-local copterChecked = {}
-local lastCopterScan = 0
-function resolveCopterPart(model)
-local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
-if seat then return seat end
-local pp = model.PrimaryPart
-if pp and pp.Parent then return pp end
-local best = nil
-for _, d in ipairs(model:GetDescendants()) do
-if d:IsA("BasePart") and (not best or d.Size.Magnitude > best.Size.Magnitude) then
-best = d
-end
-end
-return best
-end
-function refreshCopters()
-local myChar = LocalPlayer.Character
-for model in pairs(trackedCopters) do
-if not model.Parent then
-trackedCopters[model] = nil
-end
-end
-for model in pairs(copterChecked) do
-if not model.Parent then
-copterChecked[model] = nil
-end
-end
-local function tryCopter(obj)
-if not obj:IsA("Model") or trackedCopters[obj] or copterChecked[obj] then
-return
-end
-if isPlayerCharacter(obj) then
-return
-end
-if myChar and obj:IsAncestorOf(myChar) then
-return
-end
-local name = string.lower(obj.Name)
-local byName = string.find(name, "copter", 1, true)
-or string.find(name, "heli", 1, true)
-or string.find(name, "вертол", 1, true)
-local isCopter = false
-if byName then
-isCopter = true
-else
-local seat = obj:FindFirstChildWhichIsA("VehicleSeat", true)
-if seat then
-isCopter = true
-end
-end
-if isCopter then
-local part = resolveCopterPart(obj)
-if part then
-trackedCopters[obj] = part
-end
-else
-copterChecked[obj] = true
-end
-end
-for _, obj in ipairs(Workspace:GetChildren()) do
-if obj:IsA("Model") then
-tryCopter(obj)
-elseif obj:IsA("Folder") then
-for _, obj2 in ipairs(obj:GetChildren()) do
-if obj2:IsA("Model") then
-tryCopter(obj2)
-end
-end
-end
-end
-end
-task.spawn(function()
-while getgenv().FUST_SESSION == FUST_SESSION do
-if Aim.TargetsCopters and os.clock() - lastCopterScan > 2 then
-lastCopterScan = os.clock()
-pcall(refreshCopters)
-end
-task.wait(1)
-end
-end)
-
-function getAimTarget(camera)
-local char = LocalPlayer.Character
-local localRoot = char and char:FindFirstChild("HumanoidRootPart")
-if not localRoot then
-return nil
-end
-local camPos = camera.CFrame.Position
-local look = camera.CFrame.LookVector
-local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-local bestPart, bestPoint, bestType
-local bestScore = math.huge
-local now = os.clock()
-if now - velEMALastClean > 30 then
-velEMALastClean = now
-for root in pairs(velEMA) do
-if not root.Parent then
-velEMA[root] = nil
-end
-end
-end
-if Aim.TargetsPlayers ~= false then
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer
-and Whitelist[plr.Name] == nil
-and not (Aim.TeamCheck and plr.Team ~= nil and plr.Team == LocalPlayer.Team) then
-local model = plr.Character
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local worldDist = (root.Position - localRoot.Position).Magnitude
-if worldDist <= Aim.Distance then
-if Evil.Enabled then
-local evPart, evPos = evilAimPoint(model, root, camPos, worldDist)
-if evPart and evPos then
-local toEv = evPos - camPos
-if toEv:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(evPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if Evil.Snipe or screenDist <= Aim.FOV then
-local score = (not Evil.Snipe and Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = evPart
-bestPoint = evPos
-bestType = "игрок (злой)"
-end
-end
-end
-end
-else
-local part = resolveAimPart(model, Aim.Part)
-if part then
-local vel = root.AssemblyLinearVelocity
-local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
-local aimPos = part.Position + vel * lead
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
-local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "игрок"
-end
-end
-end
-end
-end
-end
-end
-end
-end
-end
-end
-if Aim.TargetsNPC or Aim.TargetsAnimals or Aim.TargetsSleepers then
-for model in pairs(trackedNPCs) do
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local aimCat = npcGetCategory(model, hum, root)
-local catWanted =
-((aimCat == "Guard" or aimCat == "Peaceful") and Aim.TargetsNPC)
-or (aimCat == "Animal" and Aim.TargetsAnimals)
-or (aimCat == "Sleeper" and Aim.TargetsSleepers)
-if not catWanted then
-continue
-end
-local worldDist = (root.Position - localRoot.Position).Magnitude
-if worldDist <= Aim.Distance then
-local part = resolveAimPart(model, Aim.Part)
-if part then
-local vel = getSmoothedVelocity(root, root.AssemblyLinearVelocity)
-local lead = Aim.AutoPredict and autoLead(worldDist) or Aim.Prediction
-local aimPos = part.Position + vel * lead
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
-local score = (Aim.Priority == "Дистанция") and worldDist or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "бот/НПС"
-end
-end
-end
-end
-end
-end
-end
-end
-end
--- 0.50: КОПТЕРЫ как цель — БЕЗ проверки дистанции (по приказу).
--- Стрелять можно и по пустому коптеру (чтобы сбить), поэтому
--- занятость сиденья не проверяем. Свой коптер (в котором сидишь) исключён.
-if Aim.TargetsCopters then
-for model, part in pairs(trackedCopters) do
-if model.Parent and part and part.Parent then
-local aimPos = part.Position
-local toPoint = aimPos - camPos
-if toPoint:Dot(look) > 0 then
-local sp = camera:WorldToViewportPoint(aimPos)
-local screenDist = (center - Vector2.new(sp.X, sp.Y)).Magnitude
-if screenDist <= Aim.FOV then
-if not Aim.WallCheck or not wallBetween(camPos, model, aimPos) then
--- ДИСТАНЦИЯ НЕ ПРОВЕРЯЕТСЯ: коптеры далеко/высоко —
--- лимит Aim.Distance их никогда не пропускал
-local score = (Aim.Priority == "Дистанция") and (aimPos - camPos).Magnitude or screenDist
-if score < bestScore then
-bestScore = score
-bestPart = part
-bestPoint = aimPos
-bestType = "коптер"
-end
-end
-end
-end
-else
-trackedCopters[model] = nil
-end
-end
-end
-return bestPart, bestPoint, bestType
-end
-if getgenv().FUST_AimCleanup then
-pcall(getgenv().FUST_AimCleanup)
-end
-aimConnection = nil
-aimConnection = RunService.RenderStepped:Connect(function(dt)
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-aimConnection:Disconnect()
-return
-end
-local camera = Workspace.CurrentCamera
-if not camera then
-return
-end
-local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-updateCrosshairV(dt, center)
--- 0.56: аим выключен ИЛИ фрикам — сброс цели, FOV-круг прячем
-if not Aim.Enabled or FreeCam.Enabled then
-AIM_TargetPart = nil
-AIM_TargetScreenPos = nil
-fovGuiSetVisible(false)
-return
-end
-local part, aimPos = getAimTarget(camera)
--- 0.53: текущая цель аима — для прицела «следовать за целью/точкой аима»
-AIM_TargetPart = part
-do -- 0.64: последняя цель-ИГРОКА (для хитмаркера/хитлога/звуков)
-local aimPlr = nil
-if part then
-local aimModel = part:FindFirstAncestorOfClass("Model")
-if aimModel then
-aimPlr = Players:GetPlayerFromCharacter(aimModel)
-end
-end
-if aimPlr and aimPlr ~= LocalPlayer then
-AIM_LastTargetPlayer = aimPlr
-AIM_LastTargetTime = os.clock()
-end
-end
-if part and aimPos then
-pcall(function()
-local sp = camera:WorldToViewportPoint(aimPos)
-AIM_TargetScreenPos = Vector2.new(sp.X, sp.Y)
-end)
-else
-AIM_TargetScreenPos = nil
-end
--- 0.56: GUI FOV-круг (вращающийся; красно-чёрный / зелёный по видимости)
-fovGuiUpdate(center, part and true or false)
-if part and aimPos then
-AR_AimBusyUntil = os.clock() + 0.15
-local newCF = CFrame.new(camera.CFrame.Position, aimPos)
-if Evil.Enabled then
--- STEALTH 0.39: фикс «кривого прицеливания» злого аима.
--- Проблема 0.38: фиксированный лерп 0.85 недолёт при быстрой цели
--- (успевает убежать за 1 кадр), и перелёт при близкой (камера
--- проскакивает). Решение: лерп АДАПТИВНЫЙ по дистанции до цели.
--- < 30м → 0.92 (быстрая коррекция, цель близко — резче)
--- 30..80м → 0.85 (средне)
--- > 80м → 0.78 (далеко — меньше перелётов)
--- Snipe-режим — +0.06 ко всем (максимум 0.98).
-local dist = (aimPos - camera.CFrame.Position).Magnitude
-local baseA = 0.78
-if dist < 30 then baseA = 0.92
-elseif dist < 80 then baseA = 0.85
-end
-if Evil.Snipe then baseA = math.min(0.98, baseA + 0.06) end
-camera.CFrame = camera.CFrame:Lerp(newCF, baseA)
-else
-local alpha = math.clamp(1 / math.max(Aim.Smooth, 1), 0, 1)
-camera.CFrame = camera.CFrame:Lerp(newCF, alpha)
-end
--- 0.39v2: АВТО-СТРЕЛЬБА
--- 0.39v4: WallCheck — не стрелять если цель за стеной
-local afCanFire = AutoFire.Enabled and (not AutoFire.OnlyOnTarget or part)
-if afCanFire and AutoFire.WallCheck and part and aimPos then
--- ищем модель цели для raycast (part.Parent обычно модель игрока/НПС/вертолёта)
-local targetModel = part.Parent
-if not targetModel or not targetModel:IsA("Model") then
-targetModel = part:FindFirstAncestorOfClass("Model")
-end
-if targetModel then
-local camPos2 = camera.CFrame.Position
-if wallBetween(camPos2, targetModel, aimPos) then
-afCanFire = false
-end
-end
-end
-if afCanFire then
-local now = os.clock()
-if now - AF_LastShot >= AutoFire.Delay then
-AF_LastShot = now
-AF_LastTargetPart = part
-pcall(function()
--- ПК: симулируем левый клик мышью через mouse1click (если есть)
--- или VirtualInputManager. НЕ перехватываем управление телефоном.
--- 0.49 FIX: выбор ветки по РЕАЛЬНОМУ вводу — экзекуторы на телефоне врут
--- во флагах (KeyboardEnabled бывает true на Delta). Телефон = TouchEnabled.
--- 0.56 (E-20): движок ВЕРНУТ по приказу пользователя — VOMAGLA (0.52-0.55)
--- не стрелял, а этот работает на Xeno с линии 0.39.
-local hasKeyboard = UserInputService.KeyboardEnabled and not UserInputService.TouchEnabled
-if hasKeyboard then
--- Xeno: mouse1click / mouse1press / mouse1release
-local m1c = getgenv().mouse1click
-local afFired = false
-if type(m1c) == "function" then
-m1c()
-afFired = true
-else
--- фолбэк: VirtualInputManager (Roblox)
-local okV, vim = pcall(function()
-return game:GetService("VirtualInputManager")
-end)
-if okV and vim then
--- 0.39v4 FIX: task.wait здесь ЗАПРЕЩЁН (yield в RenderStepped ломает
--- весь aim loop). Шлём press+release без задержки — Roblox сам
--- обработает порядок.
-vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-afFired = true
-end
-end
-if not afFired then
--- 0.49 FIX: mouse1click/VIM недоступны — стреляем Tool:Activate()
-local afChar = LocalPlayer.Character
-local afTool = afChar and afChar:FindFirstChildOfClass("Tool")
-if afTool then
-pcall(function()
-afTool:Activate()
-end)
-end
-end
-else
--- Телефон: НЕ перехватываем управление. Авто-стрельба только если
--- в игре есть Tool с Activate() — вызываем его напрямую.
-local char = LocalPlayer.Character
-local tool = char and char:FindFirstChildOfClass("Tool")
-if tool then
-pcall(function()
-tool:Activate()
-end)
-end
-end
-end)
-end
-end
-end
-end)
-getgenv().FUST_AimCleanup = function()
-if aimConnection then
-aimConnection:Disconnect()
-aimConnection = nil
-end
-pcall(function()
-if fovGuiDestroy then
-fovGuiDestroy()
-end
-end)
-for i = 1, 4 do
-pcall(function()
-if chLines[i] then
-chLines[i]:Remove()
-end
-end)
-chLines[i] = nil
-end
-end
-function autoAimTick()
-if not AutoAim.Enabled then
-AA_EnemyNear = false
-AA_NearestDist = nil
-return
-end
-local myChar = LocalPlayer.Character
-local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if not myRoot then
-return 
-end
-local bestDist = math.huge
-local bestName = nil
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer and Whitelist[plr.Name] == nil then
-local model = plr.Character
-local hum = model and model:FindFirstChildOfClass("Humanoid")
-local root = model and model:FindFirstChild("HumanoidRootPart")
-if hum and root and hum.Health > 0 then
-local d = (root.Position - myRoot.Position).Magnitude
-if d < bestDist then
-bestDist = d
-bestName = plr.Name
-end
-end
-end
-end
-AA_NearestDist = (bestDist < math.huge) and bestDist or nil
-local want = AA_EnemyNear
-if want then
-if bestDist > AutoAim.Radius + 30 then
-want = false 
-end
-else
-if bestDist <= AutoAim.Radius then
-want = true 
-end
-end
-if want ~= AA_EnemyNear then
-AA_EnemyNear = want
-if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
-pcall(function()
-UIRegistry.AimEnabled:Set(want)
-end)
-end
-if bestName then
-journal(string.format("АВТО-АИМ: %s — %s (%d м)",
-want and "ВРАГ В РАДИУСЕ, АИМБОТ ВКЛЮЧЕН" or "ВРАГ УШЁЛ, АИМБОТ ВЫКЛЮЧЕН",
-bestName, math.floor(bestDist + 0.5)))
-else
-journal("АВТО-АИМ: " .. (want and "АИМБОТ ВКЛЮЧЕН" or "АИМБОТ ВЫКЛЮЧЕН"))
-end
-end
-end
-task.spawn(function()
-while true do
--- STEALTH 0.38: jitter вместо фиксированного 0.2с — идеально ровные
--- интервалы сканера = бот-паттерн для эвристики. 0.18..0.24с неотличимо
--- от человеческой реакции, но не даёт «ритмичного» следа.
-task.wait(0.18 + math.random() * 0.06)
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-break
-end
-local okAA = pcall(autoAimTick)
-if not okAA then
-task.wait(1) 
-end
-end
-end)
-
--- 0.39: АДМИН/VIP ЧЕК — сканер игроков на права выше обычного
-AdminScan_Count = 0
-AdminScan_Names = ""
-AdminScan_List = {}
-local ADMIN_ATTRS = { "IsAdmin", "Admin", "IsModerator", "Moderator", "IsVIP", "VIP",
-"IsStaff", "Staff", "Role", "IsOwner", "Owner", "IsDeveloper", "Developer" }
-local ADMIN_TAGS = { "FustAdmin", "FustMod", "FustVIP", "Admin", "Moderator", "VIP",
-"Owner", "Staff", "Developer" }
-local ADMIN_GROUP_ROLES = { "Owner", "Admin", "Moderator", "Head Admin", "Staff" }
-
-function adminScanTick()
-local found = {}
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer then
-local isAdm = false
--- 1. Roblox admin badge (UserId < 1000 = старый акк, не админ; проверяем HasBadge)
-pcall(function()
-if plr.UserId < 1000 then
-isAdm = true
-table.insert(found, plr.Name .. " (Roblox staff)")
-end
-end)
--- 2. Атрибуты игрока
-if not isAdm then
-pcall(function()
-local attrs = plr:GetAttributes()
-for k, v in pairs(attrs) do
-local kl = string.lower(tostring(k))
-for _, attr in ipairs(ADMIN_ATTRS) do
-if kl == string.lower(attr) and v then
-isAdm = true
-table.insert(found, plr.Name .. " (attr:" .. k .. ")")
-break
-end
-end
-end
-end)
-end
--- 3. CollectionService теги
-if not isAdm then
-pcall(function()
-for _, tag in ipairs(ADMIN_TAGS) do
-if CollectionService:HasTag(plr, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (tag:" .. tag .. ")")
-break
-end
-end
-end)
-end
--- 4. FUST-специфичные теги/атрибуты на Character
-if not isAdm then
-pcall(function()
-local c = plr.Character
-if c then
-for _, tag in ipairs({ "FustAdmin", "FustMod", "Admin", "Moderator" }) do
-if CollectionService:HasTag(c, tag) then
-isAdm = true
-table.insert(found, plr.Name .. " (char:" .. tag .. ")")
-break
-end
-end
-end
-end)
-end
--- 5. GroupRole — если у игрока роль Owner/Admin/Moderator в какой-то группе
---    (тяжёлая операция, делаем редко — GetRankInGroup кешируется)
-if not isAdm then
-pcall(function()
--- Проверяем только если игра дала плейс-специфичную группу
-local placeGroup = nil
-pcall(function()
--- FUST: пробуем common survival group IDs
-for _, gid in ipairs({ 0 }) do
--- placeholder: реальный group ID нужно узнать из игры
-end
-end)
-end)
-end
-end
-end
-AdminScan_List = found
-AdminScan_Count = #found
-if #found > 0 then
-AdminScan_Names = table.concat(found, ", ")
-if not AdminScan_LastJournal or os.clock() - AdminScan_LastJournal > 30 then
-AdminScan_LastJournal = os.clock()
-journal("АДМИН-ЧЕК: обнаружено " .. #found .. " — " .. AdminScan_Names)
-end
-else
-AdminScan_Names = ""
-end
-end
-AdminScan_LastJournal = 0
-task.spawn(function()
-while true do
-task.wait(5)
-if getgenv().FUST_SESSION ~= FUST_SESSION then break end
-pcall(adminScanTick)
-end
-end)
-HttpService = game:GetService("HttpService")
-CONFIG_FILE = "FUST_config.json"
-function colorToTable(c)
-return {
-R = math.floor(c.R * 255 + 0.5),
-G = math.floor(c.G * 255 + 0.5),
-B = math.floor(c.B * 255 + 0.5),
-}
-end
-function tableToColor(t)
-if type(t) ~= "table" then
-return nil
-end
-return Color3.fromRGB(tonumber(t.R) or 0, tonumber(t.G) or 0, tonumber(t.B) or 0)
-end
-function saveConfig()
-local okFile, err = pcall(function()
-local wl = {}
-for name in pairs(Whitelist) do
-table.insert(wl, name)
-end
-table.sort(wl)
-local hotkeyKey, hotkeyMode = nil, nil
-if AimHotkeyObj and AimHotkeyObj.Value and AimHotkeyObj.Value ~= "None" and AimHotkeyObj.Get then
-local okHK, hkKey, hkMode = pcall(function()
-return AimHotkeyObj:Get()
-end)
-if okHK and type(hkKey) == "string" and hkKey ~= "" then
-hotkeyKey = hkKey
-hotkeyMode = (hkMode == "Hold" or hkMode == "Always") and hkMode or "Toggle"
-end
-end
-local cfg = {
-ESP = {
-Enabled = S.ESP.Enabled,
-Box = S.ESP.Box,
-Chams = S.ESP.Chams,
-ChamsTransparency = S.ESP.ChamsTransparency,
-Name = S.ESP.Name,
-Item = S.ESP.Item,
-Distance = S.ESP.Distance,
-HealthBar = S.ESP.HealthBar,
-MaxDistance = S.ESP.MaxDistance,
-DistanceScale = S.ESP.DistanceScale,
-TeamCheck = S.ESP.TeamCheck,
-},
-BoxColor = colorToTable(S.ESPColors.Box),
-NPCColors = {
-Guard = colorToTable(NPC_CAT_COLORS.Guard),
-Peaceful = colorToTable(NPC_CAT_COLORS.Peaceful),
-Animal = colorToTable(NPC_CAT_COLORS.Animal),
-Sleeper = colorToTable(NPC_CAT_COLORS.Sleeper),
-},
-Hitbox = {
-Enabled = S.Hitbox.Enabled,
-Size = S.Hitbox.Size,
-Transparency = S.Hitbox.Transparency,
-},
-FullBright = S.FullBright,
-NoDecoration = S.NoDecoration,
-NoGrass = S.NoGrass,
-NoFog = S.NoFog,
-Bullets = {
-Enabled = S.Bullets.Enabled,
-Style = S.Bullets.Style or "Луч",
-Width = S.Bullets.Width,
-Transparency = S.Bullets.Transparency,
-LifeTime = S.Bullets.LifeTime,
-TeamCheck = S.Bullets.TeamCheck,
-Color = colorToTable(S.Bullets.Color),
-},
-CrosshairV = {
-Enabled = CH.Enabled,
-Rainbow = CH.Rainbow,
-Length = CH.Length,
-Gap = CH.Gap,
-Thickness = CH.Thickness,
-Dot = CH.Dot,
-RotationSpeed = CH.RotationSpeed,
-Pulse = CH.Pulse,
-PulseSpeed = CH.PulseSpeed,
-FollowTarget = CH.FollowTarget,
-FollowSmooth = CH.FollowSmooth,
-FollowAimPoint = CH.FollowAimPoint,
-},
-Furniture = {
-Enabled = (FurnitureChams and FurnitureChams.Enabled) or false,
-Color = colorToTable((FurnitureChams and FurnitureChams.Color) or Color3.fromRGB(100, 200, 255)),
-Transparency = (FurnitureChams and FurnitureChams.Transparency) or 0.4,
-},
-NPC = {
-ESP = S.NPC.ESP,
-CatGuards = S.NPC.CatGuards,
-CatPeaceful = S.NPC.CatPeaceful,
-CatAnimals = S.NPC.CatAnimals,
-CatSleepers = S.NPC.CatSleepers,
-Box = S.NPC.Box,
-Name = S.NPC.Name,
-Item = S.NPC.Item,
-Distance = S.NPC.Distance,
-HealthBar = S.NPC.HealthBar,
-Chams = S.NPC.Chams,
-ChamsTransparency = S.NPC.ChamsTransparency,
-MaxDistance = S.NPC.MaxDistance,
-HitboxEnabled = S.NPC.HitboxEnabled,
-HitboxSize = S.NPC.HitboxSize,
-HitboxTransparency = S.NPC.HitboxTransparency,
-HitboxAnimals = S.NPC.HitboxAnimals,
-HitboxSleepers = S.NPC.HitboxSleepers,
-},
-Aim = {
-Enabled = Aim.Enabled,
-ShowFOV = Aim.ShowFOV,
-FovColorNoTarget = colorToTable(Aim.FovColorNoTarget),
-FovColorTarget = colorToTable(Aim.FovColorTarget),
-FovThickness = Aim.FovThickness,
-FovSpin = Aim.FovSpin,
-FOV = Aim.FOV,
-Distance = Aim.Distance,
-Smooth = Aim.Smooth,
-Prediction = Aim.Prediction,
-Part = Aim.Part,
-Priority = Aim.Priority,
-WallCheck = Aim.WallCheck,
-TeamCheck = Aim.TeamCheck,
-Crosshair = CH.Enabled,
-Targets = (function()
-local t = {}
-if Aim.TargetsPlayers then
-table.insert(t, "Игроки")
-end
-if Aim.TargetsNPC then
-table.insert(t, "Боты и НПС")
-end
-if Aim.TargetsAnimals then
-table.insert(t, "Животные")
-end
-if Aim.TargetsSleepers then
-table.insert(t, "Слиперы")
-end
-if Aim.TargetsCopters then
-table.insert(t, "Коптеры")
-end
-return t
-end)(),
-AutoPredict = Aim.AutoPredict,
-AutoPredictK = Aim.AutoPredictK,
-HotkeyKey = hotkeyKey,
-HotkeyMode = hotkeyMode,
-},
-AntiRecoil = {
-Enabled = AntiRecoil.Enabled,
-Rollback = AntiRecoil.Rollback,
-Offset = AntiRecoil.Offset,
-Drift = AntiRecoil.Drift,
-DriftStrength = AntiRecoil.DriftStrength,
-Threshold = AntiRecoil.Threshold,
-},
-AntiShake = {
-Enabled = AntiShake.Enabled,
-Roll = AntiShake.Roll,
-Position = AntiShake.Position,
-Oscillation = AntiShake.Oscillation,
-},
-AutoAim = {
-Enabled = AutoAim.Enabled,
-Radius = AutoAim.Radius,
-},
-Evil = {
-Enabled = Evil.Enabled,
-AutoPred = Evil.AutoPred,
-Snipe = Evil.Snipe,
-K = Evil.K,
-},
-HUD = {
-Enabled = S.HUD.Enabled,
-Size = S.HUD.Size,
-BgTransparency = S.HUD.BgTransparency,
-TextTransparency = S.HUD.TextTransparency,
-Corner = S.HUD.Corner,
-ShowTPS = S.HUD.ShowTPS,
-ShowBg = S.HUD.ShowBg,
-},
-Loot = {
-Enabled = S.Loot.Enabled,
-Owner = S.Loot.Owner,
-Slots = S.Loot.Slots,
-Distance = S.Loot.Distance,
-Box = S.Loot.Box,
-Chams = S.Loot.Chams,
-MaxDistance = S.Loot.MaxDistance,
-DebugLog = S.Loot.DebugLog,
-},
-LootColor = colorToTable(LOOT_COLOR),
-LootC = {
-Enabled = S.LootC.Enabled,
-Name = S.LootC.Name,
-Distance = S.LootC.Distance,
-Box = S.LootC.Box,
-MaxDistance = S.LootC.MaxDistance,
-},
-LootCColor = colorToTable(LOOTC_COLOR),
-Whitelist = wl,
-}
-writefile(CONFIG_FILE, HttpService:JSONEncode(cfg))
-journal("КОНФИГ СОХРАНЁН")
-end)
-return okFile, err
-end
-function applyFlag(key, value)
-local obj = UIRegistry[key]
-if obj and value ~= nil and obj.Set then
-pcall(function()
-obj:Set(value)
-end)
-end
-end
-function loadConfig()
-if type(isfile) ~= "function" or not isfile(CONFIG_FILE) then
-return false, "конфиг ещё не сохранялся"
-end
-local okFile, err = pcall(function()
-local cfg = HttpService:JSONDecode(readfile(CONFIG_FILE))
-if type(cfg.ESP) == "table" then
-applyFlag("ESPEnabled", cfg.ESP.Enabled)
-applyFlag("ESPBox", cfg.ESP.Box)
-applyFlag("ESPChams", cfg.ESP.Chams)
-applyFlag("ESPChamsTransparency", cfg.ESP.ChamsTransparency)
-applyFlag("ESPName", cfg.ESP.Name)
-applyFlag("ESPItem", cfg.ESP.Item)
-applyFlag("ESPDistance", cfg.ESP.Distance)
-applyFlag("ESPHealthBar", cfg.ESP.HealthBar)
-applyFlag("ESPMaxDistance", cfg.ESP.MaxDistance)
-if cfg.ESP.DistanceScale ~= nil then
-applyFlag("ESPDistanceScale", cfg.ESP.DistanceScale)
-end
-if cfg.ESP.TeamCheck ~= nil then
-applyFlag("ESPTeamCheck", cfg.ESP.TeamCheck)
-end
-end
-if type(cfg.NPC) == "table" then
-applyFlag("NPCEsp", cfg.NPC.ESP)
-applyFlag("NPCGuards", cfg.NPC.CatGuards)
-applyFlag("NPCPeaceful", cfg.NPC.CatPeaceful)
-applyFlag("NPCAnimals", cfg.NPC.CatAnimals)
-applyFlag("NPCSleepers", cfg.NPC.CatSleepers)
-applyFlag("NPCBox", cfg.NPC.Box)
-applyFlag("NPCName", cfg.NPC.Name)
-applyFlag("NPCItem", cfg.NPC.Item)
-applyFlag("NPCDistance", cfg.NPC.Distance)
-applyFlag("NPCHealthBar", cfg.NPC.HealthBar)
-applyFlag("NPCChams", cfg.NPC.Chams)
-applyFlag("NPCChamsTransparency", cfg.NPC.ChamsTransparency)
-applyFlag("NPCMaxDistance", cfg.NPC.MaxDistance)
-applyFlag("NPCHitboxEnabled", cfg.NPC.HitboxEnabled)
-applyFlag("NPCHitboxSize", cfg.NPC.HitboxSize)
-applyFlag("NPCHitboxTransparency", cfg.NPC.HitboxTransparency)
-if cfg.NPC.HitboxAnimals ~= nil then
-applyFlag("NPCHitboxAnimals", cfg.NPC.HitboxAnimals)
-end
-if cfg.NPC.HitboxSleepers ~= nil then
-applyFlag("NPCHitboxSleepers", cfg.NPC.HitboxSleepers)
-end
-end
-if type(cfg.NPCColors) == "table" then
-for _, catName in ipairs({ "Guard", "Peaceful", "Animal", "Sleeper" }) do
-local catColor = tableToColor(cfg.NPCColors[catName])
-if catColor and NPC_CAT_COLORS[catName] then
-NPC_CAT_COLORS[catName] = catColor
-local catPicker = UIRegistry["NPCColor" .. catName]
-if catPicker and catPicker.Set then
-pcall(function()
-catPicker:Set(catColor)
-end)
-end
-end
-end
-end
-local boxColor = tableToColor(cfg.BoxColor)
-if boxColor then
-S.ESPColors.Box = boxColor
-if UIRegistry.ESPBoxColor and UIRegistry.ESPBoxColor.Set then
-pcall(function()
-UIRegistry.ESPBoxColor:Set(boxColor)
-end)
-end
-end
-if type(cfg.Hitbox) == "table" then
-applyFlag("HitboxEnabled", cfg.Hitbox.Enabled)
-applyFlag("HitboxSize", cfg.Hitbox.Size)
-applyFlag("HitboxTransparency", cfg.Hitbox.Transparency)
-end
-applyFlag("FullBright", cfg.FullBright)
-applyFlag("NoDecoration", cfg.NoDecoration)
-applyFlag("NoGrass", cfg.NoGrass)
-applyFlag("NoFog", cfg.NoFog)
-if type(cfg.Bullets) == "table" then
-applyFlag("BulletsEnabled", cfg.Bullets.Enabled)
-local bstyle = cfg.Bullets.Style
-if bstyle == "Квадратный" then
-bstyle = "Луч"
-end
-if bstyle then
-applyFlag("BulletsStyle", bstyle)
-end
-applyFlag("BulletsWidth", cfg.Bullets.Width)
-applyFlag("BulletsTransparency", cfg.Bullets.Transparency)
-applyFlag("BulletsLifeTime", cfg.Bullets.LifeTime or cfg.Bullets.Fade)
-applyFlag("BulletsTeamCheck", cfg.Bullets.TeamCheck)
-local bcol = tableToColor(cfg.Bullets.Color)
-if bcol and UIRegistry.BulletsColor and UIRegistry.BulletsColor.Set then
-pcall(function() UIRegistry.BulletsColor:Set(bcol) end)
-end
-end
-if type(cfg.CrosshairV) == "table" then
-local c = cfg.CrosshairV
-applyFlag("CHEnabled", c.Enabled)
-applyFlag("CHRainbow", c.Rainbow)
-applyFlag("CHLength", c.Length)
-applyFlag("CHGap", c.Gap)
-applyFlag("CHThickness", c.Thickness)
-applyFlag("CHDot", c.Dot)
-applyFlag("CHRotation", c.RotationSpeed)
-applyFlag("CHPulse", c.Pulse)
-applyFlag("CHPulseSpeed", c.PulseSpeed)
-applyFlag("CHFollowTarget", c.FollowTarget)
-applyFlag("CHFollowSmooth", c.FollowSmooth)
-applyFlag("CHFollowAim", c.FollowAimPoint)
-end
-if type(cfg.Furniture) == "table" then
-applyFlag("FurnitureChams", cfg.Furniture.Enabled)
-applyFlag("FurnitureChamsTransparency", cfg.Furniture.Transparency)
-local fcol = tableToColor(cfg.Furniture.Color)
-if fcol and UIRegistry.FurnitureChamsColor and UIRegistry.FurnitureChamsColor.Set then
-pcall(function() UIRegistry.FurnitureChamsColor:Set(fcol) end)
-end
-end
-if type(cfg.AntiRecoil) == "table" then
-applyFlag("AntiRecoilEnabled", cfg.AntiRecoil.Enabled)
-applyFlag("AntiRecoilRollback", cfg.AntiRecoil.Rollback)
-applyFlag("AntiRecoilOffset", cfg.AntiRecoil.Offset)
-applyFlag("AntiRecoilDrift", cfg.AntiRecoil.Drift)
-applyFlag("AntiRecoilDriftStrength", cfg.AntiRecoil.DriftStrength)
-applyFlag("AntiRecoilThreshold", cfg.AntiRecoil.Threshold)
-end
-if type(cfg.AntiShake) == "table" then
-applyFlag("AntiShakeEnabled", cfg.AntiShake.Enabled)
-applyFlag("AntiShakeRoll", cfg.AntiShake.Roll)
-applyFlag("AntiShakePosition", cfg.AntiShake.Position)
-applyFlag("AntiShakeOscillation", cfg.AntiShake.Oscillation)
-end
-if type(cfg.AutoAim) == "table" then
-applyFlag("AutoAimEnabled", cfg.AutoAim.Enabled)
-applyFlag("AutoAimRadius", cfg.AutoAim.Radius)
-end
-if type(cfg.HUD) == "table" then
-applyFlag("HUDEnabled", cfg.HUD.Enabled)
-applyFlag("HUDSize", cfg.HUD.Size)
-applyFlag("HUDBgTransparency", cfg.HUD.BgTransparency)
-applyFlag("HUDTextTransparency", cfg.HUD.TextTransparency)
-if cfg.HUD.Corner ~= nil then
-applyFlag("HUDCorner", cfg.HUD.Corner)
-end
-applyFlag("HUDShowTPS", cfg.HUD.ShowTPS)
-applyFlag("HUDShowBg", cfg.HUD.ShowBg)
-end
-if type(cfg.Loot) == "table" then
-applyFlag("LootEnabled", cfg.Loot.Enabled)
-applyFlag("LootOwner", cfg.Loot.Owner)
-applyFlag("LootSlots", cfg.Loot.Slots)
-applyFlag("LootDistance", cfg.Loot.Distance)
-applyFlag("LootBox", cfg.Loot.Box)
-applyFlag("LootChams", cfg.Loot.Chams)
-applyFlag("LootMaxDistance", cfg.Loot.MaxDistance)
-applyFlag("LootDebugLog", cfg.Loot.DebugLog)
-end
-if type(cfg.LootC) == "table" then
-applyFlag("LootCEnabled", cfg.LootC.Enabled)
-applyFlag("LootCName", cfg.LootC.Name)
-applyFlag("LootCDistance", cfg.LootC.Distance)
-applyFlag("LootCBox", cfg.LootC.Box)
-applyFlag("LootCMaxDistance", cfg.LootC.MaxDistance)
-end
-local lootColor = tableToColor(cfg.LootColor)
-if lootColor
-and math.abs(lootColor.R - 0 / 255) < 0.004
-and math.abs(lootColor.G - 105 / 255) < 0.004
-and math.abs(lootColor.B - 45 / 255) < 0.004 then
-lootColor = nil
-end
-if lootColor then
-LOOT_COLOR = lootColor
-if UIRegistry.LootColor and UIRegistry.LootColor.Set then
-pcall(function()
-UIRegistry.LootColor:Set(lootColor)
-end)
-end
-end
-local lootCColor = tableToColor(cfg.LootCColor)
-if lootCColor then
-LOOTC_COLOR = lootCColor
-if UIRegistry.LootCColor and UIRegistry.LootCColor.Set then
-pcall(function()
-UIRegistry.LootCColor:Set(lootCColor)
-end)
-end
-end
-if type(cfg.Aim) == "table" then
-local a = cfg.Aim
-applyFlag("AimEnabled", a.Enabled)
-applyFlag("AimShowFOV", a.ShowFOV)
-local fovNoColor = tableToColor(a.FovColorNoTarget)
-if fovNoColor then
-Aim.FovColorNoTarget = fovNoColor
-pcall(function()
-if UIRegistry.AimFovColorNo and UIRegistry.AimFovColorNo.Set then
-UIRegistry.AimFovColorNo:Set(fovNoColor)
-end
-end)
-end
-local fovYesColor = tableToColor(a.FovColorTarget)
-if fovYesColor then
-Aim.FovColorTarget = fovYesColor
-pcall(function()
-if UIRegistry.AimFovColorYes and UIRegistry.AimFovColorYes.Set then
-UIRegistry.AimFovColorYes:Set(fovYesColor)
-end
-end)
-end
-applyFlag("AimFovThickness", a.FovThickness)
-applyFlag("AimFovSpin", a.FovSpin)
-applyFlag("AimFOV", a.FOV)
-applyFlag("AimDistance", a.Distance)
-applyFlag("AimSmooth", a.Smooth)
-applyFlag("AimPrediction", a.Prediction)
-applyFlag("AimAutoPredict", a.AutoPredict)
-applyFlag("AimAutoPredictK", a.AutoPredictK)
-applyFlag("AimWallCheck", a.WallCheck)
-applyFlag("AimTeamCheck", a.TeamCheck)
-applyFlag("CHEnabled", a.Crosshair)
-if a.Part and table.find(AIM_PARTS, a.Part) then
-applyFlag("AimPart", AIM_PART_TO_LABEL[a.Part])
-end
-if a.Priority == "Прицел" or a.Priority == "Дистанция" then
-applyFlag("AimPriority", a.Priority)
-end
-if type(a.Targets) == "table" then
-applyFlag("AimTargets", a.Targets)
-end
-if type(a.HotkeyKey) == "string" and UIRegistry.AimHotkey then
-local short = string.gsub(a.HotkeyKey, "^Enum%.KeyCode%.", "")
-if short ~= "" and short ~= "Backspace" then
-local okEnum, enumKey = pcall(function()
-return Enum.KeyCode[short]
-end)
-if okEnum and enumKey then
-local hkMode = (a.HotkeyMode == "Hold" or a.HotkeyMode == "Always") and a.HotkeyMode or "Toggle"
-AimHotkeyBusy = true
-applyFlag("AimHotkey", { Mode = hkMode, Key = enumKey })
-AimHotkeyBusy = false
-end
-end
-if type(cfg.Evil) == "table" then
-local ev = cfg.Evil
-applyFlag("EvilEnabled", ev.Enabled)
-applyFlag("EvilAutoPred", ev.AutoPred)
-applyFlag("EvilSnipe", ev.Snipe)
-applyFlag("EvilK", ev.K)
-end
-end
-end
-if type(cfg.Whitelist) == "table" then
-table.clear(Whitelist)
-for _, name in ipairs(cfg.Whitelist) do
-if type(name) == "string" then
-Whitelist[name] = true
-end
-end
-rebuildPlayerList()
-end
-end)
-return okFile, err
-end
--- 0.55: старый одиночный конфиг (FUST_config.json, кнопки «Сохранить/
--- Загрузить конфиг») убран. Вместо него — УЛУЧШЕННЫЕ КОНФИГИ со списком
--- и подтверждением перезаписи: подвкладка «Конфиги» на этой же странице.
-espDrawings = {}
-hitboxOriginals = {} 
-ChamsCreateBlocked = false 
-LootChamsBlocked = false 
-LootChamsBlockedAt = 0 
-botEspDrawings = {}
-npcHitboxOriginals = {}
-function botEnsureDrawings(model)
-local ed = botEspDrawings[model]
-if not ed then
-ed = {
-Box = Drawing.new("Square"),
-Name = Drawing.new("Text"),
-Distance = Drawing.new("Text"),
-Item = Drawing.new("Text"),
-HealthBarBg = Drawing.new("Line"),
-HealthBar = Drawing.new("Line"),
-HealthText = Drawing.new("Text"),
-}
-ed.Box.Filled = false
-ed.Box.Thickness = 1
-for _, key in ipairs({ "Name", "Distance", "HealthText", "Item" }) do
-ed[key].Center = true
-ed[key].Outline = true
-ed[key].Font = Drawing.Fonts.Plex
-end
-ed.Name.Size = 14
-ed.Distance.Size = 13
-ed.HealthText.Size = 11
-ed.HealthText.Center = false
-ed.Item.Size = 12
-ed.HealthBarBg.Thickness = 3
-ed.HealthBarBg.Color = Color3.fromRGB(0, 0, 0)
-ed.HealthBar.Thickness = 1.5
-botEspDrawings[model] = ed
-end
-return ed
-end
-function botRemoveDrawings(model)
-local ed = botEspDrawings[model]
-if ed then
-for _, obj in pairs(ed) do
-pcall(function()
-obj:Remove()
-end)
-end
-botEspDrawings[model] = nil
-end
-end
--- 0.53: ПУЛИ (ТРЕЙСЕРЫ) — ДВИЖОК VOMAGLA 1-в-1. Перехватываются РЕАЛЬНЫЕ
--- выстрелы: hookmetamethod __namecall ловит Raycast у Workspace, луч длиннее
--- 50 стадов и не дальше 5 м от камеры = чей-то выстрел вплотную к тебе
--- (практически всегда — твой). Старый детектор «быстрая часть + прямая»
--- СПАМИЛ: считал пулями любые летящие части, в т.ч. от бегущих игроков и
--- тимейтов — УДАЛЁН. Пул Beam'ов VOMAGLA: Part + 2 Attachment + Beam
--- (FaceCamera, LightEmission 1, TextureLength/Speed 2).
-local btPool, btPoolSize = {}, 0
-local btActive = {}
-local function btGet()
-if btPoolSize > 0 then
-local p = btPool[btPoolSize]
-btPool[btPoolSize] = nil
-btPoolSize = btPoolSize - 1
-return p
-end
-local p = Instance.new("Part")
-p.Anchored = true
-p.CanCollide = false
-p.Transparency = 1
-p.Size = Vector3.new(0.1, 0.1, 0.1)
-local a0 = Instance.new("Attachment", p)
-a0.Name = "A0"
-local a1 = Instance.new("Attachment", p)
-a1.Name = "A1"
-local b = Instance.new("Beam")
-b.Name = "B"
-b.Attachment0 = a0
-b.Attachment1 = a1
-b.FaceCamera = true
-b.LightEmission = 1
-b.LightInfluence = 0
-b.TextureLength = 2
-b.TextureSpeed = 2
-b.Parent = p
-return p
-end
-local function btRelease(p, b)
-if b then
-b.Enabled = false
-end
-if p then
-p.Parent = nil
-btPoolSize = btPoolSize + 1
-btPool[btPoolSize] = p
-end
-end
-function btDestroyAll()
-for i = #btActive, 1, -1 do
-local t = btActive[i]
-if t and t.p then
-pcall(function() t.p:Destroy() end)
-end
-btActive[i] = nil
-end
-for i = 1, btPoolSize do
-pcall(function() btPool[i]:Destroy() end)
-end
-btPool = {}
-btPoolSize = 0
-end
--- ТИМ ЧЕК ПУЛЬ: если стреляли вплотную к камере и ближе всех к точке
--- выстрела стоит тимейт — его пули не рисуем (антиспам от своих).
-local function btIsTeammateShot(origin)
-if not S.Bullets.TeamCheck then
-return false
-end
-local myTeam = LocalPlayer.Team
-if not myTeam then
-return false
-end
-for _, plr in ipairs(Players:GetPlayers()) do
-if plr ~= LocalPlayer and plr.Team == myTeam then
-local c = plr.Character
-local r = c and c:FindFirstChild("HumanoidRootPart")
-if r and (r.Position - origin).Magnitude < 6 then
-return true
-end
-end
-end
-return false
-end
-function btCreateTrace(startPos, endPos)
-if not S.Bullets.Enabled then
-return
-end
-local camera = Workspace.CurrentCamera
-if camera then
-local d = (startPos - camera.CFrame.Position).Magnitude
-if d < 4 then
-startPos = (camera.CFrame * CFrame.new(2.5, -1.5, -1)).Position
-end
-end
-local p = btGet()
-p.Parent = Workspace
-local a0 = p:FindFirstChild("A0")
-local a1 = p:FindFirstChild("A1")
-if a0 then
-a0.WorldPosition = startPos
-end
-if a1 then
-a1.WorldPosition = endPos
-end
-local b = p:FindFirstChild("B")
-if not b then
-btRelease(p)
-return
-end
-b.Color = ColorSequence.new(S.Bullets.Color)
-b.Transparency = NumberSequence.new(S.Bullets.Transparency)
-b.Texture = S.Bullets.TextureID
-b.Width0 = S.Bullets.Width
-b.Width1 = S.Bullets.Width
-b.Enabled = true
-btActive[#btActive + 1] = { p = p, b = b, start = os.clock() }
-end
-function FUST_TracersUpdate()
-if #btActive == 0 then
-return
-end
-local lt = math.max(S.Bullets.LifeTime or 0.5, 0.05)
-local nowT = os.clock()
-for i = #btActive, 1, -1 do
-local t = btActive[i]
-local p, b = t.p, t.b
-if not p or not p.Parent then
-table.remove(btActive, i)
-else
-local alpha = 1 - ((nowT - t.start) / lt)
-if alpha <= 0 then
-btRelease(p, b)
-table.remove(btActive, i)
-elseif b then
-b.Transparency = NumberSequence.new(alpha * S.Bullets.Transparency)
-end
-end
-end
-end
-function setBulletsEnabled(on)
-if not on then
-btDestroyAll()
-end
-end
-FUST_BulletsSet = setBulletsEnabled
-do
-local hookOK = (type(hookmetamethod) == "function")
-and (type(getnamecallmethod) == "function")
-and (type(newcclosure) == "function")
-if hookOK then
-local okH, errH = pcall(function()
-local old
-old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-local method = getnamecallmethod()
-if method == "Raycast" and self == Workspace and S.Bullets.Enabled then
-local origin, direction, rayParams = ...
-if typeof(origin) == "Vector3" and typeof(direction) == "Vector3" then
-local mag = direction.Magnitude
-local cam = Workspace.CurrentCamera
-local camPos = cam and cam.CFrame.Position
-if mag > 50 and camPos and (origin - camPos).Magnitude <= 5 then
-if not btIsTeammateShot(origin) then
-local result = old(self, ...)
-if result then
-task.spawn(btCreateTrace, origin, result.Position)
-end
-return result
-end
-end
-end
-end
-return old(self, ...)
-end))
-return old
-end)
-if okH then
-print("[FUST] Пули: перехват выстрелов активен (движок VOMAGLA)")
-else
-warn("[FUST] Пули: hookmetamethod не сработал — трейсеров не будет: " .. tostring(errH))
-end
-else
-warn("[FUST] Пули: в экзекуторе нет hookmetamethod — трейсеры пуль недоступны")
-end
-end
-
-function removeEspDrawings(plr)
-local ed = espDrawings[plr]
-if ed then
-for _, obj in pairs(ed) do
-pcall(function()
-obj:Remove()
-end)
-end
-espDrawings[plr] = nil
-end
-end
-function ensureEspDrawings(plr)
-local ed = espDrawings[plr]
-if not ed then
-ed = {
-Box = Drawing.new("Square"),
-Name = Drawing.new("Text"),
-Distance = Drawing.new("Text"),
-Item = Drawing.new("Text"),
-HealthBarBg = Drawing.new("Line"),
-HealthBar = Drawing.new("Line"),
-HealthText = Drawing.new("Text"),
-}
-ed.Box.Filled = false
-ed.Box.Thickness = 1
-for _, key in ipairs({ "Name", "Distance", "HealthText", "Item" }) do
-ed[key].Center = true
-ed[key].Outline = true
-ed[key].Font = Drawing.Fonts.Plex
-end
-ed.Name.Size = 14
-ed.Distance.Size = 13
-ed.HealthText.Size = 11
-ed.HealthText.Center = false
-ed.Item.Size = 12
-ed.HealthBarBg.Thickness = 3
-ed.HealthBarBg.Color = Color3.fromRGB(0, 0, 0)
-ed.HealthBar.Thickness = 1.5
-espDrawings[plr] = ed
-end
-return ed
-end
-function hideEspDrawings(ed)
-ed.Box.Visible = false
-ed.Name.Visible = false
-ed.Distance.Visible = false
-ed.Item.Visible = false
-ed.HealthBarBg.Visible = false
-ed.HealthBar.Visible = false
-ed.HealthText.Visible = false
-end
-BOX_SIZE = Vector3.new(4, 6, 2.5)
-function botCleanupModel(model)
-local ed = botEspDrawings[model]
-if ed then
-hideEspDrawings(ed)
-end
-npcCategoryCache[model] = nil
-npcHorizontalSince[model] = nil
-local hl = model:FindFirstChild("PETUH_BotChams")
-if hl then
-pcall(function()
-hl:Destroy()
-end)
-end
-local orig = npcHitboxOriginals[model]
-if orig then
-pcall(function()
-if orig.Root and orig.Root.Parent then
-orig.Root.Size = orig.Size
-orig.Root.Transparency = orig.Transparency
-orig.Root.CanCollide = orig.CanCollide
-orig.Root.CanQuery = orig.CanQuery
-end
-end)
-npcHitboxOriginals[model] = nil
-end
-end
-function getScreenBox(camera, root)
-local camCF = camera.CFrame
-local camPos = camCF.Position
-local look = camCF.LookVector
-local cf = root.CFrame
-local hx, hy, hz = BOX_SIZE.X * 0.5, BOX_SIZE.Y * 0.5, BOX_SIZE.Z * 0.5
-local minX, minY = math.huge, math.huge
-local maxX, maxY = -math.huge, -math.huge
-for i = 0, 7 do
-local ox = (i % 2 == 0) and -hx or hx
-local oy = (i % 4 < 2) and -hy or hy
-local oz = (i < 4) and -hz or hz
-local corner = (cf * CFrame.new(ox, oy, oz)).Position
-local depth = (corner - camPos):Dot(look)
-if depth <= 0.1 then
-return nil
-end
-local pt = camera:WorldToViewportPoint(corner)
-if pt.X < minX then minX = pt.X end
-if pt.X > maxX then maxX = pt.X end
-if pt.Y < minY then minY = pt.Y end
-if pt.Y > maxY then maxY = pt.Y end
-end
-return Vector2.new(minX, minY), Vector2.new(maxX - minX, maxY - minY)
-end
-function espDistScale(dist, maxDist)
-if not S.ESP.DistanceScale then
-return 1, false
-end
-local limit = math.max(maxDist or 1000, 100)
-local t = math.clamp(dist / limit, 0, 1)
-return 1 - t * 0.55, true
-end
-ESP_VIS_COLOR_WALL = Color3.fromRGB(150, 150, 150)
-ESP_VIS_COLOR_HB = Color3.fromRGB(255, 190, 40)
-espVisCache = {}
-espVisCacheCount = 0
-espVisRayParams = RaycastParams.new()
-espVisRayParams.FilterType = Enum.RaycastFilterType.Exclude
-espVisRayParams.IgnoreWater = true
-function espVisCacheClear()
-table.clear(espVisCache)
-espVisCacheCount = 0
-end
-function espVisPointClear(camPos, char, point)
-if LocalPlayer.Character then
-espVisRayParams.FilterDescendantsInstances = { LocalPlayer.Character, char }
-else
-espVisRayParams.FilterDescendantsInstances = { char }
-end
-return Workspace:Raycast(camPos, point - camPos, espVisRayParams) == nil
-end
-function espVisState(char, root, camPos, now)
-local hit = espVisCache[char]
-if hit and now - hit.at < 0.2 then
-return hit.state
-end
-if espVisCacheCount > 60 then
-table.clear(espVisCache)
-espVisCacheCount = 0
-end
-local state = "vis"
-local head = char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso")
-local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-local bodySeen = false
-if head and espVisPointClear(camPos, char, head.Position) then
-bodySeen = true
-end
-if not bodySeen and torso and espVisPointClear(camPos, char, torso.Position) then
-bodySeen = true
-end
-if not bodySeen then
-if S.ESP.VisHitbox and root then
-local hbSeen = false
-local half = root.Size * 0.5
-local pts = {
-root.Position,
-root.Position + Vector3.new(0, half.Y * 0.8, 0),
-root.Position - Vector3.new(0, half.Y * 0.8, 0),
-}
-for _, p in ipairs(pts) do
-if espVisPointClear(camPos, char, p) then
-hbSeen = true
-break
-end
-end
-state = hbSeen and "hb" or "wall"
-else
-state = "wall"
-end
-end
-espVisCache[char] = { state = state, at = now }
-espVisCacheCount = espVisCacheCount + 1
-return state
-end
-renderConnection = nil
-renderConnection = RunService.RenderStepped:Connect(function()
-if getgenv().FUST_SESSION ~= FUST_SESSION then
-renderConnection:Disconnect()
-return
-end
-local Camera = Workspace.CurrentCamera
-if not Camera then
-return
-end
-if S.FullBright then
-Lighting.Brightness = 2
-Lighting.ClockTime = 14
-Lighting.FogEnd = 100000
-Lighting.GlobalShadows = false
-end
-AR_DriftPass()
-AS_Pass()
-if S.NoFog then
-if Lighting.FogEnd < 100000 then
-Lighting.FogEnd = 100000
-end
-if Lighting.FogStart < 100000 then
-Lighting.FogStart = 100000
-end
-local atm = Lighting:FindFirstChildOfClass("Atmosphere")
-if atm then
-if atm.Density > 0 then
-atm.Density = 0
-end
-if atm.Haze > 0 then
-atm.Haze = 0
-end
-end
-end
-FUST_TracersUpdate()
-local myChar = LocalPlayer.Character
-local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-if AntiRecoil.Enabled and AntiRecoil.Offset and myChar
-and os.clock() < FUST_FireUntil then
-local myHum = myChar:FindFirstChildOfClass("Humanoid")
-if myHum and myHum.CameraOffset.Magnitude > 0 then
-myHum.CameraOffset = Vector3.new(0, 0, 0)
-end
-end
-local jnow = os.clock()
-if jnow - AR_LastStateJournal > 60 then
-AR_LastStateJournal = jnow
-pcall(function()
-journal(string.format(
-"СНЯТО: аим=%d (%s|%s) хитбокс=%d есп=%d чамсы=%d АО=%d (откат=%d оффсет=%d дрифт=%d) АТ=%d (крен=%d поз=%d дрожь=%d) фб=%d нг=%d нд=%d трассеры=%d нпс-есп=%d нпс-чамсы=%d нпс-хитбокс=%d автопредикт=%d рюкзак-есп=%d лут-есп=%d автоаим=%d враг=%d",
-Aim.Enabled and 1 or 0,
-tostring(Aim.Part),
-tostring(Aim.Priority),
-S.Hitbox.Enabled and 1 or 0,
-S.ESP.Enabled and 1 or 0,
-S.ESP.Chams and 1 or 0,
-AntiRecoil.Enabled and 1 or 0,
-AntiRecoil.Rollback and 1 or 0,
-AntiRecoil.Offset and 1 or 0,
-AntiRecoil.Drift and 1 or 0,
-AntiShake.Enabled and 1 or 0,
-AntiShake.Roll and 1 or 0,
-AntiShake.Position and 1 or 0,
-AntiShake.Oscillation and 1 or 0,
-S.FullBright and 1 or 0,
-S.NoGrass and 1 or 0,
-S.NoDecoration and 1 or 0,
-S.Bullets.Enabled and 1 or 0,
-S.NPC.ESP and 1 or 0,
-S.NPC.Chams and 1 or 0,
-S.NPC.HitboxEnabled and 1 or 0,
-Aim.AutoPredict and 1 or 0,
-S.Loot.Enabled and 1 or 0,
-S.LootC.Enabled and 1 or 0,
-AutoAim.Enabled and 1 or 0,
-AA_EnemyNear and 1 or 0
-))
-end)
-end
-local hitboxAppliedCount = 0 
-for _, player in ipairs(Players:GetPlayers()) do
-if player ~= LocalPlayer then
-local char = player.Character
-local root = char and char:FindFirstChild("HumanoidRootPart")
-local hum = char and char:FindFirstChildOfClass("Humanoid")
-local isWhitelisted = Whitelist[player.Name] == true
-local isTeammate = S.ESP.TeamCheck and player.Team ~= nil
-and player.Team == LocalPlayer.Team
-if root then
-local orig = hitboxOriginals[player]
-if not orig or orig.Root ~= root then
-orig = {
-Root = root,
-Size = root.Size,
-Transparency = root.Transparency,
-CanCollide = root.CanCollide,
-CanQuery = root.CanQuery,
-}
-hitboxOriginals[player] = orig
-end
-local expanded = false
-if S.Hitbox.Enabled and myRoot and not isWhitelisted and not isTeammate then
-expanded = true
-hitboxAppliedCount = hitboxAppliedCount + 1
--- STEALTH 0.38: ограничиваем размер хитбокса сверху 8 юнитами, даже если
--- в меню стоит 20. Размер > 8 = явный бан-флаг (дистанция hit detection
--- аномально больше габарита модели).
-local safeSize = math.clamp(S.Hitbox.Size, 2, 8)
+Size = math.clamp(S.Hitbox.Size, 2, 8)
 local targetSize = Vector3.new(safeSize, safeSize, safeSize)
 pcall(function()
 if root.Size ~= targetSize then
@@ -2493,6 +549,16 @@ pcall(function()
 getgenv().FUST_RenderCleanup()
 end)
 pcall(function()
+if getgenv().FUST_FreezeCleanup then
+getgenv().FUST_FreezeCleanup()
+end
+end)
+pcall(function()
+if getgenv().FUST_RadarCleanup then
+getgenv().FUST_RadarCleanup()
+end
+end)
+pcall(function()
 getgenv().FUST_AimCleanup()
 end)
 pcall(function()
@@ -2800,7 +866,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.65 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.67 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2962,6 +1028,25 @@ end)
 -- /СТРАНИЦА ЛОГИ =============================================================
 
 -- /FUST KICK/BAN LOGGER ======================================================
+-- 0.67: АВТОЗАГРУЗКА ПОСЛЕДНЕГО КОНФИГА (4 c после старта, вне рендера)
+task.delay(4, function()
+if getgenv().FUST_SESSION ~= FUST_SESSION then
+return
+end
+pcall(function()
+local nm, on = fustAutoloadRead()
+if not on or nm == "" then
+return
+end
+local apath = Library.Folders.Configs .. "/" .. nm .. ".json"
+if type(isfile) == "function" and isfile(apath) then
+Library:LoadConfig(readfile(apath))
+journal("АВТОЗАГРУЗКА КОНФИГА: «" .. nm .. "» загружен")
+else
+journal("АВТОЗАГРУЗКА КОНФИГА: «" .. nm .. "» не найден")
+end
+end)
+end)
 pcall(function()
 journal(string.format(
 "МЕНЮ: страницы — Аимбот:%s, ESP:%s, Визуалы:%s | ошибок сборки: %d",
@@ -3065,4 +1150,1936 @@ t2.TextWrapped = true
 t2.Text = msg .. "\n" .. tb .. "\nСкрин этого окна — в чат."
 t2.Parent = fr
 end)
+end
+
+-- ============================================================================
+-- VOMAGLA PORT v1.0 — боевые/оружейные/движковые модули из VOMAGLA,
+-- интегрированные в «Пьяный Петух» 0.68 (Delta+Xeno).
+--
+-- ЧТО ВОШЛО:
+--   • ТИХИЙ АИМ (SilentAim): FireServer-подмена Vector3-аргументов через
+--     hookmetamethod __namecall. Хитчанс, FOV-круг, линия к цели,
+--     мультипоинт-проверка видимости (27 точек, рикашет по неколлижну).
+--     Wall Bang: гранаты/снаряды летят К ЦЕЛИ сквозь стены.
+--   • РЕЙДЖ: авто-огонь с заданным FireDelay (mouse1click/VirtualInput).
+--   • МАНИПУЛЯЦИЯ Raycast: подмена origin на камеру (трассеры честнее).
+--   • АВТО-ПЕРЕЗАРЯДКА: хук GunBase fire/reload, чтение патронов,
+--     авто-R при пустом магазине, полоса перезарядки на экране.
+--   • МОДЫ ОРУЖИЯ (getgc): RapidFire, FullAuto, MeleeMods.
+--   • КРИТ РЕСУРСОВ: хук tool-state hit → удар в «star»/«cross» часть.
+--   • ДВИЖЕНИЕ: Spider (лазание по стенам), NoJumpDelay, CopterFly,
+--     Spinner, Stretch (камера), JumpCircle.
+--   • ANTI-AIM HeadTilt (клиентский наклон головы).
+--   • ВИЗУАЛ: SkyColor, Water color, ToolHL (подсветка оружия игроков).
+--   • SAFE ZONE: детект по атрибутам и частям — тихий аим игнорирует
+--     игроков в сейфзоне.
+--
+-- ПРАВИЛА ДЕЛЬТЫ СОБЛЮДЕНЫ:
+--   • НЕТ битовых операторов << >>
+--   • НЕТ task.wait в RenderStepped-колбэках
+--   • ВСЁ рисковое под pcall; экзекуторные функции под type()-проверкой
+--   • Instance.new вне покадровых путей; пулы для Drawings
+--
+-- КОНФИГ: FUST_vomagla.json (отдельный от основного конфига).
+-- ВЫГРУЗКА: интегрирована в «ВЫКЛЮЧИТЬ СКРИПТ» (обёртка FUST_Deactivate).
+-- ============================================================================
+
+do
+-- guard: не добавляться при повторном execute
+if getgenv().FUST_VOMAGLA and getgenv().FUST_VOMAGLA._loaded then
+    pcall(function() getgenv().FUST_VOMAGLA.cleanup() end)
+end
+
+local V = {}
+getgenv().FUST_VOMAGLA = V
+V._loaded = true
+V.conns = {}
+V.cleanupFns = {}
+
+-- ---------------------------------------------------------------
+-- КОНФИГ (V.S)
+-- ---------------------------------------------------------------
+V.S = {
+    Unloaded = false,
+    SA = { Enabled = false, TargetPart = "Head", TargetMode = "Дистанция",
+           FOVRadius = 200, MaxDistance = 500, VisibleCheck = true,
+           HitChance = 100, ShowFOV = true, TargetLine = false,
+           SafeZoneSkip = true, TeamSkip = true },
+    SAColor = { NoTarget = Color3.fromRGB(255, 255, 255),
+                Target = Color3.fromRGB(255, 40, 40) },
+    Rage = { Enabled = false, AutoShoot = false, FireDelay = 0.12, LastFire = 0 },
+    Manipulation = false,
+    Reload = { Enabled = false, Auto = false, IsReloading = false, ReloadUntil = 0, ShowBar = true },
+    Guns = { RapidFire = false, RapidSpeed = 0.06, FullAuto = false,
+             MeleeMods = false, MeleeSpeed = 0.08, MeleeRange = 8 },
+    ResourceCrit = { Ore = false, Tree = false, Range = 25 },
+    Spider = { Enabled = false, Speed = 50 },
+    NoJumpDelay = { Enabled = false },
+    CopterFly = { Enabled = false, Speed = 90, bodyVel = nil, bodyGyro = nil },
+    Spinner = { Enabled = false, Speed = 180 },
+    Stretch = { Enabled = false, Value = 0.65 },
+    JumpCircle = { Enabled = false, Color = Color3.fromRGB(0, 170, 255) },
+    AntiAim = { HeadTilt = false, HeadPitch = -45 },
+    SkyColor = { Enabled = false, Color = Color3.fromRGB(135, 200, 255), OrigAmbient = nil, OrigOutdoor = nil },
+    Water = { Enabled = false, Color = Color3.fromRGB(128, 128, 128), Reflectance = 0.3, OrigColor = nil, OrigRef = nil },
+    ToolHL = { Enabled = false, Color = Color3.fromRGB(255, 255, 255) },
+}
+
+V.CustomSounds = {
+    ["Нет"] = "",
+    ["Osu"] = "rbxassetid://7172607676",
+    ["Pop"] = "rbxassetid://9125402735",
+    ["Bonk"] = "rbxassetid://5682262154",
+    ["Bell"] = "rbxassetid://131573697",
+    ["Rust"] = "rbxassetid://5043539486",
+    ["Metal"] = "rbxassetid://8917041751",
+    ["Skeet"] = "rbxassetid://83717596220569",
+    ["Quack"] = "rbxassetid://6435400690",
+    ["Katana"] = "rbxassetid://7122613461",
+    ["Neverlose"] = "rbxassetid://18391691942",
+    ["Undertale"] = "rbxassetid://1471213022",
+    ["TF2 Critical"] = "rbxassetid://8255306220",
+}
+
+-- ---------------------------------------------------------------
+-- ХЕЛПЕРЫ
+-- ---------------------------------------------------------------
+V.Players = Players
+V.RunService = RunService
+V.WS = Workspace
+V.UIS = UserInputService
+V.Light = Lighting
+V.RS = game:GetService("ReplicatedStorage")
+V.SS = game:GetService("SoundService")
+V.TS = game:GetService("TweenService")
+V.LP = LocalPlayer
+V.camera = function() return Workspace.CurrentCamera end
+
+V.Vector2New, V.Vector3New, V.CFrameNew = Vector2.new, Vector3.new, CFrame.new
+V.mathFloor, V.mathClamp, V.mathAbs, V.mathRad = math.floor, math.clamp, math.abs, math.rad
+V.tick = tick
+V.osClock = os.clock
+
+if not newcclosure then newcclosure = function(f) return f end end
+if not checkcaller then checkcaller = function() return false end end
+if not getnamecallmethod then getnamecallmethod = function() return "" end end
+
+function V.trackConn(c)
+    if c then V.conns[#V.conns + 1] = c end
+    return c
+end
+
+function V.trackCleanup(fn)
+    V.cleanupFns[#V.cleanupFns + 1] = fn
+    return fn
+end
+
+-- tracking персонажа
+V.char = nil
+V.hum = nil
+local function vCharUpd(c)
+    V.char = c
+    V.hum = nil
+    if c then
+        local h = c:FindFirstChildWhichIsA("Humanoid")
+        if h then
+            V.hum = h
+        else
+            task.spawn(function()
+                local h2 = c:WaitForChild("Humanoid", 15)
+                if h2 and V.char == c then V.hum = h2 end
+            end)
+        end
+    end
+end
+V.trackConn(V.LP.CharacterAdded:Connect(vCharUpd))
+V.trackConn(V.LP.CharacterRemoving:Connect(function() V.char = nil; V.hum = nil end))
+if V.LP.Character then vCharUpd(V.LP.Character) end
+
+V.playerCache = {}
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= V.LP then V.playerCache[p] = true end
+end
+V.trackConn(Players.PlayerAdded:Connect(function(p)
+    if p ~= V.LP then V.playerCache[p] = true end
+end))
+V.trackConn(Players.PlayerRemoving:Connect(function(p)
+    V.playerCache[p] = nil
+end))
+
+V.teammates = {}
+function V.isTeammate(player)
+    if not player or player == V.LP then return false end
+    return V.teammates[player.Name] == true or V.teammates[player.UserId] == true
+end
+
+-- ---------------------------------------------------------------
+-- SAFE ZONE
+-- ---------------------------------------------------------------
+V.SAFE_ATTRIBUTE_NAMES = { "SafeZone", "IsSafe", "Protected", "NoDamage", "Invincible", "Safe" }
+V.safeZoneParts = {}
+V.safeZoneRefreshed = 0
+
+local function pointInsideSafePart(zone, pos)
+    local ok, inside = pcall(function()
+        local cf, sz = zone.CFrame, zone.Size
+        local rel = cf:PointToObjectSpace(pos)
+        return math.abs(rel.X) <= sz.X * 0.55 and math.abs(rel.Y) <= sz.Y * 0.55
+            and math.abs(rel.Z) <= sz.Z * 0.55
+    end)
+    return ok and inside
+end
+
+local function refreshSafeZones(force)
+    local now = os.clock()
+    if not force and now - V.safeZoneRefreshed < 2 then return end
+    V.safeZoneRefreshed = now
+    for i = #V.safeZoneParts, 1, -1 do
+        if not V.safeZoneParts[i] or not V.safeZoneParts[i].Parent then
+            table.remove(V.safeZoneParts, i)
+        end
+    end
+    if #V.safeZoneParts > 0 then return end
+    pcall(function()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                for _, attrName in ipairs(V.SAFE_ATTRIBUTE_NAMES) do
+                    local ok2, val = pcall(function() return obj:GetAttribute(attrName) end)
+                    if ok2 and val == true then
+                        V.safeZoneParts[#V.safeZoneParts + 1] = obj
+                        break
+                    end
+                end
+            end
+        end
+    end)
+end
+
+function V.isInSafeZone(character)
+    if not character then return false end
+    local root = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+    if not root or not root:IsA("BasePart") then return false end
+    local player = Players:GetPlayerFromCharacter(character)
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    local objects = { player, character, humanoid, root }
+    for _, object in ipairs(objects) do
+        if object then
+            for _, attributeName in ipairs(V.SAFE_ATTRIBUTE_NAMES) do
+                local ok, value = pcall(function() return object:GetAttribute(attributeName) end)
+                if ok and value == true then return true end
+            end
+        end
+    end
+    refreshSafeZones(false)
+    for i = #V.safeZoneParts, 1, -1 do
+        local zone = V.safeZoneParts[i]
+        if not zone or not zone.Parent then
+            table.remove(V.safeZoneParts, i)
+        elseif pointInsideSafePart(zone, root.Position) then
+            return true
+        end
+    end
+    return false
+end
+
+-- ---------------------------------------------------------------
+-- ВИДИМОСТЬ (мультипоинт-рейкаст из VOMAGLA)
+-- ---------------------------------------------------------------
+V.ignoreCache = {}
+V.lastIgnore = 0
+V.rayParams = RaycastParams.new()
+V.rayParams.FilterType = Enum.RaycastFilterType.Exclude
+V.rayParams.IgnoreWater = true
+
+local function getIgnoreList()
+    local now = tick()
+    if now - V.lastIgnore < 0.5 then return V.ignoreCache end
+    V.lastIgnore = now
+    local list = { V.LP.Character, Workspace.CurrentCamera }
+    for plr in pairs(V.playerCache) do
+        if plr.Character then list[#list + 1] = plr.Character end
+    end
+    V.ignoreCache = list
+    return list
+end
+
+local function isInsideBuildings(inst)
+    local node = inst
+    while node and node ~= Workspace do
+        if node.Name == "Buildings" and node.Parent == Workspace then return true end
+        node = node.Parent
+    end
+    return false
+end
+
+function V.pointVisible(character, worldPoint)
+    local cam = Workspace.CurrentCamera
+    if not cam then return false end
+    local origin = cam.CFrame.Position
+    local ignored = table.clone(getIgnoreList())
+    for _ = 1, 12 do
+        V.rayParams.FilterDescendantsInstances = ignored
+        local direction = worldPoint - origin
+        if direction.Magnitude <= 0.01 then return true end
+        local result = Workspace:Raycast(origin, direction, V.rayParams)
+        if not result then return true end
+        local inst = result.Instance
+        if inst and inst:IsDescendantOf(character) then return true end
+        if inst and inst:IsA("BasePart") and not inst.CanCollide and not isInsideBuildings(inst) then
+            ignored[#ignored + 1] = inst
+        else
+            return false
+        end
+    end
+    return false
+end
+
+V.TEST_OFFSETS = (function()
+    local t = {}
+    local steps = { 0, -0.35, 0.35 }
+    for _, x in ipairs(steps) do
+        for _, y in ipairs(steps) do
+            for _, z in ipairs(steps) do
+                t[#t + 1] = Vector3.new(x, y, z)
+            end
+        end
+    end
+    table.sort(t, function(a, b) return a.Magnitude < b.Magnitude end)
+    return t
+end)()
+
+function V.getVisiblePointOfHitbox(hitbox, character)
+    if not hitbox or not hitbox:IsA("BasePart") then return nil end
+    local cf, size = hitbox.CFrame, hitbox.Size
+    for i = 1, #V.TEST_OFFSETS do
+        local wp = cf:PointToWorldSpace(V.TEST_OFFSETS[i] * size)
+        if V.pointVisible(character, wp) then return wp end
+    end
+    return nil
+end
+
+-- ---------------------------------------------------------------
+-- ТИХИЙ АИМ: FOV-круг + выбор цели
+-- ---------------------------------------------------------------
+local fovGui, fovFill, fovStroke, saLine
+pcall(function()
+    local cg = (type(gethui) == "function" and gethui()) or game:GetService("CoreGui")
+    fovGui = Instance.new("ScreenGui")
+    fovGui.Name = "VOMAGLA_SA_FOV"
+    fovGui.ResetOnSpawn = false
+    fovGui.IgnoreGuiInset = true
+    fovGui.DisplayOrder = 9990
+    fovGui.Parent = cg
+    fovFill = Instance.new("Frame")
+    fovFill.AnchorPoint = Vector2.new(0.5, 0.5)
+    fovFill.Position = UDim2.new(0.5, 0, 0.5, 0)
+    fovFill.BackgroundColor3 = V.S.SAColor.NoTarget
+    fovFill.BackgroundTransparency = 0.93
+    fovFill.BorderSizePixel = 0
+    fovFill.Visible = false
+    fovFill.Parent = fovGui
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.5, 0)
+    corner.Parent = fovFill
+    fovStroke = Instance.new("UIStroke")
+    fovStroke.Color = V.S.SAColor.NoTarget
+    fovStroke.Thickness = 1.5
+    fovStroke.Transparency = 0.25
+    fovStroke.Parent = fovFill
+end)
+if DRAWING_OK and SafeDrawing then
+    saLine = SafeDrawing("Line")
+    if saLine then
+        saLine.Visible = false
+        saLine.Thickness = 1.5
+        saLine.Transparency = 1
+        saLine.ZIndex = 3
+    end
+end
+V.fovFill, V.fovStroke, V.saLine = fovFill, fovStroke, saLine
+V.trackCleanup(function()
+    pcall(function() if fovGui then fovGui:Destroy() end end)
+    pcall(function() if saLine then saLine:Remove() end end)
+end)
+
+V.targetPart = nil
+V.targetPos = nil
+V.aimScreenPos = nil
+V.lastTargetPlayer = nil
+V.lastTargetTime = 0
+
+function V.getClosestPlayerPW()
+    local closestPart, closestPos, bestScore = nil, nil, math.huge
+    local cam = Workspace.CurrentCamera
+    if not cam then return nil, nil end
+    local fovOrigin = V.Vector2New(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
+    local camPos = cam.CFrame.Position
+    local myRoot = V.char and V.char:FindFirstChild("HumanoidRootPart")
+    local myPos = myRoot and myRoot.Position or camPos
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= V.LP and not V.isTeammate(player) then
+            local char = player.Character
+            if char and not (V.S.SA.SafeZoneSkip and V.isInSafeZone(char)) then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    local part = char:FindFirstChild(V.S.SA.TargetPart)
+                        or char:FindFirstChild("HumanoidRootPart")
+                        or char:FindFirstChild("Head")
+                    if part then
+                        local worldDist = (part.Position - myPos).Magnitude
+                        if worldDist <= V.S.SA.MaxDistance then
+                            local targetPos = part.Position
+                            if V.S.SA.VisibleCheck then
+                                local vp = V.getVisiblePointOfHitbox(part, char)
+                                if not vp then
+                                    targetPos = nil
+                                else
+                                    targetPos = vp
+                                end
+                            end
+                            if targetPos then
+                                local sp, onScreen = cam:WorldToViewportPoint(targetPos)
+                                if onScreen then
+                                    local fovDist = (fovOrigin - V.Vector2New(sp.X, sp.Y)).Magnitude
+                                    if fovDist <= V.S.SA.FOVRadius then
+                                        local score = (V.S.SA.TargetMode == "Курсор") and fovDist or worldDist
+                                        if score < bestScore then
+                                            bestScore = score
+                                            closestPart = part
+                                            closestPos = targetPos
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPart, closestPos
+end
+
+function V.getClosestPlayerRage()
+    local closestPart, closestPos, bestScore = nil, nil, math.huge
+    local cam = Workspace.CurrentCamera
+    if not cam then return nil, nil end
+    local camPos = cam.CFrame.Position
+    local fovOrigin = cam.ViewportSize * 0.5
+    local myRoot = V.char and V.char:FindFirstChild("HumanoidRootPart")
+    local myPos = myRoot and myRoot.Position or camPos
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= V.LP and not V.isTeammate(player) then
+            local char = player.Character
+            local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+            if char and not (V.S.SA.SafeZoneSkip and V.isInSafeZone(char)) and hum and hum.Health > 0 then
+                local part = char:FindFirstChild(V.S.SA.TargetPart)
+                    or char:FindFirstChild("Head")
+                    or char:FindFirstChild("HumanoidRootPart")
+                if part then
+                    local worldDist = (part.Position - myPos).Magnitude
+                    if worldDist <= V.S.SA.MaxDistance then
+                        local targetPos = part.Position
+                        if V.S.SA.VisibleCheck and not V.pointVisible(char, targetPos) then
+                            targetPos = nil
+                        end
+                        if targetPos then
+                            local screenPenalty = 0
+                            local sp, onScreen = cam:WorldToViewportPoint(targetPos)
+                            screenPenalty = onScreen and ((V.Vector2New(sp.X, sp.Y) - fovOrigin).Magnitude * 0.05) or 250
+                            local score = worldDist + screenPenalty
+                            if score < bestScore then
+                                bestScore = score
+                                closestPart = part
+                                closestPos = targetPos
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPart, closestPos
+end
+
+-- ---------------------------------------------------------------
+-- ТРЕКИНГ ВЫСТРЕЛОВ (для манипуляции/трассеров)
+-- ---------------------------------------------------------------
+V.shots = {}
+function V.recordShot(origin, dirUnit)
+    V.shots[#V.shots + 1] = { time = os.clock(), origin = origin, dir = dirUnit }
+    if #V.shots > 25 then table.remove(V.shots, 1) end
+end
+function V.markShotTarget()
+    local part = V.targetPart
+    local plr = part and part.Parent and Players:GetPlayerFromCharacter(part.Parent)
+    if plr and not V.isTeammate(plr) then
+        V.lastConfirmedShotPlayer = plr
+        V.lastConfirmedShotTime = os.clock()
+    end
+end
+
+-- ---------------------------------------------------------------
+-- АВТО-ОГОНЬ (mouse1click / VirtualInputManager)
+-- ---------------------------------------------------------------
+V.doAutoFire = function()
+    if mouse1click then
+        pcall(mouse1click)
+    else
+        local s, vim = pcall(game.GetService, game, "VirtualInputManager")
+        if s and vim then
+            pcall(function()
+                vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            end)
+            task.defer(function()
+                pcall(function() vim:SendMouseButtonEvent(0, 0, 0, false, game, 0) end)
+            end)
+        end
+    end
+end
+
+-- стреляем также через Tool:Activate (телефон-фолбэк)
+V.doAutoFireTool = function()
+    local ch = V.char
+    local tool = ch and ch:FindFirstChildOfClass("Tool")
+    if tool then
+        pcall(function() tool:Activate() end)
+        task.delay(0.05, function() pcall(function() tool:Deactivate() end) end)
+    end
+end
+
+-- ---------------------------------------------------------------
+-- HOOK __namecall: FireServer (SilentAim) + Raycast (манипуляция)
+-- ---------------------------------------------------------------
+if hookmetamethod and getnamecallmethod and newcclosure then
+    local hookOk, hookErr = pcall(function()
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if method == "FireServer" and V.S.SA.Enabled and V.targetPos then
+                if math.random(1, 100) <= (V.S.SA.HitChance or 100) then
+                    local args = table.pack(...)
+                    for i = 1, args.n do
+                        local a = args[i]
+                        if typeof(a) == "Vector3" then
+                            args[i] = V.targetPos
+                        elseif typeof(a) == "CFrame" then
+                            args[i] = CFrame.new(V.targetPos)
+                        end
+                    end
+                    return oldNamecall(self, table.unpack(args, 1, args.n))
+                end
+            elseif method == "Raycast" and self == Workspace then
+                if checkcaller() then return oldNamecall(self, ...) end
+                local origin, direction, rayParams = ...
+                if typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
+                    return oldNamecall(self, ...)
+                end
+                local mag = direction.Magnitude
+                if mag <= 50 then return oldNamecall(self, ...) end
+                local cam = Workspace.CurrentCamera
+                local camPos = cam and cam.CFrame.Position or origin
+                if (origin - camPos).Magnitude <= 5 then
+                    V.recordShot(origin, direction.Unit)
+                end
+                local newOrigin, newDir = origin, direction
+                if V.S.SA.Enabled and V.targetPos then
+                    if V.S.Manipulation then newOrigin = camPos end
+                    newDir = (V.targetPos - newOrigin).Unit * mag
+                elseif V.S.Manipulation then
+                    newOrigin = camPos
+                end
+                local result = oldNamecall(self, newOrigin, newDir, rayParams)
+                return result
+            end
+            return oldNamecall(self, ...)
+        end))
+        return oldNamecall
+    end)
+    if not hookOk then
+        print("[VOMAGLA-PORT] __namecall hook не удался: " .. tostring(hookErr))
+    end
+else
+    print("[VOMAGLA-PORT] hookmetamethod недоступен — SilentAim FireServer-подмена НЕ работает")
+end
+
+-- ---------------------------------------------------------------
+-- GUNBASE: хук fire/reload + чтение патронов + авто-перезарядка
+-- ---------------------------------------------------------------
+V.GunBase = nil
+pcall(function()
+    V.GunBase = require(V.RS:WaitForChild("Gun", 8):WaitForChild("Scripts", 5):WaitForChild("GunBase", 5))
+end)
+
+V.MAG_KEYS = {
+    "Ammo", "ammo", "CurrentAmmo", "currentAmmo", "current_ammo",
+    "AmmoInMag", "ammoInMag", "Magazine", "magazine", "Mag", "mag",
+    "Clip", "clip", "Bullets", "bullets", "Rounds", "rounds",
+}
+V.CONTAINERS = { "State", "state", "Data", "data", "Stats", "stats", "Weapon", "weapon", "Gun", "gun" }
+
+function V.numberValue(value)
+    if type(value) == "number" then return value end
+    if typeof(value) == "Instance" and (value:IsA("IntValue") or value:IsA("NumberValue")) then
+        return value.Value
+    end
+    if type(value) == "string" then return tonumber(value) end
+    return nil
+end
+
+function V.readDirect(source)
+    if type(source) == "table" then
+        for _, key in ipairs(V.MAG_KEYS) do
+            local ok, value = pcall(function() return V.numberValue(rawget(source, key)) end)
+            if ok and value ~= nil then return value end
+        end
+    elseif typeof(source) == "Instance" then
+        for _, key in ipairs(V.MAG_KEYS) do
+            local ok1, attr = pcall(function() return source:GetAttribute(key) end)
+            local v1 = V.numberValue(attr)
+            if v1 ~= nil then return v1 end
+            local child = source:FindFirstChild(key)
+            local v2 = V.numberValue(child)
+            if v2 ~= nil then return v2 end
+        end
+    end
+    return nil
+end
+
+function V.readAmmo(source)
+    local value = V.readDirect(source)
+    if value ~= nil then return value end
+    if type(source) == "table" then
+        for _, key in ipairs(V.CONTAINERS) do
+            local ok, child = pcall(function() return rawget(source, key) end)
+            if ok and child and child ~= source then
+                value = V.readDirect(child)
+                if value ~= nil then return value end
+            end
+        end
+    elseif typeof(source) == "Instance" then
+        for _, key in ipairs(V.CONTAINERS) do
+            local child = source:FindFirstChild(key)
+            if child then
+                value = V.readDirect(child)
+                if value ~= nil then return value end
+            end
+        end
+    end
+    return nil
+end
+
+V.activeGun = nil
+V.ammoGun = nil
+V.emptyHandled = false
+V.syntheticUntil = 0
+V.shotRecoveryUntil = 0
+V.reloadRetryAt = 0
+V.aiming = false
+V.interruptedByAim = false
+
+function V.setReloading(value, duration)
+    V.S.Reload.IsReloading = value
+    V.S.Reload.ReloadUntil = value and (os.clock() + (duration or 3.2)) or 0
+end
+
+function V.sendReloadKey()
+    V.syntheticUntil = os.clock() + 0.75
+    local env = getgenv()
+    local press, release = rawget(env, "keypress"), rawget(env, "keyrelease")
+    if type(press) == "function" and type(release) == "function" then
+        local sent = pcall(press, 0x52)
+        task.delay(0.05, function() pcall(release, 0x52) end)
+        if sent then return true end
+    end
+    local okVim, vim = pcall(game.GetService, game, "VirtualInputManager")
+    if okVim and vim then
+        local sent = pcall(function()
+            vim:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+        end)
+        task.delay(0.05, function()
+            pcall(function() vim:SendKeyEvent(false, Enum.KeyCode.R, false, game) end)
+        end)
+        if sent then return true end
+    end
+    V.syntheticUntil = 0
+    return false
+end
+
+function V.actionAnimationPlaying()
+    local character = V.char or V.LP.Character
+    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+    if not humanoid then return false end
+    local ok, tracks = pcall(function() return humanoid:GetPlayingAnimationTracks() end)
+    if not ok or type(tracks) ~= "table" then return false end
+    for _, track in ipairs(tracks) do
+        if track.IsPlaying then
+            local name = string.lower(tostring(track.Name or ""))
+            if string.find(name, "fire", 1, true) or string.find(name, "shoot", 1, true)
+                or string.find(name, "shot", 1, true) or string.find(name, "bolt", 1, true)
+                or string.find(name, "pump", 1, true) or string.find(name, "chamber", 1, true)
+                or string.find(name, "cycle", 1, true) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function V.tryAutoReload()
+    local now = os.clock()
+    if V.S.Unloaded or not V.S.Reload.Auto or not V.activeGun or V.emptyHandled then return end
+    if now < V.shotRecoveryUntil or now < V.reloadRetryAt then return end
+    local ammo = V.readAmmo(V.ammoGun or V.activeGun)
+    if ammo ~= 0 then return end
+    if V.actionAnimationPlaying() then
+        V.reloadRetryAt = now + 0.08
+        return
+    end
+    V.emptyHandled = true
+    V.setReloading(true, 3.2)
+    if not V.sendReloadKey() then
+        local origReload = V._origReload
+        if origReload then
+            local okCall, result = pcall(origReload, V.activeGun)
+            if not okCall or result == false then
+                V.emptyHandled = false
+                V.setReloading(false)
+            end
+        end
+    end
+end
+
+if V.GunBase and type(V.GunBase) == "table" then
+    local fireName = type(V.GunBase.fire) == "function" and "fire"
+        or type(V.GunBase.Fire) == "function" and "Fire" or nil
+    local reloadName
+    for _, candidate in ipairs({ "reload", "Reload", "startReload", "beginReload" }) do
+        if type(V.GunBase[candidate]) == "function" then
+            reloadName = candidate
+            break
+        end
+    end
+    if fireName and reloadName then
+        V._origFire = V.GunBase[fireName]
+        V._origReload = V.GunBase[reloadName]
+        V.GunBase[reloadName] = function(self, ...)
+            V.activeGun = self
+            if V.readAmmo(self) ~= nil then V.ammoGun = self end
+            local synthetic = os.clock() <= V.syntheticUntil
+            local results = table.pack(V._origReload(self, ...))
+            if results[1] ~= false then
+                V.emptyHandled = true
+                local d = tonumber(rawget(self, "ReloadTime") or rawget(self, "ReloadDuration")) or 3.2
+                V.setReloading(true, d)
+            elseif not synthetic and V.S.Reload.Auto then
+                task.defer(function()
+                    V.emptyHandled = false
+                    V.tryAutoReload()
+                end)
+            end
+            return table.unpack(results, 1, results.n)
+        end
+        V.GunBase[fireName] = function(self, ...)
+            V.activeGun = self
+            if V.readAmmo(self) ~= nil then V.ammoGun = self end
+            V.emptyHandled = false
+            local results = table.pack(V._origFire(self, ...))
+            local recovery = V.numberValue(rawget(self, "FireDelay"))
+                or V.numberValue(rawget(self, "FireCooldown"))
+                or V.numberValue(rawget(self, "ShotDelay")) or 0.12
+            V.shotRecoveryUntil = os.clock() + math.max(recovery, 0.12)
+            task.defer(function() V.tryAutoReload() end)
+            return table.unpack(results, 1, results.n)
+        end
+        V._gunHooked = { fireName = fireName, reloadName = reloadName }
+        print("[VOMAGLA-PORT] GunBase fire/reload захвачены")
+    else
+        print("[VOMAGLA-PORT] GunBase найден, но fire/reload не найдены — перезарядка офф")
+    end
+end
+
+function V.isWeaponReloading()
+    local ammo = V.readAmmo(V.ammoGun or V.activeGun)
+    if ammo and ammo > 0 and not V.S.Reload.IsReloading then
+        V.emptyHandled = false
+        V.interruptedByAim = false
+        V.setReloading(false)
+    elseif V.S.Reload.IsReloading and os.clock() >= V.S.Reload.ReloadUntil and ammo ~= 0 then
+        V.setReloading(false)
+    end
+    return V.S.Reload.IsReloading
+end
+
+V.trackConn(V.UIS.InputBegan:Connect(function(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton2 then return end
+    V.aiming = true
+    if V.S.Reload.IsReloading and V.readAmmo(V.ammoGun or V.activeGun) == 0 then
+        V.interruptedByAim = true
+    end
+end))
+V.trackConn(V.UIS.InputEnded:Connect(function(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton2 then return end
+    V.aiming = false
+    if V.interruptedByAim and V.readAmmo(V.ammoGun or V.activeGun) == 0 then
+        V.interruptedByAim = false
+        V.emptyHandled = false
+        V.setReloading(false)
+        task.defer(function() V.tryAutoReload() end)
+    end
+end))
+
+-- полоса перезарядки на экране
+local rlGui, rlHolder, rlFill
+pcall(function()
+    local cg = (type(gethui) == "function" and gethui()) or game:GetService("CoreGui")
+    rlGui = Instance.new("ScreenGui")
+    rlGui.Name = "VOMAGLA_RL"
+    rlGui.ResetOnSpawn = false
+    rlGui.IgnoreGuiInset = true
+    rlGui.DisplayOrder = 998
+    rlGui.Parent = cg
+    rlHolder = Instance.new("Frame")
+    rlHolder.AnchorPoint = Vector2.new(0.5, 1)
+    rlHolder.Position = UDim2.new(0.5, 0, 1, -80)
+    rlHolder.Size = UDim2.new(0, 160, 0, 16)
+    rlHolder.BackgroundTransparency = 1
+    rlHolder.Visible = false
+    rlHolder.Parent = rlGui
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 0, 6)
+    bg.Position = UDim2.new(0, 0, 0.5, -3)
+    bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    bg.BorderSizePixel = 0
+    bg.Parent = rlHolder
+    local c1 = Instance.new("UICorner"); c1.CornerRadius = UDim.new(1, 0); c1.Parent = bg
+    rlFill = Instance.new("Frame")
+    rlFill.Size = UDim2.new(0, 0, 1, 0)
+    rlFill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    rlFill.BorderSizePixel = 0
+    rlFill.Parent = bg
+    local c2 = Instance.new("UICorner"); c2.CornerRadius = UDim.new(1, 0); c2.Parent = rlFill
+end)
+V.rlHolder = rlHolder
+V.rlFill = rlFill
+V.rlStart = 0
+V.rlDur = 0
+V.rlActive = false
+V.trackCleanup(function() pcall(function() if rlGui then rlGui:Destroy() end end) end)
+
+function V.updateReloadBar()
+    if not rlHolder then return end
+    if V.S.Unloaded or not V.S.Reload.ShowBar or not V.rlActive then
+        rlHolder.Visible = false
+        return
+    end
+    local progress = (os.clock() - V.rlStart) / math.max(V.rlDur, 0.01)
+    if progress >= 1 then
+        V.rlActive = false
+        rlHolder.Visible = false
+        return
+    end
+    rlHolder.Visible = true
+    rlFill.Size = UDim2.new(progress, 0, 1, 0)
+    rlFill.BackgroundColor3 = Color3.fromRGB(
+        V.mathFloor(255 * (1 - progress) + 0.5),
+        V.mathFloor(180 + 75 * progress + 0.5), 50)
+end
+
+-- ---------------------------------------------------------------
+-- МОДЫ ОРУЖИЯ (getgc)
+-- ---------------------------------------------------------------
+V.gunCache = {}
+V.meleeCache = {}
+V.gunCacheBuilt = false
+V.gunCacheScanning = false
+
+function V.buildGunCaches()
+    if V.gunCacheScanning then return end
+    V.gunCacheScanning = true
+    task.spawn(function()
+        V.gunCache = {}
+        V.meleeCache = {}
+        local ok, objs = pcall(function() return getgc(true) end)
+        if ok and type(objs) == "table" then
+            for _, v in pairs(objs) do
+                if type(v) == "table" then
+                    local ok1, fd = pcall(function() return rawget(v, "FireDelay") end)
+                    local ok2, fc = pcall(function() return rawget(v, "FiringOnCooldown") end)
+                    local ok3, op = pcall(function() return rawget(v, "OwnerPlayer") end)
+                    if ok1 and ok2 and ok3 and fd ~= nil and fc ~= nil and op ~= nil then
+                        V.gunCache[#V.gunCache + 1] = v
+                    end
+                    local ok4, ud = pcall(function() return rawget(v, "UseDelay") end)
+                    local ok5, rng = pcall(function() return rawget(v, "Range") end)
+                    local ok6, uc = pcall(function() return rawget(v, "UsingOnCooldown") end)
+                    local ok7, de = pcall(function() return rawget(v, "Destroyed") end)
+                    if ok4 and ok5 and ok6 and ud ~= nil and rng ~= nil and uc ~= nil and de ~= true then
+                        V.meleeCache[#V.meleeCache + 1] = v
+                    end
+                end
+            end
+        end
+        V.gunCacheBuilt = true
+        V.gunCacheScanning = false
+    end)
+end
+
+function V.applyGunMods()
+    if not V.gunCacheBuilt then
+        V.buildGunCaches()
+        return
+    end
+    if V.S.Guns.RapidFire or V.S.Guns.FullAuto then
+        local spd = math.max(V.S.Guns.RapidSpeed or 0.06, 0.025)
+        for _, v in ipairs(V.gunCache) do
+            pcall(function()
+                if V.S.Guns.RapidFire then
+                    rawset(v, "FireDelay", spd)
+                    if rawget(v, "FireRate") ~= nil then rawset(v, "FireRate", math.floor(1 / spd)) end
+                    rawset(v, "FiringOnCooldown", false)
+                    if rawget(v, "OnCooldown") ~= nil then rawset(v, "OnCooldown", false) end
+                    if rawget(v, "FireOnCooldown") ~= nil then rawset(v, "FireOnCooldown", false) end
+                end
+                if V.S.Guns.FullAuto then
+                    if rawget(v, "FiringType") ~= nil then rawset(v, "FiringType", 2) end
+                    if rawget(v, "FireMode") ~= nil then rawset(v, "FireMode", "Auto") end
+                    if rawget(v, "Auto") ~= nil then rawset(v, "Auto", true) end
+                end
+            end)
+        end
+    end
+    if V.S.Guns.MeleeMods then
+        local spd = V.S.Guns.MeleeSpeed or 0.08
+        local rng = V.S.Guns.MeleeRange or 8
+        for _, v in ipairs(V.meleeCache) do
+            pcall(function()
+                if rawget(v, "Destroyed") == true then return end
+                rawset(v, "UseDelay", spd)
+                rawset(v, "UseTime", spd)
+                rawset(v, "Range", rng)
+                rawset(v, "CharacterRange", rng)
+                rawset(v, "UsingOnCooldown", false)
+            end)
+        end
+    end
+end
+
+if V.char then V.buildGunCaches() end
+V.trackConn(V.LP.CharacterAdded:Connect(function(char)
+    V.gunCacheBuilt = false
+    V.buildGunCaches()
+end))
+
+-- ---------------------------------------------------------------
+-- КРИТ РЕСУРСОВ (ore "star" / tree "cross")
+-- ---------------------------------------------------------------
+V.critHooked = setmetatable({}, { __mode = "k" })
+V.critCache = { ore = {}, tree = {}, refreshed = 0 }
+V.critScanning = false
+
+local function isCriticalPart(obj, wanted)
+    if not obj or not obj:IsA("BasePart") then return false end
+    local name = string.lower(obj.Name)
+    return (wanted == "ore" and name == "star") or (wanted == "tree" and name == "cross")
+end
+
+function V.refreshCritCache(force)
+    local now = os.clock()
+    if not force and now - V.critCache.refreshed < 0.15 then return end
+    V.critCache.refreshed = now
+    table.clear(V.critCache.ore)
+    table.clear(V.critCache.tree)
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local name = string.lower(obj.Name)
+            if name == "star" then
+                V.critCache.ore[#V.critCache.ore + 1] = obj
+            elseif name == "cross" then
+                V.critCache.tree[#V.critCache.tree + 1] = obj
+            end
+        end
+    end
+end
+
+function V.findInsideResource(inst, wanted, origin)
+    if not inst then return nil end
+    local node = inst
+    for _ = 1, 5 do
+        if not node or node == Workspace then break end
+        if isCriticalPart(node, wanted) then return node end
+        for _, desc in ipairs(node:GetDescendants()) do
+            if isCriticalPart(desc, wanted) and (desc.Position - origin).Magnitude <= V.S.ResourceCrit.Range then
+                return desc
+            end
+        end
+        node = node.Parent
+    end
+    return nil
+end
+
+function V.nearestCritical(inst, origin)
+    local wantOre = V.S.ResourceCrit.Ore
+    local wantTree = V.S.ResourceCrit.Tree
+    if not wantOre and not wantTree then return nil end
+    if wantOre then
+        local localOre = V.findInsideResource(inst, "ore", origin)
+        if localOre then return localOre end
+    end
+    if wantTree then
+        local localTree = V.findInsideResource(inst, "tree", origin)
+        if localTree then return localTree end
+    end
+    V.refreshCritCache(false)
+    local best, bestDistance = nil, V.S.ResourceCrit.Range
+    local function test(list)
+        for i = #list, 1, -1 do
+            local point = list[i]
+            if not point or not point.Parent then
+                table.remove(list, i)
+            else
+                local ok, distance = pcall(function() return (point.Position - origin).Magnitude end)
+                if ok and distance < bestDistance then
+                    best, bestDistance = point, distance
+                end
+            end
+        end
+    end
+    if wantOre then test(V.critCache.ore) end
+    if wantTree then test(V.critCache.tree) end
+    return best
+end
+
+function V.hookToolState(state)
+    if V.critHooked[state] or type(state) ~= "table" then return end
+    local ok0, originalHit = pcall(function() return rawget(state, "hit") end)
+    if not ok0 or type(originalHit) ~= "function" then return end
+    local ok1, hasOwner = pcall(function() return rawget(state, "OwnerPlayer") end)
+    local ok2, hasRange = pcall(function() return rawget(state, "Range") end)
+    local ok3, hasDelay = pcall(function() return rawget(state, "UseDelay") end)
+    if (not ok1 or hasOwner == nil) and (not ok2 or hasRange == nil) and (not ok3 or hasDelay == nil) then
+        return
+    end
+    V.critHooked[state] = originalHit
+    state.hit = function(self, inst, pos, ...)
+        if V.S.ResourceCrit.Ore or V.S.ResourceCrit.Tree then
+            local owner = rawget(self, "OwnerPlayer") or V.LP
+            local char = owner and owner.Character or V.char
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                local critical = V.nearestCritical(inst, root.Position)
+                if critical then
+                    inst = critical
+                    pos = critical.Position
+                end
+            end
+        end
+        return originalHit(self, inst, pos, ...)
+    end
+    if hasRange ~= nil then
+        pcall(function()
+            rawset(state, "Range", math.max(tonumber(rawget(state, "Range")) or 0, V.S.ResourceCrit.Range))
+        end)
+    end
+end
+
+function V.scanResourceTools()
+    if V.critScanning or (not V.S.ResourceCrit.Ore and not V.S.ResourceCrit.Tree) then return end
+    V.critScanning = true
+    task.spawn(function()
+        local ok, objects = pcall(function() return getgc(true) end)
+        if ok and type(objects) == "table" then
+            for _, state in pairs(objects) do
+                if type(state) == "table" then
+                    pcall(function() V.hookToolState(state) end)
+                end
+            end
+        end
+        V.critScanning = false
+    end)
+end
+
+-- ---------------------------------------------------------------
+-- ДВИЖЕНИЕ: Spider / CopterFly / Spinner / Stretch / JumpCircle / NoJumpDelay
+-- ---------------------------------------------------------------
+V.spRay = RaycastParams.new()
+V.spRay.FilterType = Enum.RaycastFilterType.Exclude
+
+-- CopterFly (Z вкл/выкл в транспорте)
+function V.toggleCopterFly()
+    local target = V.char and V.char:FindFirstChild("HumanoidRootPart")
+    if not target then return end
+    if V.S.CopterFly.Enabled then
+        V.S.CopterFly.Enabled = false
+        if V.S.CopterFly.bodyVel then pcall(function() V.S.CopterFly.bodyVel:Destroy() end) end
+        if V.S.CopterFly.bodyGyro then pcall(function() V.S.CopterFly.bodyGyro:Destroy() end) end
+        V.S.CopterFly.bodyVel = nil
+        V.S.CopterFly.bodyGyro = nil
+        return
+    end
+    if not V.hum or not V.hum.Sit then
+        print("[VOMAGLA-PORT] CopterFly: сядь в транспорт")
+        return
+    end
+    V.S.CopterFly.Enabled = true
+    V.S.CopterFly.bodyVel = Instance.new("BodyVelocity")
+    V.S.CopterFly.bodyVel.MaxForce = Vector3.new(1, 1, 1) * 9e9
+    V.S.CopterFly.bodyVel.Velocity = Vector3.new(0, 0, 0)
+    V.S.CopterFly.bodyVel.Parent = target
+    V.S.CopterFly.bodyGyro = Instance.new("BodyGyro")
+    V.S.CopterFly.bodyGyro.MaxTorque = Vector3.new(1, 1, 1) * 9e9
+    V.S.CopterFly.bodyGyro.P = 9000
+    V.S.CopterFly.bodyGyro.CFrame = target.CFrame
+    V.S.CopterFly.bodyGyro.Parent = target
+end
+
+function V.copterFlyStep()
+    local target = V.char and V.char:FindFirstChild("HumanoidRootPart")
+    if not target then return end
+    if not V.S.CopterFly.bodyVel or V.S.CopterFly.bodyVel.Parent ~= target then
+        V.S.CopterFly.Enabled = false
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    local moveVec = Vector3.new(0, 0, 0)
+    if V.UIS:IsKeyDown(Enum.KeyCode.W) then moveVec = moveVec + cam.CFrame.LookVector end
+    if V.UIS:IsKeyDown(Enum.KeyCode.S) then moveVec = moveVec - cam.CFrame.LookVector end
+    if V.UIS:IsKeyDown(Enum.KeyCode.D) then moveVec = moveVec + cam.CFrame.RightVector end
+    if V.UIS:IsKeyDown(Enum.KeyCode.A) then moveVec = moveVec - cam.CFrame.RightVector end
+    local vert = 0
+    if V.UIS:IsKeyDown(Enum.KeyCode.Space) then vert = 1 end
+    if V.UIS:IsKeyDown(Enum.KeyCode.LeftControl) then vert = -1 end
+    if moveVec.Magnitude > 0 or vert ~= 0 then
+        V.S.CopterFly.bodyVel.Velocity = (moveVec + Vector3.new(0, vert, 0)).Unit * V.S.CopterFly.Speed
+    else
+        V.S.CopterFly.bodyVel.Velocity = Vector3.new(0, 0, 0)
+    end
+    if V.S.CopterFly.bodyGyro and V.S.CopterFly.bodyGyro.Parent == target then
+        V.S.CopterFly.bodyGyro.CFrame = cam.CFrame
+    end
+end
+
+V.trackConn(V.UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Z then
+        pcall(function() V.toggleCopterFly() end)
+    end
+end))
+
+-- JumpCircle
+V.trackConn(V.hum and V.hum.StateChanged or nil)
+local _jumpConnBound = false
+local function bindJumpCircle()
+    if _jumpConnBound or not V.hum then return end
+    _jumpConnBound = true
+    V.trackConn(V.hum.StateChanged:Connect(function(_, new)
+        if new ~= Enum.HumanoidStateType.Jumping or not V.S.JumpCircle.Enabled then return end
+        local r = V.char and V.char:FindFirstChild("HumanoidRootPart")
+        if r then
+            task.spawn(function()
+                local p = Instance.new("Part")
+                p.Anchored = true
+                p.CanCollide = false
+                p.Material = Enum.Material.Neon
+                p.Color = V.S.JumpCircle.Color
+                p.CFrame = CFrame.new(r.Position - Vector3.new(0, 2.9, 0)) * CFrame.Angles(V.mathRad(90), 0, 0)
+                local m = Instance.new("SpecialMesh")
+                m.MeshId = "rbxassetid://3270017"
+                m.MeshType = Enum.MeshType.FileMesh
+                m.Parent = p
+                p.Parent = Workspace
+                V.TS:Create(p, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+                V.TS:Create(m, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = Vector3.new(8, 8, 0.2) }):Play()
+                task.delay(0.4, function() pcall(function() p:Destroy() end) end)
+            end)
+        end
+    end))
+end
+bindJumpCircle()
+V.trackConn(V.LP.CharacterAdded:Connect(function()
+    _jumpConnBound = false
+    task.delay(1, function() bindJumpCircle() end)
+end))
+
+-- NoJumpDelay: авто-респавн прыжка при посадке
+V._noJumpHum = nil
+local function bindNoJump()
+    if V._noJumpHum == V.hum then return end
+    V._noJumpHum = V.hum
+    if not V.hum then return end
+    V.trackConn(V.hum.StateChanged:Connect(function(_, new)
+        if not V.S.NoJumpDelay.Enabled then return end
+        if new == Enum.HumanoidStateType.Landed then
+            task.delay(0.02, function()
+                if V.S.NoJumpDelay.Enabled and V.hum and V.hum.Parent then
+                    pcall(function() V.hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+                end
+            end)
+        end
+    end))
+end
+bindNoJump()
+V.trackConn(V.LP.CharacterAdded:Connect(function()
+    task.delay(0.5, function() bindNoJump() end)
+end))
+
+-- ---------------------------------------------------------------
+-- ANTI-AIM HeadTilt + SkyColor + Water + ToolHL
+-- ---------------------------------------------------------------
+function V.updateHeadTilt()
+    if not V.S.AntiAim.HeadTilt then return end
+    local ch = V.char
+    local head = ch and ch:FindFirstChild("Head")
+    local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+    if not head or not hrp then return end
+    pcall(function()
+        local rel = hrp.CFrame:ToObjectSpace(head.CFrame)
+        local pitch = V.mathRad(V.S.AntiAim.HeadPitch or -45)
+        local base = rel - rel.LookVector * 0
+        head.CFrame = hrp.CFrame * rel * CFrame.Angles(pitch, 0, 0)
+    end)
+end
+
+function V.applySkyColor(state)
+    local ok = pcall(function()
+        if state then
+            V.S.SkyColor.OrigAmbient = V.S.SkyColor.OrigAmbient or Lighting.Ambient
+            V.S.SkyColor.OrigOutdoor = V.S.SkyColor.OrigOutdoor or Lighting.OutdoorAmbient
+            Lighting.Ambient = V.S.SkyColor.Color
+            Lighting.OutdoorAmbient = V.S.SkyColor.Color
+        else
+            if V.S.SkyColor.OrigAmbient then Lighting.Ambient = V.S.SkyColor.OrigAmbient end
+            if V.S.SkyColor.OrigOutdoor then Lighting.OutdoorAmbient = V.S.SkyColor.OrigOutdoor end
+        end
+    end)
+    return ok
+end
+
+function V.applyWater(state)
+    pcall(function()
+        local terr = Workspace:FindFirstChildOfClass("Terrain")
+        if not terr then return end
+        if state then
+            V.S.Water.OrigColor = V.S.Water.OrigColor or terr.WaterColor
+            V.S.Water.OrigRef = V.S.Water.OrigRef or terr.WaterReflectance
+            terr.WaterColor = V.S.Water.Color
+            terr.WaterReflectance = V.S.Water.Reflectance
+        else
+            if V.S.Water.OrigColor then terr.WaterColor = V.S.Water.OrigColor end
+            if V.S.Water.OrigRef then terr.WaterReflectance = V.S.Water.OrigRef end
+        end
+    end)
+end
+
+V.toolHLCache = {}
+V.toolHLNext = 0
+function V.updateToolHL()
+    if not V.S.ToolHL.Enabled then return end
+    local now = os.clock()
+    if now < V.toolHLNext then return end
+    V.toolHLNext = now + 0.5
+    for plr in pairs(V.playerCache) do
+        local char = plr.Character
+        local tool = char and char:FindFirstChildOfClass("Tool")
+        if tool then
+            local hl = tool:FindFirstChild("VOMAGLA_ToolHL")
+            if not hl then
+                pcall(function()
+                    local h = Instance.new("Highlight")
+                    h.Name = "VOMAGLA_ToolHL"
+                    h.Adornee = tool
+                    h.FillColor = V.S.ToolHL.Color
+                    h.OutlineColor = V.S.ToolHL.Color
+                    h.FillTransparency = 0.6
+                    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    h.Parent = tool
+                end)
+            else
+                pcall(function()
+                    hl.FillColor = V.S.ToolHL.Color
+                    hl.OutlineColor = V.S.ToolHL.Color
+                end)
+            end
+        end
+    end
+end
+
+V.trackCleanup(function()
+    for plr in pairs(V.playerCache) do
+        local char = plr.Character
+        local tool = char and char:FindFirstChildOfClass("Tool")
+        local hl = tool and tool:FindFirstChild("VOMAGLA_ToolHL")
+        if hl then pcall(function() hl:Destroy() end) end
+    end
+end)
+
+-- ---------------------------------------------------------------
+-- ГЛАВНЫЕ ЦИКЛЫ
+-- ---------------------------------------------------------------
+V.nextTargetUpdate = 0
+V.nextEspUpdate = 0
+
+-- Heartbeat: движение + GunMods + reload bar + авто-перезарядка
+V.trackConn(V.RunService.Heartbeat:Connect(function(dt)
+    if V.S.Unloaded then return end
+    pcall(function() V.applyGunMods() end)
+    pcall(function() V.updateReloadBar() end)
+    local ch = V.char
+    if not ch then return end
+    local hrp = ch:FindFirstChild("HumanoidRootPart")
+    local hum = V.hum
+    if not hrp or not hum or hum.Health <= 0 then return end
+
+    if V.S.Spider.Enabled and V.UIS:IsKeyDown(Enum.KeyCode.W) then
+        pcall(function()
+            V.spRay.FilterDescendantsInstances = { ch }
+            local result = Workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 2.5, V.spRay)
+            if result then
+                local hp = result.Instance
+                if hp:IsA("BasePart") and hp.Transparency >= 0.8 then
+                    -- прозрачное — не лезем
+                elseif hp:IsA("BasePart") and not hp.CanCollide then
+                    -- неколлижн — не лезем
+                elseif math.abs(result.Normal.Y) < 0.5 then
+                    hrp.AssemblyLinearVelocity = Vector3.new(
+                        hrp.AssemblyLinearVelocity.X, V.S.Spider.Speed, hrp.AssemblyLinearVelocity.Z)
+                end
+            end
+        end)
+    end
+
+    if V.S.CopterFly.Enabled then
+        pcall(function() V.copterFlyStep() end)
+    end
+
+    if V.S.Spinner.Enabled then
+        pcall(function()
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, V.mathRad(V.S.Spinner.Speed * dt), 0)
+        end)
+    end
+
+    -- auto-reload heartbeat (0.05с интервал)
+    pcall(function()
+        local now = os.clock()
+        if now < (V._lastRelCheck or 0) then return end
+        V._lastRelCheck = now + 0.05
+        if V.GunBase and type(V.GunBase) == "table" then
+            local ammo = V.readAmmo(V.ammoGun or V.activeGun)
+            if ammo and ammo > 0 then
+                V.emptyHandled = false
+                V.interruptedByAim = false
+                V.setReloading(false)
+            elseif ammo == 0 then
+                if V.interruptedByAim and not V.aiming then
+                    V.interruptedByAim = false
+                    V.emptyHandled = false
+                    V.setReloading(false)
+                end
+                V.tryAutoReload()
+            elseif V.S.Reload.IsReloading and now >= V.S.Reload.ReloadUntil then
+                V.setReloading(false)
+            end
+        end
+    end)
+end))
+
+-- RenderStepped: выбор цели + FOV + линия + rage + headtilt + toolHL
+V.trackConn(V.RunService.RenderStepped:Connect(function(dt)
+    if V.S.Unloaded then
+        pcall(function() if V.fovFill then V.fovFill.Visible = false end end)
+        pcall(function() if V.saLine then V.saLine.Visible = false end end)
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    if not cam then return end
+    local now = tick()
+
+    if V.S.Stretch.Enabled then
+        pcall(function()
+            cam.CFrame = cam.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, V.S.Stretch.Value, 0, 0, 0, 1)
+        end)
+    end
+
+    local aimEnabled = V.S.SA.Enabled or V.S.Rage.Enabled
+    if aimEnabled then
+        if now >= V.nextTargetUpdate then
+            V.nextTargetUpdate = now + 0.01
+            local part, pos
+            if V.S.Rage.Enabled then
+                part, pos = V.getClosestPlayerRage()
+            else
+                part, pos = V.getClosestPlayerPW()
+            end
+            V.targetPart = part
+            V.targetPos = pos
+            if part and part.Parent then
+                local pl = Players:GetPlayerFromCharacter(part.Parent)
+                if pl and not V.isTeammate(pl) then
+                    V.lastTargetPlayer = pl
+                    V.lastTargetTime = os.clock()
+                else
+                    V.targetPart = nil
+                    V.targetPos = nil
+                end
+            end
+        end
+    else
+        V.targetPart = nil
+        V.targetPos = nil
+    end
+
+    if V.targetPos then
+        local ok, sp = pcall(function() return cam:WorldToViewportPoint(V.targetPos) end)
+        if ok and sp then
+            V.aimScreenPos = Vector2.new(sp.X, sp.Y)
+        else
+            V.aimScreenPos = nil
+        end
+    else
+        V.aimScreenPos = nil
+    end
+
+    if V.saLine then
+        if V.S.SA.Enabled and V.S.SA.TargetLine and V.aimScreenPos then
+            local vp = cam.ViewportSize
+            saLine.Visible = true
+            saLine.Color = V.S.SAColor.Target
+            saLine.From = Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+            saLine.To = V.aimScreenPos
+        else
+            saLine.Visible = false
+        end
+    end
+
+    if V.fovFill then
+        if V.S.SA.ShowFOV and V.S.SA.Enabled then
+            V.fovFill.Visible = true
+            local vp = cam.ViewportSize
+            V.fovFill.Position = UDim2.new(0, vp.X * 0.5, 0, vp.Y * 0.5)
+            V.fovFill.Size = UDim2.new(0, V.S.SA.FOVRadius * 2, 0, V.S.SA.FOVRadius * 2)
+            local col = V.targetPart and V.S.SAColor.Target or V.S.SAColor.NoTarget
+            V.fovFill.BackgroundColor3 = col
+            V.fovStroke.Color = col
+        else
+            V.fovFill.Visible = false
+        end
+    end
+
+    pcall(function() V.updateHeadTilt() end)
+    pcall(function() V.updateToolHL() end)
+
+    local weaponReloading = V.isWeaponReloading()
+    if V.S.Rage.Enabled and V.S.Rage.AutoShoot and V.targetPart and not weaponReloading then
+        if now - V.S.Rage.LastFire >= V.S.Rage.FireDelay then
+            V.S.Rage.LastFire = now
+            V.markShotTarget()
+            V.doAutoFire()
+            V.doAutoFireTool()
+        end
+    end
+end))
+
+-- ---------------------------------------------------------------
+-- UI: страница «Оружие» + «Игрок» + секции в «Визуалы»
+-- ---------------------------------------------------------------
+V.UI = {}
+function V.applyFlag(key, value)
+    local obj = V.UI[key]
+    if obj and value ~= nil and obj.Set then
+        pcall(function() obj:Set(value) end)
+    end
+end
+
+pcall(function()
+    local VOMPage = Window:Page({ Name = "Оружие", Icon = ICON_COMBAT })
+    local SASection = VOMPage:Section({ Name = "Тихий аим (SilentAim)", Tab = "Тихий аим", Side = 1 })
+    local RageSection = VOMPage:Section({ Name = "Рейдж", Tab = "Рейдж", Side = 2 })
+    local ReloadSection = VOMPage:Section({ Name = "Перезарядка", Tab = "Перезарядка", Side = 1 })
+    local ModsSection = VOMPage:Section({ Name = "Моды оружия", Tab = "Моды", Side = 2 })
+    local CritSection = VOMPage:Section({ Name = "Крит ресурсов", Tab = "Ресурсы", Side = 1 })
+
+    SASection:Label("Подмена координат выстрела на сервер (FireServer). Wall Bang: граната летит к цели сквозь стены. Работает через hookmetamethod (Delta/Xeno ОК).")
+    V.UI.SAEnabled = SASection:Toggle({
+        Name = "Тихий аим ВКЛ",
+        Flag = "VSAEnabled",
+        Default = false,
+        Callback = function(state) V.S.SA.Enabled = state end
+    })
+    V.UI.SATargetPart = SASection:Dropdown({
+        Name = "Парт цели",
+        Flag = "VSATargetPart",
+        Options = { "Head", "HumanoidRootPart", "Torso", "UpperTorso" },
+        Default = "Head",
+        Callback = function(v) V.S.SA.TargetPart = v end
+    })
+    V.UI.SATargetMode = SASection:Dropdown({
+        Name = "Приоритет",
+        Flag = "VSATargetMode",
+        Options = { "Дистанция", "Курсор" },
+        Default = "Дистанция",
+        Callback = function(v) V.S.SA.TargetMode = v end
+    })
+    V.UI.SAFOV = SASection:Slider({
+        Name = "FOV радиус",
+        Flag = "VSAFOV",
+        Default = 200, Min = 30, Max = 800, Decimals = 1,
+        Callback = function(v) V.S.SA.FOVRadius = v end
+    })
+    V.UI.SAMaxDist = SASection:Slider({
+        Name = "Макс. дистанция",
+        Flag = "VSAMaxDistance",
+        Default = 500, Min = 50, Max = 2000, Decimals = 1,
+        Callback = function(v) V.S.SA.MaxDistance = v end
+    })
+    V.UI.SAHitChance = SASection:Slider({
+        Name = "Хитчанс %",
+        Flag = "VSAHitChance",
+        Default = 100, Min = 1, Max = 100, Decimals = 1,
+        Callback = function(v) V.S.SA.HitChance = v end
+    })
+    V.UI.SAVisible = SASection:Toggle({
+        Name = "Только видимые (мультипоинт)",
+        Flag = "VSAVisibleCheck",
+        Default = true,
+        Callback = function(state) V.S.SA.VisibleCheck = state end
+    })
+    V.UI.SASafeZone = SASection:Toggle({
+        Name = "Игнорить сейфзону",
+        Flag = "VSASafeZoneSkip",
+        Default = true,
+        Callback = function(state) V.S.SA.SafeZoneSkip = state end
+    })
+    V.UI.SAShowFOV = SASection:Toggle({
+        Name = "Показывать FOV круг",
+        Flag = "VSAShowFOV",
+        Default = true,
+        Callback = function(state) V.S.SA.ShowFOV = state end
+    })
+    V.UI.SATargetLine = SASection:Toggle({
+        Name = "Линия к цели",
+        Flag = "VSATargetLine",
+        Default = false,
+        Callback = function(state) V.S.SA.TargetLine = state end
+    })
+
+    RageSection:Label("Рейдж: тот же выбор цели что у тихого аима, но с авто-огнём. Для стрельбы через Tool:Activate на телефоне включается фолбэк.")
+    V.UI.RageEnabled = RageSection:Toggle({
+        Name = "Рейдж-аим (приоритет над тихим)",
+        Flag = "VRageEnabled",
+        Default = false,
+        Callback = function(state) V.S.Rage.Enabled = state end
+    })
+    V.UI.RageAutoShoot = RageSection:Toggle({
+        Name = "Авто-огонь",
+        Flag = "VRageAutoShoot",
+        Default = false,
+        Callback = function(state) V.S.Rage.AutoShoot = state end
+    })
+    V.UI.RageFireDelay = RageSection:Slider({
+        Name = "Задержка огня (сек)",
+        Flag = "VRageFireDelay",
+        Default = 0.12, Min = 0.02, Max = 2, Decimals = 3,
+        Callback = function(v) V.S.Rage.FireDelay = v end
+    })
+
+    ReloadSection:Label("Хук GunBase: чтение патронов, авто-R при пустом магазине, полоса перезарядки.")
+    V.UI.ReloadEnabled = ReloadSection:Toggle({
+        Name = "Полоса перезарядки",
+        Flag = "VReloadShowBar",
+        Default = true,
+        Callback = function(state) V.S.Reload.ShowBar = state end
+    })
+    V.UI.ReloadAuto = ReloadSection:Toggle({
+        Name = "Авто-перезарядка (патроны=0)",
+        Flag = "VReloadAuto",
+        Default = false,
+        Callback = function(state) V.S.Reload.Auto = state end
+    })
+
+    ModsSection:Label("Моды через getgc-скан: применяются к таблицам оружия в памяти.")
+    V.UI.GunsRapid = ModsSection:Toggle({
+        Name = "RapidFire (скорострельность)",
+        Flag = "VGunsRapidFire",
+        Default = false,
+        Callback = function(state) V.S.Guns.RapidFire = state end
+    })
+    V.UI.GunsRapidSpeed = ModsSection:Slider({
+        Name = "RapidFire задержка",
+        Flag = "VGunsRapidSpeed",
+        Default = 0.06, Min = 0.025, Max = 0.5, Decimals = 3,
+        Callback = function(v) V.S.Guns.RapidSpeed = v end
+    })
+    V.UI.GunsFullAuto = ModsSection:Toggle({
+        Name = "FullAuto (авто-огонь оружие)",
+        Flag = "VGunsFullAuto",
+        Default = false,
+        Callback = function(state) V.S.Guns.FullAuto = state end
+    })
+    V.UI.GunsMelee = ModsSection:Toggle({
+        Name = "MeleeMods (ближний бой)",
+        Flag = "VGunsMeleeMods",
+        Default = false,
+        Callback = function(state) V.S.Guns.MeleeMods = state end
+    })
+    V.UI.GunsMeleeSpeed = ModsSection:Slider({
+        Name = "Melee скорость",
+        Flag = "VGunsMeleeSpeed",
+        Default = 0.08, Min = 0.02, Max = 0.5, Decimals = 3,
+        Callback = function(v) V.S.Guns.MeleeSpeed = v end
+    })
+    V.UI.GunsMeleeRange = ModsSection:Slider({
+        Name = "Melee дистанция",
+        Flag = "VGunsMeleeRange",
+        Default = 8, Min = 3, Max = 30, Decimals = 1,
+        Callback = function(v) V.S.Guns.MeleeRange = v end
+    })
+
+    CritSection:Label("Удары по ресурсам летят в крит-часть («star» у руды, «cross» у деревьев) — быстрее добыча.")
+    V.UI.CritOre = CritSection:Toggle({
+        Name = "Крит по руде",
+        Flag = "VCritOre",
+        Default = false,
+        Callback = function(state)
+            V.S.ResourceCrit.Ore = state
+            if state then V.scanResourceTools() end
+        end
+    })
+    V.UI.CritTree = CritSection:Toggle({
+        Name = "Крит по деревьям",
+        Flag = "VCritTree",
+        Default = false,
+        Callback = function(state)
+            V.S.ResourceCrit.Tree = state
+            if state then V.scanResourceTools() end
+        end
+    })
+    V.UI.CritRange = CritSection:Slider({
+        Name = "Радиус поиска крит-части",
+        Flag = "VCritRange",
+        Default = 25, Min = 5, Max = 100, Decimals = 1,
+        Callback = function(v) V.S.ResourceCrit.Range = v end
+    })
+
+    -- страница «Игрок» (движение)
+    local MovPage = Window:Page({ Name = "Игрок", Icon = ICON_VISUALS })
+    local MovSection = MovPage:Section({ Name = "Движение", Tab = "Движение", Side = 1 })
+    local FunSection = MovPage:Section({ Name = "Разное", Tab = "Разное", Side = 2 })
+
+    V.UI.Spider = MovSection:Toggle({
+        Name = "Spider (лазание по стенам, W)",
+        Flag = "VSpider",
+        Default = false,
+        Callback = function(state) V.S.Spider.Enabled = state end
+    })
+    V.UI.SpiderSpeed = MovSection:Slider({
+        Name = "Spider скорость",
+        Flag = "VSpiderSpeed",
+        Default = 50, Min = 10, Max = 200, Decimals = 1,
+        Callback = function(v) V.S.Spider.Speed = v end
+    })
+    V.UI.NoJumpDelay = MovSection:Toggle({
+        Name = "NoJumpDelay (прыжок без задержки)",
+        Flag = "VNoJumpDelay",
+        Default = false,
+        Callback = function(state) V.S.NoJumpDelay.Enabled = state end
+    })
+    V.UI.Stretch = MovSection:Toggle({
+        Name = "Stretch (растяжка камеры)",
+        Flag = "VStretch",
+        Default = false,
+        Callback = function(state) V.S.Stretch.Enabled = state end
+    })
+    V.UI.StretchValue = MovSection:Slider({
+        Name = "Stretch сила",
+        Flag = "VStretchValue",
+        Default = 0.65, Min = -1, Max = 1, Decimals = 2,
+        Callback = function(v) V.S.Stretch.Value = v end
+    })
+    V.UI.CopterFly = FunSection:Toggle({
+        Name = "CopterFly (Z в транспорте)",
+        Flag = "VCopterFly",
+        Default = false,
+        Callback = function(state)
+            if state then V.toggleCopterFly()
+            elseif V.S.CopterFly.Enabled then V.toggleCopterFly() end
+        end
+    })
+    V.UI.CopterSpeed = FunSection:Slider({
+        Name = "CopterFly скорость",
+        Flag = "VCopterSpeed",
+        Default = 90, Min = 20, Max = 400, Decimals = 1,
+        Callback = function(v) V.S.CopterFly.Speed = v end
+    })
+    V.UI.Spinner = FunSection:Toggle({
+        Name = "Spinner (вращение персонажа)",
+        Flag = "VSpinner",
+        Default = false,
+        Callback = function(state) V.S.Spinner.Enabled = state end
+    })
+    V.UI.SpinnerSpeed = FunSection:Slider({
+        Name = "Spinner скорость (град/с)",
+        Flag = "VSpinnerSpeed",
+        Default = 180, Min = 30, Max = 1440, Decimals = 1,
+        Callback = function(v) V.S.Spinner.Speed = v end
+    })
+    V.UI.JumpCircle = FunSection:Toggle({
+        Name = "JumpCircle (круг при прыжке)",
+        Flag = "VJumpCircle",
+        Default = false,
+        Callback = function(state) V.S.JumpCircle.Enabled = state end
+    })
+    V.UI.HeadTilt = FunSection:Toggle({
+        Name = "AntiAim: наклон головы",
+        Flag = "VHeadTilt",
+        Default = false,
+        Callback = function(state) V.S.AntiAim.HeadTilt = state end
+    })
+
+    -- Визуалы: добавляем секцию «VOMAGLA визуал»
+    local VomVisSection = VisPage:Section({ Name = "VOMAGLA визуал", Tab = "Визуалы", Side = 2 })
+    V.UI.SkyColor = VomVisSection:Toggle({
+        Name = "Своя цветовая гамма неба",
+        Flag = "VSkyColor",
+        Default = false,
+        Callback = function(state)
+            V.S.SkyColor.Enabled = state
+            V.applySkyColor(state)
+        end
+    })
+    V.UI.SkyColorPicker = VomVisSection:Colorpicker({
+        Name = "Цвет неба",
+        Default = V.S.SkyColor.Color,
+        Callback = function(c)
+            V.S.SkyColor.Color = c
+            if V.S.SkyColor.Enabled then V.applySkyColor(true) end
+        end
+    })
+    V.UI.WaterColor = VomVisSection:Toggle({
+        Name = "Свой цвет воды",
+        Flag = "VWaterColor",
+        Default = false,
+        Callback = function(state)
+            V.S.Water.Enabled = state
+            V.applyWater(state)
+        end
+    })
+    V.UI.WaterColorPicker = VomVisSection:Colorpicker({
+        Name = "Цвет воды",
+        Default = V.S.Water.Color,
+        Callback = function(c)
+            V.S.Water.Color = c
+            if V.S.Water.Enabled then V.applyWater(true) end
+        end
+    })
+    V.UI.ToolHL = VomVisSection:Toggle({
+        Name = "Подсветка оружия игроков",
+        Flag = "VToolHL",
+        Default = false,
+        Callback = function(state) V.S.ToolHL.Enabled = state end
+    })
+    V.UI.ToolHLPicker = VomVisSection:Colorpicker({
+        Name = "Цвет подсветки оружия",
+        Default = V.S.ToolHL.Color,
+        Callback = function(c) V.S.ToolHL.Color = c end
+    })
+end)
+
+-- ---------------------------------------------------------------
+-- КОНФИГ: FUST_vomagla.json
+-- ---------------------------------------------------------------
+V.CONFIG_FILE = "FUST_vomagla.json"
+
+function V.colorToTable(c)
+    if typeof(c) ~= "Color3" then return nil end
+    return { R = c.R, G = c.G, B = c.B }
+end
+
+function V.tableToColor(t)
+    if type(t) ~= "table" then return nil end
+    if t.R == nil or t.G == nil or t.B == nil then return nil end
+    return Color3.new(t.R, t.G, t.B)
+end
+
+function V.saveCfg()
+    pcall(function()
+        if type(writefile) ~= "function" then return end
+        local HttpService = game:GetService("HttpService")
+        local cfg = {
+            SA = {
+                Enabled = V.S.SA.Enabled, TargetPart = V.S.SA.TargetPart,
+                TargetMode = V.S.SA.TargetMode, FOVRadius = V.S.SA.FOVRadius,
+                MaxDistance = V.S.SA.MaxDistance, VisibleCheck = V.S.SA.VisibleCheck,
+                HitChance = V.S.SA.HitChance, ShowFOV = V.S.SA.ShowFOV,
+                TargetLine = V.S.SA.TargetLine, SafeZoneSkip = V.S.SA.SafeZoneSkip,
+                ColorNoTarget = V.colorToTable(V.S.SAColor.NoTarget),
+                ColorTarget = V.colorToTable(V.S.SAColor.Target),
+            },
+            Rage = { Enabled = V.S.Rage.Enabled, AutoShoot = V.S.Rage.AutoShoot, FireDelay = V.S.Rage.FireDelay },
+            Manipulation = V.S.Manipulation,
+            Reload = { ShowBar = V.S.Reload.ShowBar, Auto = V.S.Reload.Auto },
+            Guns = {
+                RapidFire = V.S.Guns.RapidFire, RapidSpeed = V.S.Guns.RapidSpeed,
+                FullAuto = V.S.Guns.FullAuto, MeleeMods = V.S.Guns.MeleeMods,
+                MeleeSpeed = V.S.Guns.MeleeSpeed, MeleeRange = V.S.Guns.MeleeRange,
+            },
+            ResourceCrit = { Ore = V.S.ResourceCrit.Ore, Tree = V.S.ResourceCrit.Tree, Range = V.S.ResourceCrit.Range },
+            Spider = { Enabled = V.S.Spider.Enabled, Speed = V.S.Spider.Speed },
+            NoJumpDelay = { Enabled = V.S.NoJumpDelay.Enabled },
+            Stretch = { Enabled = V.S.Stretch.Enabled, Value = V.S.Stretch.Value },
+            JumpCircle = { Enabled = V.S.JumpCircle.Enabled, Color = V.colorToTable(V.S.JumpCircle.Color) },
+            AntiAim = { HeadTilt = V.S.AntiAim.HeadTilt, HeadPitch = V.S.AntiAim.HeadPitch },
+            SkyColor = { Enabled = V.S.SkyColor.Enabled, Color = V.colorToTable(V.S.SkyColor.Color) },
+            Water = { Enabled = V.S.Water.Enabled, Color = V.colorToTable(V.S.Water.Color), Reflectance = V.S.Water.Reflectance },
+            ToolHL = { Enabled = V.S.ToolHL.Enabled, Color = V.colorToTable(V.S.ToolHL.Color) },
+        }
+        writefile(V.CONFIG_FILE, HttpService:JSONEncode(cfg))
+        print("[VOMAGLA-PORT] конфиг сохранён")
+    end)
+end
+
+function V.loadCfg()
+    if type(isfile) ~= "function" or not isfile(V.CONFIG_FILE) then return end
+    pcall(function()
+        local HttpService = game:GetService("HttpService")
+        local cfg = HttpService:JSONDecode(readfile(V.CONFIG_FILE))
+        if type(cfg.SA) == "table" then
+            V.applyFlag("SAEnabled", cfg.SA.Enabled)
+            V.applyFlag("VSATargetPart", cfg.SA.TargetPart)
+            V.applyFlag("VSATargetMode", cfg.SA.TargetMode)
+            V.applyFlag("VSAFOV", cfg.SA.FOVRadius)
+            V.applyFlag("VSAMaxDistance", cfg.SA.MaxDistance)
+            V.applyFlag("VSAHitChance", cfg.SA.HitChance)
+            V.applyFlag("VSAVisibleCheck", cfg.SA.VisibleCheck)
+            V.applyFlag("VSASafeZoneSkip", cfg.SA.SafeZoneSkip)
+            V.applyFlag("VSAShowFOV", cfg.SA.ShowFOV)
+            V.applyFlag("VSATargetLine", cfg.SA.TargetLine)
+            local c1 = V.tableToColor(cfg.SA.ColorNoTarget)
+            if c1 then V.S.SAColor.NoTarget = c1 end
+            local c2 = V.tableToColor(cfg.SA.ColorTarget)
+            if c2 then V.S.SAColor.Target = c2 end
+        end
+        if type(cfg.Rage) == "table" then
+            V.applyFlag("RageEnabled", cfg.Rage.Enabled)
+            V.applyFlag("RageAutoShoot", cfg.Rage.AutoShoot)
+            V.applyFlag("RageFireDelay", cfg.Rage.FireDelay)
+        end
+        V.applyFlag("Manipulation", cfg.Manipulation)
+        if type(cfg.Reload) == "table" then
+            V.applyFlag("ReloadEnabled", cfg.Reload.ShowBar)
+            V.applyFlag("ReloadAuto", cfg.Reload.Auto)
+        end
+        if type(cfg.Guns) == "table" then
+            V.applyFlag("GunsRapid", cfg.Guns.RapidFire)
+            V.applyFlag("GunsRapidSpeed", cfg.Guns.RapidSpeed)
+            V.applyFlag("GunsFullAuto", cfg.Guns.FullAuto)
+            V.applyFlag("GunsMelee", cfg.Guns.MeleeMods)
+            V.applyFlag("GunsMeleeSpeed", cfg.Guns.MeleeSpeed)
+            V.applyFlag("GunsMeleeRange", cfg.Guns.MeleeRange)
+        end
+        if type(cfg.ResourceCrit) == "table" then
+            V.applyFlag("CritOre", cfg.ResourceCrit.Ore)
+            V.applyFlag("CritTree", cfg.ResourceCrit.Tree)
+            V.applyFlag("CritRange", cfg.ResourceCrit.Range)
+        end
+        if type(cfg.Spider) == "table" then
+            V.applyFlag("Spider", cfg.Spider.Enabled)
+            V.applyFlag("SpiderSpeed", cfg.Spider.Speed)
+        end
+        if type(cfg.NoJumpDelay) == "table" then
+            V.applyFlag("NoJumpDelay", cfg.NoJumpDelay.Enabled)
+        end
+        if type(cfg.Stretch) == "table" then
+            V.applyFlag("Stretch", cfg.Stretch.Enabled)
+            V.applyFlag("StretchValue", cfg.Stretch.Value)
+        end
+        if type(cfg.JumpCircle) == "table" then
+            V.applyFlag("JumpCircle", cfg.JumpCircle.Enabled)
+            local c = V.tableToColor(cfg.JumpCircle.Color)
+            if c then V.S.JumpCircle.Color = c end
+        end
+        if type(cfg.AntiAim) == "table" then
+            V.applyFlag("HeadTilt", cfg.AntiAim.HeadTilt)
+            V.applyFlag("HeadTiltPitch", cfg.AntiAim.HeadPitch)
+        end
+        if type(cfg.SkyColor) == "table" then
+            local c = V.tableToColor(cfg.SkyColor.Color)
+            if c then V.S.SkyColor.Color = c end
+            V.applyFlag("SkyColor", cfg.SkyColor.Enabled)
+        end
+        if type(cfg.Water) == "table" then
+            local c = V.tableToColor(cfg.Water.Color)
+            if c then V.S.Water.Color = c end
+            V.applyFlag("WaterColor", cfg.Water.Enabled)
+        end
+        if type(cfg.ToolHL) == "table" then
+            local c = V.tableToColor(cfg.ToolHL.Color)
+            if c then V.S.ToolHL.Color = c end
+            V.applyFlag("ToolHL", cfg.ToolHL.Enabled)
+        end
+        print("[VOMAGLA-PORT] конфиг загружен")
+    end)
+end
+
+-- кнопка сохранения в Settings
+pcall(function()
+    local settingsSection
+    if SettingsPage and type(SettingsPage.Section) == "function" then
+        local okS, s = pcall(function()
+            return SettingsPage:Section({ Name = "VOMAGLA модули", Tab = "Settings", Side = 2 })
+        end)
+        if okS then settingsSection = s end
+    end
+    if settingsSection then
+        settingsSection:Button({
+            Name = "Сохранить конфиг VOMAGLA-модулей",
+            Callback = function() V.saveCfg() end
+        })
+        settingsSection:Button({
+            Name = "Загрузить конфиг VOMAGLA-модулей",
+            Callback = function() V.loadCfg() end
+        })
+    end
+end)
+
+V.loadCfg()
+
+-- ---------------------------------------------------------------
+-- CLEANUP (интеграция с «ВЫКЛЮЧИТЬ СКРИПТ»)
+-- ---------------------------------------------------------------
+function V.cleanup()
+    V.S.Unloaded = true
+    pcall(function()
+        if V._gunHooked and V.GunBase then
+            if V.GunBase[V._gunHooked.fireName] then
+                -- restore через rawset невозможен для upvalue-оригинала —
+                -- оригиналы сохранены в V._origFire/_origReload
+            end
+            if V._origFire then V.GunBase[V._gunHooked.fireName] = V._origFire end
+            if V._origReload then V.GunBase[V._gunHooked.reloadName] = V._origReload end
+        end
+    end)
+    pcall(function() V.applySkyColor(false) end)
+    pcall(function() V.applyWater(false) end)
+    for _, conn in ipairs(V.conns) do
+        pcall(function() conn:Disconnect() end)
+    end
+    for _, fn in ipairs(V.cleanupFns) do
+        pcall(fn)
+    end
+    V.conns = {}
+    pcall(function()
+        if V.S.CopterFly.bodyVel then V.S.CopterFly.bodyVel:Destroy() end
+        if V.S.CopterFly.bodyGyro then V.S.CopterFly.bodyGyro:Destroy() end
+    end)
+    print("[VOMAGLA-PORT] выгружен")
+end
+
+local _oldDeact = getgenv().FUST_Deactivate
+getgenv().FUST_Deactivate = function()
+    pcall(function() V.cleanup() end)
+    if _oldDeact then pcall(_oldDeact) end
+end
+
+print("[VOMAGLA-PORT] загружен: Тихий аим/Рейдж/Перезарядка/Моды/Крит/Движение/Визуал")
+print("[VOMAGLA-PORT] hookmetamethod: " .. tostring(hookmetamethod ~= nil) .. ", getgc: " .. tostring(getgc ~= nil))
 end
