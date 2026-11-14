@@ -1,183 +1,4 @@
-Info = "Плавающая кнопка CAM на экране: тап ОТКРЫВАЕТ меню фрикама (FLY — вкл/выкл полёта, скорость, < > — листать сохранённые точки, SAVE POS — добавить точку, TP CAM TO POS — лететь в выбранную, DEL POS — удалить, крестик — скрыть меню). Сама кнопка полёт НЕ включает. Кнопку можно перетащить в удобное место.",
-Default = true,
-Callback = function(state)
-fcSetPanelVisible(state)
-end
-})
-UIRegistry.FCSpeed = FreeCamSection:Slider({
-Name = "Скорость полёта",
-Flag = "FreeCamSpeed",
-Info = "Скорость полёта камеры (10–1000). Меняй ползунком, кнопками −/+ на панели CAM, а на ПК — клавишами [ и ].",
-Default = 100,
-Min = 10,
-Max = 1000,
-Decimals = 1,
-Callback = function(v)
-fcSetSpeed(v)
-end
-})
-UIRegistry.FCTouchSens = FreeCamSection:Slider({
-Name = "Чувствительность касания",
-Flag = "FreeCamTouchSens",
-Info = "Насколько резко камера поворачивается от пальца. Мало — вяло, много — дёргано. Рекомендую 0.3–0.5.",
-Default = 0.35,
-Min = 0.05,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-FC_TouchSens = v
-end
-})
-UIRegistry.FCMouseSens = FreeCamSection:Slider({
-Name = "Чувствительность мыши",
-Flag = "FreeCamMouseSens",
-Info = "Чувствительность обзора мышью на ПК. Рекомендую 0.15–0.25.",
-Default = 0.20,
-Min = 0.05,
-Max = 1,
-Decimals = 0.05,
-Callback = function(v)
-FC_MouseSens = v
-end
-})
-UIRegistry.FCRemember = FreeCamSection:Toggle({
-Name = "Запоминать позицию камеры",
-Flag = "FreeCamRemember",
-Info = "При включении фрикама камера возвращается в ВЫБРАННУЮ точку списка (листается стрелками < > на панели CAM), а при выключении фрикама выбранная точка ОБНОВЛЯЕТСЯ. Добавление точек — SAVE POS (каждое нажатие = новая точка), удаление — DEL POS. Телепорт в выбранную — TP CAM TO POS.",
-Default = false,
-Callback = function(state)
-FC_RememberPos = state
-end
-})
-UIRegistry.FCHookKeys = FreeCamSection:Toggle({
-Name = "Подмена IsKeyDown — РИСК",
-Flag = "FreeCamHookKeys",
-Info = "Подменяет IsKeyDown, чтобы WASD летали без перехвата игры. РИСК: хук-методы анти-чит может детектить. Включай только если клавиши полёта не работают.",
-Default = false,
-Callback = function(state)
-FreeCam.HookKeys = state
-if state then
--- hookfunction установится при следующем включении фрикама
-journal("ФРИКАМ: подмена IsKeyDown РАЗРЕШЕНА (хук-метод — анти-чит может детектить!)")
-else
-journal("ФРИКАМ: подмена IsKeyDown запрещена (безопасный режим)")
-end
-end
-})
-FreeCamSection:Label("МУЛЬТИ-ТОЧКИ (0.59): SAVE POS добавляет НОВУЮ точку (до 20), < / > на панели — листать, TP CAM TO POS — лететь в выбранную, DEL POS — удалить (второй тап подтверждает). Точки хранятся в FUST_freecam_pos.json и НЕ пропадают после перезахода.")
-FreeCamSection:Label("ПК: WASD — полёт, Q/E — вниз/вверх, Shift — x2, обзор — правая кнопка мыши.")
-FreeCamSection:Label("Телефон: левая половина экрана — джойстик, правая — обзор. Панель CAM (тап по CAM): FLY вкл/выкл, скорость, < > листать точки, SAVE POS добавить, DEL POS удалить, TP CAM TO POS лететь, крестик — скрыть меню.")
-FreeCamSection:Label("Персонажа чит НЕ трогает ВООБЩЕ (0.56: ни якоря, ни скоростей — урок бана WALKSPEED 1000): стоит где стоял, отключается только управление. Аимбот и анти-тряска на время фрикама отключаются.")
--- кейбинды (ПК/Xeno): вкл/выкл + скорость
-local fcHasKb = false
-pcall(function()
-fcHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
-end)
-if fcHasKb then
-FCHotkeyBusy = true
-UIRegistry.FCKey = UIRegistry.FCToggle:Keybind({
-Flag = "FreeCamToggleKey",
-Default = Enum.KeyCode.P,
-Mode = "Toggle",
-Callback = function(state)
-if FCHotkeyBusy then return end
-fcSetEnabled(state)
-end
-})
-FCHotkeyBusy = false
-UIRegistry.FCSpeedUpLabel = FreeCamKeySection:Label("Скорость + (клавиша)")
-UIRegistry.FCSpeedUpKey = UIRegistry.FCSpeedUpLabel:Keybind({
-Flag = "FreeCamSpeedUpKey",
-Default = Enum.KeyCode.RightBracket,
-Mode = "Always",
-Callback = function(state)
-if state then fcSpeedStep(1) end
-end
-})
-UIRegistry.FCSpeedDownLabel = FreeCamKeySection:Label("Скорость - (клавиша)")
-UIRegistry.FCSpeedDownKey = UIRegistry.FCSpeedDownLabel:Keybind({
-Flag = "FreeCamSpeedDownKey",
-Default = Enum.KeyCode.LeftBracket,
-Mode = "Always",
-Callback = function(state)
-if state then fcSpeedStep(-1) end
-end
-})
-FreeCamKeySection:Label("Смена клавиши: тапни по кнопке [..] и нажми новую. Backspace = убрать.")
-else
-FreeCamKeySection:Label("Клавиши доступны только на ПК (Xeno). На телефоне — кнопка CAM и панель.")
-end
-end)
-print("[FUST] 3/4: интерфейс создан, окно должно быть на экране")
-S = {
-ESP = {
-Enabled = false,
-Box = false,
-Chams = false,
-ChamsTransparency = 0.5,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-MaxDistance = 1500,
-DistanceScale = true, 
-TeamCheck = false, 
-VisCheck = false, 
-VisHitbox = false, 
-},
-ESPColors = {
-Box = Color3.fromRGB(0, 255, 255),
-},
-Hitbox = { Enabled = false, Size = 5, Transparency = 0.7 },
-FullBright = false,
-NoDecoration = false,
-NoGrass = false,
-NoFog = false,
-Bullets = { Enabled = false, Style = "Луч", Color = Color3.fromRGB(255, 255, 255), TextureID = "rbxassetid://12781852245", Width = 1.5, Transparency = 0, LifeTime = 0.5, TeamCheck = true },
-NPC = {
-ESP = false,
-CatGuards = true, 
-CatPeaceful = false, 
-CatAnimals = false, 
-CatSleepers = false, 
-DebugLog = false, 
-Box = false,
-Name = false,
-Item = false,
-Distance = false,
-HealthBar = false,
-Chams = false,
-ChamsTransparency = 0.5,
-MaxDistance = 3000,
-HitboxEnabled = false,
-HitboxSize = 5,
-HitboxTransparency = 0.7,
-HitboxAnimals = false, 
-HitboxSleepers = false, 
-},
-HUD = {
-Enabled = true,
-Size = 11, 
-BgTransparency = 0.35, 
-TextTransparency = 0, 
-Corner = "Лево-низ", 
-ShowTPS = true, 
-ShowBg = true, 
--- 0.39: новые поля
-ColorBg = Color3.fromRGB(12, 12, 16),
-ColorText = Color3.fromRGB(235, 235, 240),
-ColorStroke = Color3.fromRGB(255, 170, 40),
-ShowAdmin = true, 
-Position = nil, -- {X=0.0..1.0, Y=0.0..1.0} — сохранённая позиция drag
-},
-Loot = {
-Enabled = false,
-Owner = true, 
-Slots = true, 
-Distance = true,
-Box = true,
-Chams = true, 
-MaxDistance = 1500,
+1500,
 DebugLog = false, 
 },
 LootC = {
@@ -712,6 +533,16 @@ hudConns = {}
 hudDragging = false
 hudDragStart, hudFrameStart = nil, nil
 HUD_MARGIN = 12
+HUD_POS_FILE = "FUST_hud_pos.json"
+function hudPersistPos()
+pcall(function()
+if type(writefile) ~= "function" then return end
+if not S.HUD.Position then return end
+writefile(HUD_POS_FILE, game:GetService("HttpService"):JSONEncode({
+x = S.HUD.Position.X, y = S.HUD.Position.Y
+}))
+end)
+end
 function hudSnap(corner)
 if not hudFrame then
 return
@@ -848,12 +679,26 @@ pcall(function()
 if S.HUD.Position and type(S.HUD.Position) == "table" then
 hudFrame.AnchorPoint = Vector2.new(0, 0)
 hudFrame.Position = UDim2.new(S.HUD.Position.X, 0, S.HUD.Position.Y, 0)
+elseif type(isfile) == "function" and isfile(HUD_POS_FILE) and type(readfile) == "function" then
+-- 0.60: позиция HUD переживает перезаход (FUST_hud_pos.json)
+local okj, dat = pcall(function()
+return game:GetService("HttpService"):JSONDecode(readfile(HUD_POS_FILE))
+end)
+if okj and type(dat) == "table" and type(dat.x) == "number" and type(dat.y) == "number" then
+S.HUD.Position = { X = dat.x, Y = dat.y }
+hudFrame.AnchorPoint = Vector2.new(0, 0)
+hudFrame.Position = UDim2.new(dat.x, 0, dat.y, 0)
+else
+hudSnap(S.HUD.Corner)
+end
 else
 hudSnap(S.HUD.Corner)
 end
 end)
+FUST_FloatKeepAdd(hudFrame) -- 0.62: микро-HUD возвращается в экран при повороте
 hudApplyStyle()
 hudFrame.InputBegan:Connect(function(input)
+if S.HUD.Pinned then return end -- 0.60: заморозка HUD
 if input.UserInputType == Enum.UserInputType.MouseButton1
 or input.UserInputType == Enum.UserInputType.Touch then
 hudDragging = true
@@ -874,6 +719,7 @@ hudFrame.InputEnded:Connect(function(input)
 if input.UserInputType == Enum.UserInputType.MouseButton1
 or input.UserInputType == Enum.UserInputType.Touch then
 hudDragging = false
+hudPersistPos() -- 0.60: позиция HUD сохраняется в файл
 end
 end)
 table.insert(hudConns, UserInputService.InputChanged:Connect(function(input)
@@ -1005,6 +851,17 @@ Decimals = 1,
 Callback = function(Value)
 S.HUD.Size = Value
 hudApplyStyle()
+end
+})
+-- 0.60: ЗАМОРОЗКА HUD — запрет случайного перетаскивания (телефон)
+UIRegistry.HUDPinned = HudSection:Toggle({
+Name = "Заморозить HUD",
+Flag = "HUDPinned",
+Info = "Заморозка на одном месте: HUD нельзя случайно сдвинуть пальцем/мышью (перетаскивание выключено). Сними галочку — двигать снова можно.",
+Default = false,
+Callback = function(state)
+S.HUD.Pinned = state
+journal("HUD " .. (state and "ЗАМОРОЖЕН — перетаскивание выкл" or "ОТКРЕПЛЁН — можно двигать"))
 end
 })
 UIRegistry.HUDBgTransparency = HudSection:Slider({
@@ -2224,40 +2081,9 @@ xrayWildRunning = false
 if onDone then pcall(onDone) end
 end)
 end
-UIRegistry.XRayWildToggle = WorldSection:Toggle({
-Name = "X-Ray: ВСЁ вокруг (дикий)",
-Flag = "XRayWildEnabled",
-Info = "Дикий режим: делает прозрачными ВСЕ статичные объекты (постройки, деревья, камни, мебель) — просвет гарантирован, даже если игра переименовала стены. Игроки и боты НЕ прозрачнеют. Тяжелее для FPS, чем обычный X-Ray: включай, если обычный не сработал или нужно всё видеть.",
-Default = false,
-Callback = function(state)
-XRayWild.Enabled = state
-if state then
-xrayWildScanAll(function()
-if XRayWild.Enabled then
-pcall(setWildXrayState, true, XRayWild.Transparency)
-end
-end)
-else
-pcall(setWildXrayState, false, XRayWild.Transparency)
-end
-journal("X-RAY (дикий) " .. (state and "ВКЛ" or "ВЫКЛ"))
-end
-})
-UIRegistry.XRayWildTrans = WorldSection:Slider({
-Name = "X-Ray (дикий): прозрачность",
-Flag = "XRayWildTransparency",
-Info = "Прозрачность статичных объектов в диком режиме: 0.1 — почти стекло, 0.95 — еле видно. Меняется на ходу.",
-Default = 0.5,
-Min = 0.05,
-Max = 0.95,
-Decimals = 0.05,
-Callback = function(v)
-XRayWild.Transparency = v
-if XRayWild.Enabled then
-pcall(setWildXrayState, true, v)
-end
-end
-})
+-- 0.60: тумблер «X-Ray: ВСЁ вокруг (дикий)» и его отдельный слайдер
+-- УБРАНЫ: дикий скан теперь ВСЕГДА идёт вместе с ключевым внутри
+-- единого режима «X-RAY (мощный)» (тумблер XRayToggle ниже).
 -- UI: секция «Мир и освещение», вкладка «Визуалы»
 -- 0.54: синхронизация кнопки XRAY на экране с состоянием (надпись ВКЛ/ВЫКЛ)
 function xrayQuickSync()
@@ -2296,15 +2122,14 @@ journal("X-RAY " .. (XRay.Enabled and "ВКЛ" or "ВЫКЛ") .. " (кнопка
 xrayQuickSync()
 end
 UIRegistry.XRayToggle = WorldSection:Toggle({
-Name = "X-Ray: постройки",
+Name = "X-RAY (мощный)",
 Flag = "XRayEnabled",
-Info = "Просвет построек (twig/wood/камень/двери и т.п.). 0.55: ловит по имени парта И по имени модели, ключи расширены. Скан при включении идёт чанками 1–3 сек и не фризит, прозрачность применяется по ходу скана; новые стены ловятся автоматически. Если эффекта 0 — включи «X-Ray: ВСЁ вокруг (дикий)» ниже и открой Логи → Журнал чита: там написано, сколько построек нашлось (скинь скрин).",
+Info = "ОБЪЕДИНЁННЫЙ просвет (0.60): прозрачными сразу становятся И постройки по ключевым словам (twig/wood/стены/двери...), И ВСЕ статичные объекты вокруг (деревья, камни, мебель). Игроки и боты не прозрачнеют. Скан идёт чанками и не фризит; новые объекты ловятся автоматически. Прозрачность — слайдер ниже; кнопка XRAY на экране и хоткей для ПК переключают этот же режим.",
 Default = false,
 Callback = function(state)
 XRay.Enabled = state
+XRayWild.Enabled = state
 if state then
--- 0.51 (E-15): скан чанками; 0.54: прозрачность применяется по ходу
--- скана, после — диагностика: сколько стен реально нашлось
 xrayScanAll(function()
 local found, alive = 0, 0
 for p, d in pairs(xrayCache) do
@@ -2314,40 +2139,45 @@ alive = alive + 1
 end
 end
 journal("X-RAY: объектов построек в базе: " .. tostring(found) .. ", живых на карте: " .. tostring(alive))
-if found == 0 then
-journal("X-RAY: ПОСТРОЙКИ НЕ НАЙДЕНЫ — пришли скрин (Логи → Журнал чита) или включи «X-Ray: ВСЁ вокруг (дикий)»")
-xrayLogWallSamples()
-end
 if XRay.Enabled then
 pcall(setXrayState, true, XRay.Transparency)
+pcall(setWildXrayState, true, XRayWild.Transparency)
 end
 xrayQuickSync()
 end)
+xrayWildScanAll(function()
+if XRayWild.Enabled then
+pcall(setWildXrayState, true, XRayWild.Transparency)
+end
+end)
 else
 pcall(setXrayState, false, XRay.Transparency)
+pcall(setWildXrayState, false, XRayWild.Transparency)
 journal("X-RAY: стены вернули исходную прозрачность")
 end
-journal("X-RAY " .. (state and "ВКЛ" or "ВЫКЛ"))
+journal("X-RAY (мощный) " .. (state and "ВКЛ" or "ВЫКЛ"))
 xrayQuickSync()
 end
 })
 UIRegistry.XRayTrans = WorldSection:Slider({
-Name = "X-Ray: прозрачность стен",
+Name = "X-Ray: прозрачность",
 Flag = "XRayTransparency",
-Info = "Насколько прозрачными станут twig-стены: 0.1 — почти стекло, 0.95 — еле заметны. Работает на ходу: двигаешь ползунок — стены меняются сразу (и для кнопки XRAY на экране тоже).",
+Info = "Насколько прозрачными станут постройки и все статичные объекты: 0.1 — почти стекло, 0.95 — еле заметны. Работает на ходу: двигаешь ползунок — всё меняется сразу (и для кнопки XRAY на экране).",
 Default = 0.5,
 Min = 0.1,
 Max = 0.95,
 Decimals = 0.05,
 Callback = function(v)
 XRay.Transparency = v
+XRayWild.Transparency = v
 if XRay.Enabled then pcall(setXrayState, true, v) end
+if XRayWild.Enabled then pcall(setWildXrayState, true, v) end
 end
 })
 -- кейбинд (ПК/Xeno — обязательный по приказу, сменяемый: тапни по [X] и нажми клавишу)
 local xrayHasKb = false
 pcall(function()
-xrayHasKb = (UserInputService.KeyboardEnabled == true and not UserInputService.TouchEnabled)
+xrayHasKb = (not UserInputService.TouchEnabled)
 end)
 if xrayHasKb then
 XRayKeyBusy = true
@@ -2406,13 +2236,17 @@ stroke.Thickness = 1.4
 stroke.Transparency = 0.35
 stroke.Parent = btn
 xrayQuickSync() -- 0.54: надпись ВКЛ/ВЫКЛ по текущему состоянию
+-- 0.62: драг с КЛЭМПОМ в экран — кнопку XRAY больше не утащить за край.
 local dragging = false
-local dragStart, startPos = nil, nil
+local dragStart, startPos, startAbs = nil, nil, nil
 btn.InputBegan:Connect(function(input)
 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 dragging = true
+XR_BTN_DRAGGED = false
 dragStart = input.Position
 startPos = btn.Position
+local ab = btn.AbsolutePosition
+startAbs = Vector2.new(ab.X, ab.Y)
 input.Changed:Connect(function()
 if input.UserInputState == Enum.UserInputState.End then
 dragging = false
@@ -2423,3 +2257,494 @@ end)
 UserInputService.InputChanged:Connect(function(input)
 if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 local delta = input.Position - dragStart
+if delta.Magnitude > 8 then
+XR_BTN_DRAGGED = true
+end
+local cam = Workspace.CurrentCamera
+local view = cam and cam.ViewportSize or Vector2.new(1280, 720)
+local bw = btn.AbsoluteSize.X
+local bh = btn.AbsoluteSize.Y
+local wantX = math.clamp(startAbs.X + delta.X, 0, math.max(view.X - bw, 0))
+local wantY = math.clamp(startAbs.Y + delta.Y, 0, math.max(view.Y - bh, 0))
+btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (wantX - startAbs.X), startPos.Y.Scale, startPos.Y.Offset + (wantY - startAbs.Y))
+end
+end)
+btn.MouseButton1Click:Connect(function()
+if XR_BTN_DRAGGED then -- 0.62: это было перетаскивание, не тап
+XR_BTN_DRAGGED = false
+return
+end
+xrayQuickToggle()
+end)
+FUST_FloatKeepAdd(btn) -- 0.62: возврат кнопки XRAY в экран при повороте
+return g
+end)
+if okG then
+xrayQuickGui = guiOrErr
+else
+warn("[FUST] Кнопка XRAY не создалась: " .. tostring(guiOrErr))
+end
+else
+if xrayQuickGui then
+pcall(function() xrayQuickGui:Destroy() end)
+xrayQuickGui = nil
+end
+end
+end
+UIRegistry.XRayQuickBtn = WorldSection:Toggle({
+Name = "Кнопка XRAY на экране",
+Flag = "XRayQuickBtn",
+Info = "Плавающая кнопка XRAY на экране в формате ВКЛ/ВЫКЛ: надпись и цвет показывают состояние X-Ray, тап переключает. Кнопку можно перетащить. Прозрачность — слайдером «X-Ray: прозрачность» в меню.",
+Default = true,
+Callback = function(state)
+pcall(function() xrayQuickBuild(state) end)
+journal("КНОПКА XRAY " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+
+function normalizeName(raw)
+if type(raw) ~= "string" then
+return ""
+end
+local name = raw:gsub("^%s+", ""):gsub("%s+$", "")
+name = name:gsub("^@", "")
+return name
+end
+function resolveName(raw)
+local name = normalizeName(raw)
+if name == "" then
+return nil
+end
+local lower = string.lower(name)
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.Name) == lower then
+return plr.Name
+end
+end
+for _, plr in ipairs(Players:GetPlayers()) do
+if string.lower(plr.DisplayName) == lower then
+return plr.Name
+end
+end
+return name
+end
+WL_BG = Color3.fromRGB(17, 18, 22)
+WL_ROW = Color3.fromRGB(28, 39, 45)
+WL_ACCENT = Color3.fromRGB(150, 20, 20)
+WL_BRIGHT = Color3.fromRGB(235, 45, 45)
+WL_TEXT = Color3.fromRGB(199, 199, 212)
+WL_GRAY = Color3.fromRGB(117, 117, 131)
+wlHost = MiscSection.Items["Content"].Instance
+wlPanel = Instance.new("Frame")
+wlPanel.Name = "FustWhitelistPanel"
+wlPanel.BackgroundColor3 = WL_BG
+wlPanel.BorderSizePixel = 0
+wlPanel.Size = UDim2.new(1, 0, 0, 0)
+wlPanel.AutomaticSize = Enum.AutomaticSize.Y
+wlPanel.LayoutOrder = 100
+wlPanel.Parent = wlHost
+function wlCorner(parent, radius)
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, radius or 6)
+c.Parent = parent
+return c
+end
+do
+wlCorner(wlPanel)
+local stroke = Instance.new("UIStroke")
+stroke.Color = WL_ACCENT
+stroke.Transparency = 0.55
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = wlPanel
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 8)
+pad.PaddingBottom = UDim.new(0, 8)
+pad.PaddingLeft = UDim.new(0, 8)
+pad.PaddingRight = UDim.new(0, 8)
+pad.Parent = wlPanel
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlPanel
+end
+function wlLabel(text, order, color, bold)
+local l = Instance.new("TextLabel")
+l.BackgroundTransparency = 1
+l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+l.TextSize = 13
+l.TextColor3 = color or WL_TEXT
+l.Text = text
+l.TextXAlignment = Enum.TextXAlignment.Left
+l.Size = UDim2.new(1, 0, 0, 16)
+l.LayoutOrder = order
+l.Parent = wlPanel
+return l
+end
+wlLabel("Вайтлист (не бьём по этим)", 1, WL_BRIGHT, true)
+wlLabel("Тап по нику в списке — вкл/выкл.", 2, WL_GRAY)
+wlScroll = Instance.new("ScrollingFrame")
+wlScroll.Name = "FustWhitelistScroll"
+wlScroll.Size = UDim2.new(1, 0, 0, 150)
+wlScroll.BackgroundColor3 = WL_BG
+wlScroll.BorderSizePixel = 0
+wlScroll.ScrollBarThickness = 4
+wlScroll.ScrollBarImageColor3 = WL_ACCENT
+wlScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+wlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+wlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+wlScroll.LayoutOrder = 3
+wlScroll.Parent = wlPanel
+do
+wlCorner(wlScroll)
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 5)
+pad.PaddingBottom = UDim.new(0, 5)
+pad.PaddingLeft = UDim.new(0, 5)
+pad.PaddingRight = UDim.new(0, 6)
+pad.Parent = wlScroll
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlScroll
+end
+wlRows = {}
+function clearPlayerRows()
+for _, r in ipairs(wlRows) do
+r:Destroy()
+end
+table.clear(wlRows)
+end
+function applyRowStyle(row, isOn)
+local base = row:GetAttribute("WLText") or ""
+if isOn then
+row.BackgroundColor3 = WL_ACCENT
+row.TextColor3 = Color3.fromRGB(255, 255, 255)
+row.Text = "✓ " .. base
+else
+row.BackgroundColor3 = WL_ROW
+row.TextColor3 = WL_GRAY
+row.Text = base
+end
+end
+function rebuildPlayerList()
+clearPlayerRows()
+local rows = {}
+for _, plr in ipairs(Players:GetPlayers()) do
+if plr ~= LocalPlayer then
+table.insert(rows, plr)
+end
+end
+table.sort(rows, function(a, b)
+return a.Name < b.Name
+end)
+if #rows == 0 then
+local empty = Instance.new("TextLabel")
+empty.BackgroundTransparency = 1
+empty.Font = Enum.Font.Gotham
+empty.TextSize = 12
+empty.TextColor3 = WL_GRAY
+empty.Text = "На сервере пока нет других игроков"
+empty.Size = UDim2.new(1, 0, 0, 26)
+empty.LayoutOrder = 1
+empty.Parent = wlScroll
+table.insert(wlRows, empty)
+return
+end
+for order, plr in ipairs(rows) do
+local row = Instance.new("TextButton")
+row.Name = "WL_" .. plr.Name
+row.AutoButtonColor = false
+row.Font = Enum.Font.Gotham
+row.TextSize = 13
+row.TextXAlignment = Enum.TextXAlignment.Left
+row.BackgroundColor3 = WL_ROW
+row.BorderSizePixel = 0
+row.Size = UDim2.new(1, 0, 0, 30)
+row.LayoutOrder = order
+row:SetAttribute("WLText", plr.DisplayName .. " (@" .. plr.Name .. ")")
+row.Parent = wlScroll
+table.insert(wlRows, row)
+wlCorner(row, 5)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = row
+applyRowStyle(row, Whitelist[plr.Name] == true)
+row.Activated:Connect(function()
+if Whitelist[plr.Name] then
+Whitelist[plr.Name] = nil
+applyRowStyle(row, false)
+else
+Whitelist[plr.Name] = true
+applyRowStyle(row, true)
+end
+end)
+end
+end
+wlLabel("Или впиши ник вручную:", 4, WL_GRAY)
+wlInput = Instance.new("TextBox")
+wlInput.Name = "FustWhitelistInput"
+wlInput.Font = Enum.Font.Gotham
+wlInput.TextSize = 13
+wlInput.PlaceholderText = "Ник или DisplayName друга..."
+wlInput.PlaceholderColor3 = Color3.fromRGB(77, 77, 86)
+wlInput.Text = ""
+wlInput.TextColor3 = WL_TEXT
+wlInput.TextXAlignment = Enum.TextXAlignment.Left
+wlInput.ClearTextOnFocus = false
+wlInput.BackgroundColor3 = WL_BG
+wlInput.BorderSizePixel = 0
+wlInput.Size = UDim2.new(1, 0, 0, 32)
+wlInput.LayoutOrder = 5
+wlInput.Active = true
+wlInput.Selectable = true
+wlInput.Parent = wlPanel
+do
+wlCorner(wlInput)
+local pad = Instance.new("UIPadding")
+pad.PaddingLeft = UDim.new(0, 8)
+pad.Parent = wlInput
+end
+wlButtonRow = Instance.new("Frame")
+wlButtonRow.Name = "FustWhitelistButtons"
+wlButtonRow.BackgroundTransparency = 1
+wlButtonRow.Size = UDim2.new(1, 0, 0, 32)
+wlButtonRow.LayoutOrder = 6
+wlButtonRow.Parent = wlPanel
+do
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = wlButtonRow
+end
+function wlMakeButton(text, order, bg, fg)
+local b = Instance.new("TextButton")
+b.Font = Enum.Font.GothamBold
+b.TextSize = 13
+b.Text = text
+b.TextColor3 = fg
+b.BackgroundColor3 = bg
+b.BorderSizePixel = 0
+b.Size = UDim2.new(0.5, -3, 1, 0)
+b.LayoutOrder = order
+b.Parent = wlButtonRow
+wlCorner(b, 5)
+return b
+end
+wlAdd = wlMakeButton("+ Добавить", 1, WL_ACCENT, Color3.fromRGB(255, 255, 255))
+wlRemove = wlMakeButton("- Убрать", 2, WL_ROW, WL_TEXT)
+wlAdd.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = true
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+wlRemove.Activated:Connect(function()
+local name = resolveName(wlInput.Text)
+if name then
+Whitelist[name] = nil
+rebuildPlayerList()
+end
+wlInput.Text = ""
+pcall(function()
+wlInput:ReleaseFocus()
+end)
+end)
+Players.PlayerAdded:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+Players.PlayerRemoving:Connect(function()
+task.defer(rebuildPlayerList)
+end)
+rebuildPlayerList()
+Aim = {
+Enabled = false,
+ShowFOV = false,
+FovColorNoTarget = Color3.fromRGB(255, 0, 0),
+FovColorTarget = Color3.fromRGB(0, 255, 100),
+FovThickness = 5,
+FovSpin = 1,
+FOV = 150, 
+Distance = 500, 
+Smooth = 4, 
+Prediction = 0.5, 
+Part = "Head", 
+Priority = "Прицел", 
+WallCheck = true,
+TeamCheck = false,
+Crosshair = false,
+TargetsPlayers = true, 
+TargetsNPC = false, 
+TargetsAnimals = false, 
+TargetsSleepers = false, 
+TargetsCopters = false, -- 0.50: коптеры — отдельная цель (без лимита дистанции)
+AutoPredict = false, 
+AutoPredictK = 1, 
+}
+Evil = {
+Enabled = false, 
+AutoPred = true, 
+Snipe = false, 
+K = 1, 
+}
+AutoAim = {
+Enabled = false, 
+Radius = 500, 
+}
+-- 0.39v2: АВТО-СТРЕЛЬБА
+AutoFire = {
+Enabled = false,
+Delay = 0,         -- 0.39v3: задержка 0 = стрелять каждый кадр пока цель жива
+OnlyOnTarget = true, -- стрелять только когда есть цель в FOV
+UntilDead = true,  -- 0.39v3: стрелять пока цель не умрёт
+WallCheck = true,  -- 0.39v4: не стрелять если цель за стеной
+PCKey = nil,        -- не используется (всегда автомат)
+}
+AF_LastShot = 0
+AF_LastTargetPart = nil
+-- 0.50 CLEANUP: дублирующая инициализация AA_*/AIM_PART* удалена
+AA_EnemyNear = false
+AA_NearestDist = nil
+AIM_PARTS = { "Head", "Torso", "Legs", "Random" }
+AIM_PART_NAMES = { Head = "ГОЛОВА", Torso = "ТЕЛО", Legs = "НОГИ", Random = "РАНДОМ" }
+AimHotkeyObj = nil 
+AimHotkeyBusy = false 
+UIRegistry.AimEnabled = AimSection:Toggle({
+Name = "Аимбот",
+Flag = "AimEnabled",
+Info = "Аимбот-камера-лок: камера доводится до цели в радиусе FOV. На ПК есть хоткей (RightAlt по умолчанию, меняется рядом).",
+Default = false,
+Callback = function(state)
+Aim.Enabled = state
+if AimHotkeyObj then
+AimHotkeyObj.Toggled = state
+end
+journal("АИМБОТ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+hasKeyboard = false
+pcall(function()
+hasKeyboard = (UserInputService.KeyboardEnabled == true)
+end)
+if hasKeyboard then
+AimHotkeyBusy = true
+AimHotkeyObj = UIRegistry.AimEnabled:Keybind({
+Flag = "AimHotkey",
+Default = Enum.KeyCode.RightAlt,
+Mode = "Toggle",
+Callback = function(state)
+if AimHotkeyBusy then return end
+if UIRegistry.AimEnabled and UIRegistry.AimEnabled.Set then
+UIRegistry.AimEnabled:Set(state)
+end
+end
+})
+AimHotkeyBusy = false
+UIRegistry.AimHotkey = AimHotkeyObj
+end
+UIRegistry.AimShowFOV = ScreenSection:Toggle({
+Name = "FOV круг",
+Flag = "AimShowFOV",
+Info = "FOV-круг «крутой» (0.56, GUI): вращающееся градиентное кольцо по границе захвата аимбота. Красно-чёрное — целей нет, СПЛОШНОЕ ЗЕЛЁНОЕ — цель видна/захвачена. Размер круга = FOV ниже. Цвета/толщина/вращение настраиваются тут же.",
+Default = false,
+Callback = function(state)
+Aim.ShowFOV = state
+end
+})
+-- 0.56: цвета FOV-круга (оба состояния) — колорпикеры на тоггле
+UIRegistry.AimFovColorNo = UIRegistry.AimShowFOV:Colorpicker({
+Flag = "AimFovColorNoTarget",
+Default = Color3.fromRGB(255, 0, 0),
+Callback = function(color)
+Aim.FovColorNoTarget = color
+end
+})
+UIRegistry.AimFovColorYes = UIRegistry.AimShowFOV:Colorpicker({
+Flag = "AimFovColorTarget",
+Default = Color3.fromRGB(0, 255, 100),
+Callback = function(color)
+Aim.FovColorTarget = color
+end
+})
+UIRegistry.AimFovThickness = ScreenSection:Slider({
+Name = "FOV круг: толщина линии",
+Flag = "AimFovThickness",
+Info = "Толщина кольца (1-12). По умолчанию 5 — как в скрипте-образце.",
+Default = 5,
+Min = 1,
+Max = 12,
+Decimals = 1,
+Callback = function(v) Aim.FovThickness = v end
+})
+UIRegistry.AimFovSpin = ScreenSection:Slider({
+Name = "FOV круг: скорость вращения",
+Flag = "AimFovSpin",
+Info = "Скорость вращения градиента кольца (0-8). 0 = стоит на месте. По умолчанию 1.",
+Default = 1,
+Min = 0,
+Max = 8,
+Decimals = 0.1,
+Callback = function(v) Aim.FovSpin = v end
+})
+UIRegistry.AimWallCheck = AimSection:Toggle({
+Name = "Проверка стен",
+Flag = "AimWallCheck",
+Info = "Не брать цель за стеной — камера не дёргается на невидимых. Держи ВКЛ.",
+Default = true,
+Callback = function(state)
+Aim.WallCheck = state
+end
+})
+-- 0.53: ПРИЦЕЛ И ЕГО НАСТРОЙКИ ВЗЯТЫ ИЗ VOMAGLA 1-в-1 (вкладка «Прицел»)
+UIRegistry.CHEnabled = CrosshairSection:Toggle({
+Name = "Прицел",
+Flag = "CHEnabled",
+Info = "Прицел в центре экрана. Движок перенесён из VOMAGLA: 4 линии, вращение, пульс, радуга, точка, следование за целью.",
+Default = false,
+Callback = function(state)
+CH.Enabled = state
+journal("ПРИЦЕЛ " .. (state and "ВКЛ" or "ВЫКЛ"))
+end
+})
+UIRegistry.CHRainbow = CrosshairSection:Toggle({
+Name = "Прицел: радуга",
+Flag = "CHRainbow",
+Info = "Цвет прицела переливается радугой (перекрывает выбранный цвет).",
+Default = false,
+Callback = function(state) CH.Rainbow = state end
+})
+UIRegistry.CHDot = CrosshairSection:Toggle({
+Name = "Прицел: точка в центре",
+Flag = "CHDot",
+Info = "Точка в центре прицела — помогает с вертикальной поправкой.",
+Default = false,
+Callback = function(state) CH.Dot = state end
+})
+UIRegistry.CHPulse = CrosshairSection:Toggle({
+Name = "Прицел: пульс",
+Flag = "CHPulse",
+Info = "Зазор прицела «дышит» — визуально приятнее и заметнее при отдаче.",
+Default = false,
+Callback = function(state) CH.Pulse = state end
+})
+UIRegistry.CHPulseSpeed = CrosshairSection:Slider({
+Name = "Прицел: скорость пульса",
+Flag = "CHPulseSpeed",
+Info = "Скорость пульса зазора (0.5–10).",
+Default = 3,
+Min = 0.5,
+Max = 10,
+Decimals = 0.1,
+Callback = function(v) CH.PulseSpeed = v end
+})
+UIRegistry.CHFollowAim = CrosshairSection:Toggle({
+Name = "Прицел: следовать за точкой аима",
+Flag = "CHFollowAim",
+Info = "Прицел ездит за точкой, куда доводит аимбот — видно, куда реально смотрит авто-аим. Нужен включённый аимбот.",
+Default = false,
+Callback = function(state) CH.Follo

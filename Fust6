@@ -1,3 +1,273 @@
+ит Highlight из
+-- Workspace (pcall не падает, но Parent становится nil), раньше чамсы
+-- молча не рисовались. Теперь детектим и включаем квадраты-заливки.
+if not h.Parent then
+lootChamPoolBlocked = true
+LootChamsBlocked = true
+LootChamsBlockedAt = os.clock()
+break
+end
+end
+for i = used + 1, #lootChamPool do
+pcall(function()
+lootChamPool[i].Enabled = false
+lootChamPool[i].Adornee = nil
+end)
+end
+lootChamPoolWanted = true
+end
+function updateBackpackEsp(camera, myRoot)
+for inst in pairs(trackedBackpacks) do
+if not inst.Parent or not inst:IsDescendantOf(Workspace) then
+bpRemoveDrawings(inst)
+bpOpenCacheInst[inst] = nil
+trackedBackpacks[inst] = nil
+end
+end
+if (not S.Loot.Enabled and not S.LootC.Enabled) or not myRoot then
+bpHideAll()
+return
+end
+local now = os.clock()
+for inst, e in pairs(trackedBackpacks) do
+local cat = e.Cat or "bag"
+local catOn = (cat == "bag" and S.Loot.Enabled) or (cat == "cont" and S.LootC.Enabled)
+if not catOn then
+bpHideDrawings(inst)
+else
+local cf, sz = bpGetBBox(inst)
+local dist = cf and (cf.Position - myRoot.Position).Magnitude
+local maxD = (cat == "bag") and S.Loot.MaxDistance or S.LootC.MaxDistance
+local col = (cat == "bag") and LOOT_COLOR or LOOTC_COLOR
+if cf and dist and dist <= maxD * 1.06 + 10 then
+local topLeft, boxSize = bpProject(camera, cf, sz)
+if topLeft then
+local MINW, MINH = 8, 11
+if boxSize.X < MINW or boxSize.Y < MINH then
+local cx, cy = topLeft.X + boxSize.X * 0.5, topLeft.Y + boxSize.Y * 0.5
+local w = math.max(boxSize.X, MINW)
+local h = math.max(boxSize.Y, MINH)
+topLeft = Vector2.new(cx - w * 0.5, cy - h * 0.5)
+boxSize = Vector2.new(w, h)
+end
+local pad = 2
+local bx = topLeft.X - pad
+local by = topLeft.Y - pad
+local bw = boxSize.X + pad * 2
+local bh = boxSize.Y + pad * 2
+local centerX = bx + bw * 0.5
+local ed = bpEnsureDrawings(inst)
+-- 0.53 ФИКС ЛАГА: слоты/владелец читаются ТОЛЬКО у мешков в радиусе
+-- отрисовки. Раньше bpReadInfo гонялся по КАЖДОМУ отслеженному мешку
+-- (атрибуты + дети + промпт + тексты) — на сотнях мешков лагало даже на ПК.
+if cat == "bag" and (not e.InfoAt or now - e.InfoAt > 6) then
+local deep = not e.DeepAt or now - e.DeepAt > 60
+if deep then
+e.DeepAt = now
+end
+e.Info = bpReadInfo(inst, deep)
+e.InfoAt = now
+end
+local info = e.Info or {}
+local wantChams = (cat == "bag" and S.Loot.Enabled and S.Loot.Chams)
+or (cat == "cont" and S.LootC.Enabled and S.LootC.Chams)
+if e.High then
+pcall(function()
+e.High:Destroy()
+end)
+e.High = nil
+end
+if wantChams then
+if LootChamsBlocked and os.clock() - (LootChamsBlockedAt or 0) > 30 then
+LootChamsBlocked = false
+end
+if LootChamsBlocked then
+ed.Fill.Color = col
+ed.Fill.Transparency = 0.55
+ed.Fill.Position = Vector2.new(bx, by)
+ed.Fill.Size = Vector2.new(bw, bh)
+ed.Fill.Visible = true
+else
+ed.Fill.Visible = false
+end
+else
+ed.Fill.Visible = false
+end
+if (cat == "bag" and S.Loot.Box) or (cat == "cont" and S.LootC.Box) then
+ed.Box.Position = Vector2.new(bx, by)
+ed.Box.Size = Vector2.new(bw, bh)
+ed.Box.Color = col
+ed.Box.Visible = true
+else
+ed.Box.Visible = false
+end
+local textY = by + bh + 3
+if cat == "bag" and S.Loot.Slots then
+ed.Slots.Text = info.Slots or "открой мешок 1 раз"
+ed.Slots.Position = Vector2.new(centerX, textY)
+ed.Slots.Color = col
+ed.Slots.Visible = true
+textY = textY + 17
+elseif cat == "cont" and S.LootC.Name then
+local nm = "контейнер"
+pcall(function()
+nm = tostring(inst.Name)
+if #nm > 22 then
+nm = string.sub(nm, 1, 22) .. "…"
+end
+end)
+ed.Slots.Text = nm
+ed.Slots.Position = Vector2.new(centerX, textY)
+ed.Slots.Color = col
+ed.Slots.Visible = true
+textY = textY + 17
+else
+ed.Slots.Visible = false
+end
+if (cat == "bag" and S.Loot.Distance) or (cat == "cont" and S.LootC.Distance) then
+ed.Distance.Text = math.floor(dist + 0.5) .. "m"
+ed.Distance.Position = Vector2.new(centerX, textY)
+ed.Distance.Color = col
+ed.Distance.Visible = true
+else
+ed.Distance.Visible = false
+end
+if cat == "bag" and S.Loot.Owner and info.Owner then
+ed.Owner.Text = tostring(info.Owner)
+ed.Owner.Position = Vector2.new(centerX, by - 18)
+ed.Owner.Color = col
+ed.Owner.Visible = true
+else
+ed.Owner.Visible = false
+end
+else
+bpHideDrawings(inst)
+end
+else
+bpHideDrawings(inst)
+if dist and dist > maxD * 1.25 + 50 then
+bpRemoveDrawings(inst)
+end
+end
+end
+end
+end
+task.spawn(function()
+local walkTick = 0
+while getgenv().FUST_SESSION == FUST_SESSION do
+if S.Loot.Enabled or S.LootC.Enabled then
+pcall(function()
+local myChar = LocalPlayer.Character
+local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+local cullBag = S.Loot.MaxDistance * 1.5 + 120
+local cullCont = S.LootC.MaxDistance * 1.5 + 120
+for inst, e in pairs(trackedBackpacks) do
+local dead = not inst.Parent or not inst:IsDescendantOf(Workspace)
+if not dead and myRoot and e.BBoxCF then
+local dd = (e.BBoxCF.Position - myRoot.Position).Magnitude
+local lim = (e.Cat or "bag") == "bag" and cullBag or cullCont
+if dd > lim then
+dead = true
+end
+end
+if dead then
+bpRemoveDrawings(inst)
+bpOpenCacheInst[inst] = nil
+trackedBackpacks[inst] = nil
+end
+end
+-- 0.53 ФИКС ЛАГА ЛУТА: постоянный обход Workspace каждые 3с УДАЛЁН —
+-- он сканировал всю карту (тысячи объектов) даже на ПК. Первичный скан —
+-- один раз при включении тумблера (чанками, E-15-безопасно), новые
+-- мешки/контейнеры ловят DescendantAdded и теги CollectionService.
+for _, tag in ipairs(BP_TAGS) do
+local okT, tagged = pcall(CollectionService.GetTagged, CollectionService, tag)
+if okT and type(tagged) == "table" then
+for _, inst in ipairs(tagged) do
+bpTryTrack(inst)
+end
+end
+end
+for _, tag in ipairs(CT_TAGS) do
+local okT2, tagged2 = pcall(CollectionService.GetTagged, CollectionService, tag)
+if okT2 and type(tagged2) == "table" then
+for _, inst in ipairs(tagged2) do
+bpTryTrack(inst)
+end
+end
+end
+bpScanOpenBagUI()
+end)
+end
+task.wait(1)
+end
+end)
+pcall(function()
+Library:Connect(Workspace.DescendantAdded, function(inst)
+if not S.Loot.Enabled and not S.LootC.Enabled then
+return
+end
+if inst:IsA("ProximityPrompt") then
+task.defer(function()
+local okH, holder = pcall(function()
+return inst:FindFirstAncestorOfClass("Model")
+or (inst.Parent and inst.Parent:IsA("BasePart") and inst.Parent)
+or nil
+end)
+if not okH then
+return
+end
+if holder then
+if trackedBackpacks[holder] then
+trackedBackpacks[holder].InfoAt = nil
+elseif bpIsEligibleInstance(holder) then
+local catH = bpClassify(holder)
+if catH then
+trackedBackpacks[holder] = { Cat = catH }
+end
+end
+end
+end)
+elseif inst:IsA("Model") or inst:IsA("BasePart") then
+task.defer(bpTryTrack, inst)
+end
+end)
+end)
+task.spawn(function()
+while getgenv().FUST_SESSION == FUST_SESSION do
+if S.Loot.DebugLog and S.Loot.Enabled then
+pcall(function()
+local count = 0
+for inst, e in pairs(trackedBackpacks) do
+count = count + 1
+local okN, instName = pcall(function()
+return tostring(inst.Name)
+end)
+local okPar, parentName = pcall(function()
+return inst.Parent and tostring(inst.Parent.Name) or "нет"
+end)
+local attrsText = "-"
+pcall(function()
+local parts = {}
+for key, val in pairs(inst:GetAttributes()) do
+table.insert(parts, tostring(key) .. "=" .. tostring(val))
+end
+if #parts > 0 then
+attrsText = table.concat(parts, ", ")
+end
+end)
+local promptText = "-"
+pcall(function()
+local pr = inst:FindFirstChildOfClass("ProximityPrompt")
+if pr then
+promptText = "[" .. tostring(pr.ObjectText) .. "] [" .. tostring(pr.ActionText) .. "]"
+end
+end)
+local kidsText = "-"
+pcall(function()
+local parts = {}
+for _, ch in ipairs(inst:GetChildren()) do
+if #parts >= 10 then
 table.insert(parts, "...")
 break
 end
@@ -360,6 +630,19 @@ end
 local part, aimPos = getAimTarget(camera)
 -- 0.53: текущая цель аима — для прицела «следовать за целью/точкой аима»
 AIM_TargetPart = part
+do -- 0.64: последняя цель-ИГРОКА (для хитмаркера/хитлога/звуков)
+local aimPlr = nil
+if part then
+local aimModel = part:FindFirstAncestorOfClass("Model")
+if aimModel then
+aimPlr = Players:GetPlayerFromCharacter(aimModel)
+end
+end
+if aimPlr and aimPlr ~= LocalPlayer then
+AIM_LastTargetPlayer = aimPlr
+AIM_LastTargetTime = os.clock()
+end
+end
 if part and aimPos then
 pcall(function()
 local sp = camera:WorldToViewportPoint(aimPos)
@@ -2517,7 +2800,7 @@ end)
 
 -- Стартовая пометка в лог
 klRotateIfNeeded()
-klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.59 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
+klAppend("[" .. klTimestamp() .. "] FUST_KL_Active_START — запуск 0.65 DELTA+XENO (красно-чёрная), place " .. tostring(game.PlaceId) .. ", executor " .. tostring(EXECUTOR_NAME or "?"))
 klCheckPreviousRun()
 
 -- Тихий фоновый heartbeat: раз в 30с проверяем, что LocalPlayer ещё в игре.
@@ -2755,7 +3038,7 @@ t1.Font = Enum.Font.GothamBold
 t1.TextSize = 17
 t1.TextColor3 = Color3.fromRGB(255, 130, 130)
 t1.TextXAlignment = Enum.TextXAlignment.Left
-t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.59 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
+t1.Text = "ПЬЯНЫЙ ПЕТУХ 0.60 DELTA+XENO (красно-чёрная) — ОШИБКА ЗАПУСКА"
 t1.Parent = fr
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0, 100, 0, 26)

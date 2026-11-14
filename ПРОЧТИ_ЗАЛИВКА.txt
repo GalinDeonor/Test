@@ -1,0 +1,37 @@
+ПРОЧТИ_ЗАЛИВКА.txt — GITHUB + ЗАПУСК 0.65
+================================================================
+(этот файл на репо НЕ заливай — это памятка для тебя)
+
+ЧТО ЗАЛИТЬ (одним коммитом, имена те же, что и раньше)
+github.com/GalinDeonor/Test -> Add file -> Upload files ->
+перетащи ВСЕ файлы из этой папки КРОМЕ «ПРОЧТИ_ЗАЛИВКА.txt»:
+  Fust1..Fust6, manifest.json, BUGS.md, FUST_xeno.lua,
+  FUST_loader_delta.txt, FUST_loader_universal.txt, INSTRUKCIJA.txt
+Соглашайся на «Replace existing files» (все имена вечные). Один коммит.
+
+ПРОВЕРКА РЕПО
+https://raw.githubusercontent.com/GalinDeonor/Test/main/manifest.json
+Должно быть: "ver": "0.65", "v": 65, "single": "FUST_xeno.lua".
+
+ЗАПУСК (ссылки вечные, сохрани один раз)
+XENO (ПК):
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/GalinDeonor/Test/main/FUST_loader_universal.txt"))()
+DELTA (ANDROID):
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/GalinDeonor/Test/main/FUST_loader_delta.txt"))()
+Если в экзекуторе сохранён СТАРЫЙ лоадер — сотри и вставь ссылку выше.
+
+ЧТО ПРОВЕРИТЬ В 0.65 (релиз диагностики, новых фич нет)
+1. В меню — «ПЬЯНЫЙ ПЕТУХ 0.65».
+2. Всё как в 0.64: анти-АФК включён, инвентарь цели, хиты (хитмаркер/
+   хитлог/звуки).
+3. Сохрани конфиг с хоткеями и загрузи — кнопки клавиш показывают
+   клавиши, а не «[nil]» (проверка фикса кейбиндов).
+4. На Delta старт и все тумблеры — без зависаний.
+
+КАК БУДУТ ВЫХОДИТЬ СЛЕДУЮЩИЕ ВЕРСИИ (0.66, 0.67...)
+Скачиваешь новый зип -> заливаешь те же вечные имена -> Replace -> один
+коммит. Ссылки для запуска НЕ МЕНЯЮТСЯ НИКОГДА.
+
+СЛЕДУЮЩИЙ РЕЛИЗ (0.66): радар, стрелки за экраном, скелеты — из списка
+FireHub. Полный чеклист со статусами — в файле заметок FUST_NOTES.txt
+(он НЕ для репо).
